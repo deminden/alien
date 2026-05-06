@@ -1,6 +1,6 @@
 # ALIEN
 
-**ALIEN: Audited Library Integration for External Namespaces** builds audited, namespace-specific GMT libraries for human gene-set workflows.
+**ALIEN: Audited Library Integration for External Namespaces** builds namespace-specific GMT libraries for human gene-set workflows.
 
 ALIEN 0.1.0 is centered on one job: take local/cache source libraries, normalize their gene memberships into a canonical table, project them into configured target namespaces, and write combined GMT files with audit metadata.
 
