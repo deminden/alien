@@ -1,0 +1,22 @@
+project:
+  name: alien
+  source_dir: data/alien_sources
+  outdir: data/alien_gmt
+
+outputs:
+  include_symbols: true
+
+sources:
+  - type: msigdb_cache
+    name: msigdb
+    path: data/alien_sources/msigdb
+    include_c4_cm: false
+
+targets:
+  - name: human_gencode47
+    gencode_version: "47"
+    annotation_gtf: data/alien_sources/gencode/gencode.v47.annotation.gtf.gz
+    gene_universe:
+
+runtime:
+  workers: 1

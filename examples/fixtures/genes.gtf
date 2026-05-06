@@ -1,0 +1,3 @@
+chr1	ALIEN	gene	1	10	.	+	.	gene_id "ENSG00000141510.18"; gene_name "TP53"; gene_type "protein_coding";
+chr1	ALIEN	gene	20	30	.	+	.	gene_id "ENSG000002.1"; gene_name "GENE2"; gene_type "protein_coding";
+chr1	ALIEN	gene	40	50	.	+	.	gene_id "ENSG000003.1"; gene_name "GENE3"; gene_type "protein_coding";

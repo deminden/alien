@@ -1,0 +1,4 @@
+symbol	prev_symbol	alias_symbol	ensembl_gene_id
+TP53			ENSG00000141510
+GENE2			ENSG000002
+GENE3			ENSG000003

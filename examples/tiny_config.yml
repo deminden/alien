@@ -1,0 +1,35 @@
+project:
+  source_dir: examples/fixtures/sources
+
+outputs:
+  include_symbols: true
+
+sources:
+  - type: msigdb_tsv
+    path: examples/fixtures/msigdb_like.tsv
+    source_tag: REACTOME
+    collection: C2
+    family: biology_process_pathway
+    aspect: pathway
+  - type: symbol_gmt
+    path: examples/fixtures/symbolic.gmt
+    source: Example symbolic
+    source_tag: LOCAL
+    family: biology_process_pathway
+    aspect: pathway
+
+targets:
+  - name: tiny_ensembl
+    gencode_version: tiny
+    annotation_gtf: examples/fixtures/genes.gtf
+    gene_universe: examples/fixtures/universe.tsv
+
+filtering:
+  min_size_default: 1
+  max_size_default: 10
+
+ncbi_gene:
+  enabled: false
+
+ensembl_archive:
+  enabled: false
