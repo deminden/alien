@@ -82,5 +82,16 @@ def _validate_config(cfg: dict[str, Any]) -> None:
     for target in cfg.get("targets", []):
         if not target.get("name"):
             raise ValueError("Every target must define a non-empty name.")
-        if not target.get("annotation_gtf") and not target.get("gencode_version"):
-            raise ValueError(f"Target {target.get('name', '<unnamed>')} must define annotation_gtf or gencode_version.")
+        target_type = str(target.get("type", "ensembl_gtf"))
+        if target_type != "ensembl_gtf":
+            raise ValueError(f"Target {target.get('name', '<unnamed>')} has unsupported type {target_type!r}.")
+        annotation = target.get("annotation", {})
+        has_structured_annotation = isinstance(annotation, dict) and (
+            annotation.get("path") or annotation.get("url") or annotation.get("version")
+        )
+        has_legacy_annotation = target.get("annotation_gtf") or target.get("gencode_version")
+        if not has_structured_annotation and not has_legacy_annotation:
+            raise ValueError(
+                f"Target {target.get('name', '<unnamed>')} must define annotation.path, annotation.url, annotation.version, "
+                "annotation_gtf, or gencode_version."
+            )

@@ -3,7 +3,7 @@ from pathlib import Path
 
 def test_no_old_project_identity_references():
     root = Path(__file__).resolve().parents[1]
-    ignored_dirs = {".git", ".pytest_cache", "dist", "build"}
+    ignored_dirs = {".git", ".pytest_cache", "dist", "build", "external"}
     hits = []
     for path in root.rglob("*"):
         if not path.is_file() or any(part in ignored_dirs for part in path.parts):

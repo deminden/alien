@@ -40,9 +40,13 @@ def test_small_build_is_deterministic_and_writes_combined_gmts(tmp_path):
         "targets": [
             {
                 "name": "human_test",
-                "gencode_version": "test",
-                "annotation_gtf": str(gtf),
-                "gene_universe": str(universe),
+                "type": "ensembl_gtf",
+                "annotation": {
+                    "source": "TestAnnotation",
+                    "version": "test",
+                    "path": str(gtf),
+                },
+                "restrict_to": str(universe),
             }
         ],
         "filtering": {
@@ -64,6 +68,8 @@ def test_small_build_is_deterministic_and_writes_combined_gmts(tmp_path):
     assert (out1 / "gmt" / "human_test.gmt").exists()
     assert (out1 / "metadata" / "term_manifest.tsv.gz").exists()
     assert (out1 / "qc" / "warnings.txt").exists()
+    mapping = pd.read_csv(out1 / "metadata" / "gene_mapping_human_test.tsv.gz", sep="\t", dtype=str)
+    assert mapping["source_gtf"].unique().tolist() == [str(gtf)]
     assert (out1 / "gmt" / "symbols.gmt").read_text(encoding="utf-8") == (out2 / "gmt" / "symbols.gmt").read_text(encoding="utf-8")
     assert (out1 / "gmt" / "human_test.gmt").read_text(encoding="utf-8") == (out2 / "gmt" / "human_test.gmt").read_text(encoding="utf-8")
 

@@ -1,5 +1,6 @@
 data/
 results/
+external/msigdbr/
 dist/
 build/
 *.egg-info/

@@ -1,7 +1,13 @@
+import hashlib
+import gzip
+import zipfile
+
 import pandas as pd
+import rdata
 
 from alien.config import load_config
-from alien.sources import read_canonical_memberships, read_msigdb_like_table, read_symbol_gmt_source
+from alien import sources
+from alien.sources import load_ensembl_gtf_target, read_canonical_memberships, read_msigdb_like_table, read_msigdb_remote, read_symbol_gmt_source
 
 
 def test_canonical_table_normalization_with_source_gene_id(tmp_path):
@@ -49,6 +55,93 @@ def test_symbol_gmt_source_normalization(tmp_path):
     assert frame["term_id"].unique().tolist() == ["EX__TERM_A"]
     assert frame["gene_symbol"].tolist() == ["TP53", "GENE2"]
     assert frame["gene_ensembl_from_source"].tolist() == ["", ""]
+
+
+def test_gencode_target_version_downloads_without_explicit_path(tmp_path, monkeypatch):
+    def fake_download(url, path, force=False):
+        assert url == sources.GENCODE_URLS["47"]
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with gzip.open(path, "wt", encoding="utf-8") as handle:
+            handle.write(
+                'chr1\tALIEN\tgene\t1\t10\t.\t+\t.\tgene_id "ENSG00000141510.18"; gene_name "TP53"; gene_type "protein_coding";\n'
+            )
+
+    monkeypatch.setattr(sources, "download_file", fake_download)
+
+    annotation, label, path = load_ensembl_gtf_target(
+        tmp_path,
+        {
+            "name": "human_gencode47",
+            "type": "ensembl_gtf",
+            "annotation": {"source": "GENCODE", "version": "47"},
+        },
+    )
+
+    assert label == "GENCODE v47"
+    assert path == tmp_path / "gencode" / "gencode.v47.annotation.gtf.gz"
+    assert annotation["ensembl_gene_id"].tolist() == ["ENSG00000141510"]
+
+
+def test_msigdb_remote_reads_cached_rds_release(tmp_path):
+    cache_dir = tmp_path / "remote"
+    release_dir = tmp_path / "release"
+    release_dir.mkdir()
+    summary_path = release_dir / "msigdb.test.summary.rds"
+    c2_path = release_dir / "c2.rds"
+    rdata.write_rds(
+        summary_path,
+        pd.DataFrame(
+            {
+                "db_target_species": ["HS"],
+                "gs_collection": ["C2"],
+                "gs_subcollection": ["CP:REACTOME"],
+                "df_rds": ["c2.rds"],
+            }
+        ).astype(object),
+    )
+    rdata.write_rds(
+        c2_path,
+        pd.DataFrame(
+            {
+                "db_version": ["test", "test"],
+                "db_target_species": ["HS", "HS"],
+                "db_gene_symbol": ["TP53", "GENE2"],
+                "db_ensembl_gene": ["ENSG00000141510", "ENSG000002"],
+                "gs_id": ["M1", "M1"],
+                "gs_name": ["REACTOME_SIGNAL", "REACTOME_SIGNAL"],
+                "gs_description": ["desc", "desc"],
+                "gs_collection": ["C2", "C2"],
+                "gs_subcollection": ["CP:REACTOME", "CP:REACTOME"],
+                "gs_url": ["https://example.test", "https://example.test"],
+            }
+        ).astype(object),
+    )
+    zip_path = cache_dir / "msigdb.test.zip"
+    cache_dir.mkdir()
+    with zipfile.ZipFile(zip_path, "w") as archive:
+        archive.write(summary_path, arcname=summary_path.name)
+        archive.write(c2_path, arcname=c2_path.name)
+    digest = hashlib.md5(zip_path.read_bytes()).hexdigest()
+
+    frame = read_msigdb_remote(
+        {
+            "cache_dir": str(cache_dir),
+            "db_species": "HS",
+            "collection": "C2",
+            "release": {
+                "zip_url": "https://example.test/msigdb.test.zip",
+                "zip_md5": digest,
+                "zip_name": "msigdb.test.zip",
+                "summary_rds": "msigdb.test.summary.rds",
+            },
+        },
+        tmp_path,
+    )
+
+    assert frame["term_id"].unique().tolist() == ["MSIGDB_REACTOME__REACTOME_SIGNAL"]
+    assert frame["source_tag"].unique().tolist() == ["REACTOME"]
+    assert frame["gene_symbol"].tolist() == ["TP53", "GENE2"]
+    assert frame["gene_ensembl_from_source"].tolist() == ["ENSG00000141510", "ENSG000002"]
 
 
 def test_default_filter_lists_can_be_extended(tmp_path):

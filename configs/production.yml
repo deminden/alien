@@ -11,6 +11,12 @@ sources:
     name: msigdb
     path: data/alien_sources/msigdb
     include_c4_cm: false
+  # Alternative Python-only source. It downloads and caches the msigdbr
+  # Zenodo release archive, then reads the collection RDS files directly.
+  # - type: msigdb_remote
+  #   version: "2026.1"
+  #   db_species: HS
+  #   collection: C2
   - type: symbol_gmt
     name: local_symbolic_libraries
     paths: []
@@ -20,9 +26,10 @@ sources:
 
 targets:
   - name: human_gencode47
-    gencode_version: "47"
-    annotation_gtf: data/alien_sources/gencode/gencode.v47.annotation.gtf.gz
-    gene_universe:
+    type: ensembl_gtf
+    annotation:
+      source: GENCODE
+      version: "47"
 
 runtime:
   workers: 1

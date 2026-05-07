@@ -32,9 +32,11 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "targets": [
         {
             "name": "human_gencode47",
-            "gencode_version": "47",
-            "annotation_gtf": "data/alien_sources/gencode/gencode.v47.annotation.gtf.gz",
-            "gene_universe": None,
+            "type": "ensembl_gtf",
+            "annotation": {
+                "source": "GENCODE",
+                "version": "47",
+            },
         }
     ],
     "filtering": {

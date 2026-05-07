@@ -23,9 +23,10 @@ def build_source_provenance(
     target_records = [
         {
             "name": target.get("name", ""),
+            "type": target.get("type", ""),
             "annotation": target.get("annotation_label", ""),
-            "annotation_gtf": str(target.get("annotation_gtf", "")),
-            "gene_universe": str(target.get("source_path") or ""),
+            "annotation_path": str(target.get("annotation_path") or target.get("annotation_gtf", "")),
+            "restrict_to": str(target.get("source_path") or ""),
         }
         for target in targets
     ]
@@ -58,11 +59,11 @@ def build_source_provenance(
             },
             "GENCODE_v47": {
                 "source_url": "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_47/gencode.v47.annotation.gtf.gz",
-                "license_note": "GENCODE release 47; used as a symbol/metadata helper while configured target IDs define the GMT target universe.",
+                "license_note": "GENCODE release 47; used as a symbol/metadata helper while configured target IDs define the GMT namespace.",
             },
             "GENCODE_v29": {
                 "source_url": "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_29/gencode.v29.annotation.gtf.gz",
-                "license_note": "GENCODE release 29; used as a symbol/metadata helper while configured target IDs define the GMT target universe.",
+                "license_note": "GENCODE release 29; used as a symbol/metadata helper while configured target IDs define the GMT namespace.",
             },
             "Ensembl_archive": {
                 "source_url": "https://rest.ensembl.org/archive/id",

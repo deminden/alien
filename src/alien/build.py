@@ -19,7 +19,7 @@ from .reports import (
     write_qc,
 )
 from .sources import (
-    load_gencode,
+    load_ensembl_gtf_target,
     load_hgnc,
     load_ncbi_gene_maps,
     load_source_memberships,
@@ -102,7 +102,7 @@ def build(
 
     LOGGER.info("Writing metadata and QC reports")
     write_tsv_gz(build_term_manifest(source_terms, filtered, removed_size, removed_redundancy), metadata_dir / "term_manifest.tsv.gz")
-    write_tsv_gz(_target_gene_universes(targets), metadata_dir / "target_gene_universes.tsv.gz")
+    write_tsv_gz(_target_gene_restrictions(targets), metadata_dir / "target_gene_restrictions.tsv.gz")
     write_tsv_gz(removed_size, metadata_dir / "removed_terms_size_filter.tsv.gz")
     write_tsv_gz(removed_redundancy, metadata_dir / "removed_terms_redundancy.tsv.gz")
     write_tsv_gz(_with_columns(unmapped, ["target_namespace", "family", "term_id", "source_tag", "input_gene", "attempted_current_symbol", "reason", "possible_matches"]), metadata_dir / "unmapped_genes.tsv.gz")
@@ -216,24 +216,28 @@ def _prepare_targets(
     prepared: list[dict[str, Any]] = []
     for target in cfg.get("targets", []):
         name = str(target["name"])
-        universe_path = _optional_path(target.get("gene_universe"))
+        target_type = str(target.get("type", "ensembl_gtf"))
+        if target_type != "ensembl_gtf":
+            raise ValueError(f"Target {name} has unsupported type {target_type!r}.")
+        universe_path = _optional_path(target.get("restrict_to") or target.get("gene_universe"))
         universe, universe_table, id_type = read_gene_universe(universe_path)
-        version = str(target.get("gencode_version", ""))
-        annotation_path = _optional_path(target.get("annotation_gtf"))
         if universe is None:
-            warnings.append(f"No dataset-specific gene universe supplied for {name}; using all annotation genes.")
+            LOGGER.info("No dataset restriction supplied for %s; using all annotation genes.", name)
         LOGGER.info("%s universe ID type: %s", name, id_type)
-        annotation = mark_universe(load_gencode(source_dir, version, annotation_path, force_download), universe)
+        annotation, annotation_label, annotation_path = load_ensembl_gtf_target(source_dir, target, force_download)
+        annotation = mark_universe(annotation, universe)
         write_mapping(annotation, metadata_dir / f"gene_mapping_{name}.tsv.gz")
         prepared.append(
             {
                 **target,
                 "name": name,
+                "type": target_type,
                 "source_path": universe_path,
                 "universe": universe,
                 "universe_table": universe_table,
                 "annotation": annotation,
-                "annotation_label": f"GENCODE v{version}" if version else str(annotation_path or ""),
+                "annotation_path": annotation_path,
+                "annotation_label": annotation_label,
             }
         )
     return prepared
@@ -364,7 +368,7 @@ def _redundancy_family_task(
     return namespace, family, final_terms, removed_redundancy, redundancy_summary
 
 
-def _target_gene_universes(targets: list[dict[str, Any]]) -> pd.DataFrame:
+def _target_gene_restrictions(targets: list[dict[str, Any]]) -> pd.DataFrame:
     rows: list[dict[str, object]] = []
     for target in targets:
         namespace = str(target["name"])

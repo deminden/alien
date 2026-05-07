@@ -14,9 +14,10 @@ sources:
 
 targets:
   - name: human_gencode47
-    gencode_version: "47"
-    annotation_gtf: data/alien_sources/gencode/gencode.v47.annotation.gtf.gz
-    gene_universe:
+    type: ensembl_gtf
+    annotation:
+      source: GENCODE
+      version: "47"
 
 runtime:
   workers: 1

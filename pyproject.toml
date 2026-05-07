@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "alien"
-version = "0.1.0"
+version = "0.1.1"
 description = "Audited Library Integration for External Namespaces"
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
 authors = [
-  { name = "ALIEN contributors" }
+  { name = "Denis Demin" }
 ]
 keywords = ["gmt", "gene sets", "ensembl", "hgnc", "bioinformatics"]
 classifiers = [
@@ -25,6 +25,7 @@ dependencies = [
   "pandas>=3.0",
   "pyarrow>=24.0",
   "PyYAML>=6.0",
+  "rdata>=1.0",
   "requests>=2.33",
   "urllib3>=2.6",
 ]

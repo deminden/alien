@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
+import shutil
 import subprocess
+import zipfile
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
@@ -63,6 +66,14 @@ GENCODE_URLS = {
 
 NCBI_GENE_INFO_URL = "https://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz"
 NCBI_GENE_HISTORY_URL = "https://ftp.ncbi.nlm.nih.gov/gene/DATA/gene_history.gz"
+MSIGDB_RELEASES = {
+    "2026.1": {
+        "zip_url": "https://zenodo.org/records/18968178/files/msigdb.2026.1.zip?download=1",
+        "zip_md5": "512ba99c6827141a9d471972b812d4ac",
+        "zip_name": "msigdb.2026.1.zip",
+        "summary_rds": "msigdb.2026.1.summary.rds",
+    }
+}
 
 GENE_COLUMNS = ["Ensembl_gene_ID", "ensembl_gene_id", "gene_id", "gene", "Gene", "id"]
 CANONICAL_COLUMNS = list(empty_term_gene_frame().columns)
@@ -85,6 +96,8 @@ def _load_source_spec(spec: dict[str, Any], source_dir: Path) -> pd.DataFrame:
     if source_type == "msigdb_cache":
         path = Path(spec.get("path") or source_dir / "msigdb")
         return read_msigdb_cache(path, bool(spec.get("include_c4_cm", False)), spec)
+    if source_type == "msigdb_remote":
+        return read_msigdb_remote(spec, source_dir)
     if source_type == "msigdb_tsv":
         return concat_frames([read_msigdb_like_table(path, spec) for path in _source_paths(spec, source_dir)])
     if source_type in {"symbol_gmt", "enrichr_gmt"}:
@@ -144,6 +157,157 @@ def read_msigdb_cache(path: Path, include_c4_cm: bool, spec: dict[str, Any] | No
             raise FileNotFoundError(f"Missing MSigDB cache file: {file_path}")
         frames.append(read_msigdb_like_table(file_path, {"source_tag": tag, "collection": collection, "subcollection": subcollection, "family": family, "aspect": aspect}))
     return concat_frames(frames)
+
+
+def read_msigdb_remote(spec: dict[str, Any], source_dir: Path) -> pd.DataFrame:
+    cache_dir = Path(spec.get("cache_dir") or source_dir / "msigdb_remote")
+    release = _msigdb_release_info(spec)
+    release_dir = ensure_msigdb_remote_cache(
+        cache_dir=cache_dir,
+        release=release,
+        force=bool(spec.get("force", False)),
+        timeout=int(spec.get("timeout_seconds", 600)),
+    )
+    summary = _read_rds_dataframe(release_dir / str(release["summary_rds"]))
+    db_species = str(spec.get("db_species", "HS")).upper()
+    collection = spec.get("collection")
+    subcollection = spec.get("subcollection")
+    summary = summary[summary["db_target_species"].astype(str).str.upper().eq(db_species)]
+    if collection:
+        summary = summary[summary["gs_collection"].astype(str).eq(str(collection))]
+    if subcollection:
+        sub = str(subcollection)
+        summary = summary[
+            summary["gs_subcollection"].astype(str).eq(sub)
+            | summary["gs_subcollection"].astype(str).str.replace(r".*:", "", regex=True).eq(sub)
+        ]
+    if summary.empty:
+        raise ValueError("No MSigDB remote collection files matched the requested filters.")
+
+    frames = []
+    for rds_name in sorted(set(summary["df_rds"].astype(str))):
+        frame = _read_rds_dataframe(release_dir / rds_name)
+        frames.append(_normalize_msigdb_remote_frame(frame, spec))
+    return concat_frames(frames)
+
+
+def ensure_msigdb_remote_cache(cache_dir: Path, release: dict[str, str], force: bool = False, timeout: int = 600) -> Path:
+    ensure_dirs(cache_dir)
+    zip_name = str(release["zip_name"])
+    zip_path = cache_dir / zip_name
+    release_dir = cache_dir / zip_path.stem
+    summary_path = release_dir / str(release["summary_rds"])
+    if summary_path.exists() and not force:
+        return release_dir
+    if force and release_dir.exists():
+        shutil.rmtree(release_dir)
+    if not zip_path.exists():
+        _download_checked_file(str(release["zip_url"]), zip_path, str(release["zip_md5"]), timeout)
+    else:
+        _verify_md5(zip_path, str(release["zip_md5"]))
+    ensure_dirs(release_dir)
+    with zipfile.ZipFile(zip_path) as archive:
+        archive.extractall(release_dir)
+    if not summary_path.exists():
+        nested = list(release_dir.rglob(str(release["summary_rds"])))
+        if nested:
+            summary_path = nested[0]
+        else:
+            raise FileNotFoundError(f"Expected MSigDB summary RDS was not found after extraction: {release['summary_rds']}")
+    return summary_path.parent
+
+
+def _msigdb_release_info(spec: dict[str, Any]) -> dict[str, str]:
+    version = str(spec.get("version", "2026.1"))
+    release = dict(MSIGDB_RELEASES.get(version, {}))
+    release.update({key: str(value) for key, value in spec.get("release", {}).items() if value is not None})
+    if not release and {"zip_url", "zip_md5"}.issubset(spec):
+        release = {key: str(spec[key]) for key in ["zip_url", "zip_md5"]}
+    if "zip_url" not in release or "zip_md5" not in release:
+        raise ValueError(f"Unknown MSigDB release {version!r}; provide release.zip_url and release.zip_md5.")
+    zip_name = str(release.get("zip_name") or re.sub(r"\?.*$", "", Path(str(release["zip_url"])).name))
+    release["zip_name"] = zip_name
+    release.setdefault("summary_rds", zip_name.replace(".zip", ".summary.rds"))
+    return release
+
+
+def _download_checked_file(url: str, path: Path, md5: str, timeout: int) -> None:
+    ensure_dirs(path.parent)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    LOGGER.info("Downloading MSigDB release archive from %s", url)
+    with requests.get(url, stream=True, timeout=(15, timeout)) as response:
+        response.raise_for_status()
+        digest = hashlib.md5()
+        with tmp.open("wb") as handle:
+            for chunk in response.iter_content(chunk_size=1024 * 1024):
+                if chunk:
+                    digest.update(chunk)
+                    handle.write(chunk)
+    if digest.hexdigest() != md5:
+        tmp.unlink(missing_ok=True)
+        raise RuntimeError("Downloaded MSigDB archive does not match the expected MD5 checksum.")
+    shutil.move(tmp, path)
+
+
+def _verify_md5(path: Path, expected: str) -> None:
+    digest = hashlib.md5()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    if digest.hexdigest() != expected:
+        raise RuntimeError(f"Cached MSigDB archive failed MD5 verification: {path}")
+
+
+def _read_rds_dataframe(path: Path) -> pd.DataFrame:
+    try:
+        import rdata
+    except ImportError as exc:
+        raise RuntimeError("Reading MSigDB remote releases requires the Python package 'rdata'.") from exc
+    obj = rdata.read_rds(path)
+    if isinstance(obj, pd.DataFrame):
+        return obj.fillna("").astype(str)
+    raise TypeError(f"Expected RDS data frame in {path}, got {type(obj).__name__}.")
+
+
+def _normalize_msigdb_remote_frame(raw: pd.DataFrame, spec: dict[str, Any]) -> pd.DataFrame:
+    if "db_gene_symbol" not in raw or "gs_name" not in raw:
+        raise ValueError("MSigDB remote RDS must contain db_gene_symbol and gs_name columns.")
+    raw = raw.copy()
+    raw["gene_symbol"] = raw["db_gene_symbol"]
+    raw["ensembl_gene"] = raw.get("db_ensembl_gene", "")
+    raw["_alien_source_tag"] = raw.apply(_msigdb_remote_row_source_tag, axis=1)
+    frames = []
+    for tag, tag_frame in raw.groupby("_alien_source_tag", sort=True):
+        family = str(spec.get("family") or _family_for_msigdb_tag(tag))
+        aspect = str(spec.get("aspect") or _aspect_for_msigdb_tag(tag))
+        collection = str(tag_frame["gs_collection"].iloc[0]) if "gs_collection" in tag_frame else ""
+        subcollection = str(tag_frame["gs_subcollection"].iloc[0]) if "gs_subcollection" in tag_frame else ""
+        frames.append(_normalize_msigdb(tag_frame, tag, collection, subcollection, family, aspect))
+    return concat_frames(frames)
+
+
+def _msigdb_remote_source_tag(value: object) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return "MSIGDB"
+    tail = text.split(":")[-1]
+    if tail in {"BP", "MF", "CC"}:
+        return "GO" + tail
+    return sanitize_id(tail).upper()
+
+
+def _msigdb_remote_row_source_tag(row: pd.Series) -> str:
+    subcollection = str(row.get("gs_subcollection", "") or "").strip()
+    collection = str(row.get("gs_collection", "") or "").strip()
+    return _msigdb_remote_source_tag(subcollection or collection or "MSIGDB")
+
+
+def _family_for_msigdb_tag(tag: str) -> str:
+    return MSIGDB_SOURCES.get(tag, ("", "", "biology_process_pathway", ""))[2]
+
+
+def _aspect_for_msigdb_tag(tag: str) -> str:
+    return MSIGDB_SOURCES.get(tag, ("", "", "", "library"))[3]
 
 
 def read_msigdb_like_table(path: Path, spec: dict[str, Any] | None = None) -> pd.DataFrame:
@@ -499,7 +663,7 @@ def load_gencode(
     supplied_gtf: Path | None = None,
     force: bool = False,
 ) -> pd.DataFrame:
-    # Download or read target GENCODE annotation
+    # Backward-compatible helper for the built-in GENCODE URLs.
     if supplied_gtf:
         path = supplied_gtf
     else:
@@ -513,6 +677,54 @@ def load_gencode(
             ) from exc
     LOGGER.info("Parsing GENCODE v%s genes.", version)
     return parse_gtf_genes(path, version)
+
+
+def load_ensembl_gtf_target(
+    source_dir: Path,
+    target: dict[str, Any],
+    force: bool = False,
+) -> tuple[pd.DataFrame, str, Path]:
+    # Read an Ensembl-style target namespace from any GTF origin.
+    annotation = target.get("annotation", {}) if isinstance(target.get("annotation", {}), dict) else {}
+    version = str(annotation.get("version") or target.get("gencode_version") or "")
+    source_name = str(annotation.get("source") or ("GENCODE" if target.get("gencode_version") else "GTF"))
+    supplied_path = _optional_local_path(annotation.get("path") or target.get("annotation_gtf"))
+    if supplied_path:
+        path = supplied_path
+    elif annotation.get("url"):
+        file_name = str(annotation.get("file_name") or Path(str(annotation["url"]).split("?", 1)[0]).name)
+        if not file_name:
+            file_name = f"{sanitize_id(str(target['name']))}.gtf.gz"
+        path = source_dir / "targets" / sanitize_id(str(target["name"])) / file_name
+        download_file(str(annotation["url"]), path, force=force)
+    else:
+        if not version:
+            raise ValueError(f"Target {target.get('name', '<unnamed>')} must define an annotation path, URL, or version.")
+        if source_name.upper() != "GENCODE":
+            raise ValueError(
+                f"Target {target.get('name', '<unnamed>')} uses annotation source {source_name!r}; "
+                "provide annotation.path or annotation.url for non-GENCODE target annotations."
+            )
+        path = source_dir / "gencode" / f"gencode.v{version}.annotation.gtf.gz"
+        try:
+            download_file(GENCODE_URLS[version], path, force=force)
+        except Exception as exc:
+            raise RuntimeError(
+                f"Could not download GENCODE v{version} from {GENCODE_URLS[version]}. "
+                "Supply annotation.path or annotation.url in the target config if the release URL changed."
+            ) from exc
+        source_name = "GENCODE"
+    label = source_name
+    if version:
+        label = f"{source_name} v{version}"
+    LOGGER.info("Parsing %s target annotation genes from %s.", label, path)
+    return parse_gtf_genes(path, version), label, path
+
+
+def _optional_local_path(value: object) -> Path | None:
+    if value in {None, "", "null"}:
+        return None
+    return Path(str(value))
 
 
 def parse_gtf_genes(path: Path, version: str) -> pd.DataFrame:
