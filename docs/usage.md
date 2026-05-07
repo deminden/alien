@@ -1,0 +1,212 @@
+# Usage
+
+ALIEN builds combined GMT files from configured source libraries and projects them into configured target namespaces. A build is controlled by one YAML file.
+
+## Run
+
+```bash
+alien build --config configs/production.yml --outdir data/alien_gmt --workers 4
+```
+
+The Python API is equivalent:
+
+```python
+from alien import build
+
+result = build("configs/production.yml", outdir="data/alien_gmt", workers=4)
+print(result.namespaces)
+```
+
+## Minimal Config
+
+```yaml
+project:
+  source_dir: data/alien_sources
+  outdir: data/alien_gmt
+
+outputs:
+  include_symbols: true
+
+sources:
+  - type: msigdb_remote
+    version: "2026.1"
+    db_species: HS
+    collection: C2
+
+targets:
+  - name: human_gencode47
+    type: ensembl_gtf
+    annotation:
+      source: GENCODE
+      version: "47"
+```
+
+This downloads/caches the configured MSigDB release archive and the GENCODE v47 annotation if they are missing, then writes:
+
+```text
+data/alien_gmt/
+  gmt/
+    symbols.gmt
+    human_gencode47.gmt
+  metadata/
+  qc/
+```
+
+## Source Types
+
+`msigdb_remote` reads a managed `msigdbr` release archive from Zenodo:
+
+```yaml
+sources:
+  - type: msigdb_remote
+    version: "2026.1"
+    db_species: HS
+    collection: C5
+    subcollection: GO:MF
+```
+
+`msigdb_cache` reads local TSV files named like `msigdbr_REACTOME.tsv.gz`:
+
+```yaml
+sources:
+  - type: msigdb_cache
+    path: data/alien_sources/msigdb
+    include_c4_cm: false
+```
+
+`msigdb_tsv` reads one or more MSigDB-like tables with term names and symbols:
+
+```yaml
+sources:
+  - type: msigdb_tsv
+    path: data/custom/reactome.tsv
+    source_tag: REACTOME
+    collection: C2
+    family: biology_process_pathway
+    aspect: pathway
+```
+
+`symbol_gmt` and `enrichr_gmt` read GMT files whose members are gene symbols:
+
+```yaml
+sources:
+  - type: symbol_gmt
+    paths:
+      - data/custom/library.gmt
+    source: Local library
+    source_tag: LOCAL
+    family: biology_process_pathway
+    aspect: pathway
+```
+
+`canonical_tsv` reads ALIEN's normalized table format. Required columns are `term_id` and `gene_symbol`; optional metadata columns include `source`, `source_tag`, `collection`, `family`, `aspect`, `gene_id`, and `gene_id_namespace`.
+
+## Targets
+
+The implemented target adapter is `ensembl_gtf`. It projects source terms into Ensembl stable gene IDs using a target annotation GTF.
+
+For built-in GENCODE releases, `source` and `version` are enough:
+
+```yaml
+targets:
+  - name: human_gencode47
+    type: ensembl_gtf
+    annotation:
+      source: GENCODE
+      version: "47"
+```
+
+For another Ensembl-style GTF origin, provide a local path or URL:
+
+```yaml
+targets:
+  - name: my_annotation
+    type: ensembl_gtf
+    annotation:
+      source: MyProvider
+      version: "2026-05"
+      path: data/annotations/my_provider.gtf.gz
+```
+
+Advanced narrowing: `restrict_to` can limit a target GMT to IDs present in a dataset matrix or gene list. Normal builds should omit it.
+
+```yaml
+targets:
+  - name: human_gencode47_study_only
+    type: ensembl_gtf
+    annotation:
+      source: GENCODE
+      version: "47"
+    restrict_to: data/study/count_matrix.tsv
+```
+
+## Filtering
+
+Size filters remove terms outside configured minimum and maximum mapped sizes:
+
+```yaml
+filtering:
+  min_size_default: 10
+  max_size_default: 500
+  max_size_disease: 500
+  max_size_cancer: 500
+  drop_broad_disease_terms: true
+```
+
+`broad_disease_regex` and `extra_broad_disease_regex` control broad disease-term removal.
+
+## Redundancy
+
+Redundancy filtering is configurable. ALIEN first collapses exact duplicate memberships, then clusters highly overlapping terms by Jaccard similarity within each namespace and family:
+
+```yaml
+redundancy:
+  exact_duplicate_removal: true
+  jaccard_cutoff: 0.85
+  apply_per_family: true
+```
+
+Terms with Jaccard similarity greater than `jaccard_cutoff` are treated as redundant. One representative is kept using `source_priority`, mapped term size, and deterministic name tie-breaks.
+
+Source priority is configured by family:
+
+```yaml
+source_priority:
+  biology_process_pathway: [REACTOME, WIKIPATHWAYS, KEGG_MEDICUS, GOBP]
+  biology_function_location: [GOMF, GOCC]
+```
+
+## Mapping
+
+ALIEN maps source symbols through audited human mapping resources:
+
+- HGNC current symbols.
+- HGNC previous and alias symbols.
+- Optional NCBI Gene history/info rescue.
+- Optional Ensembl archive lookup for source Ensembl IDs absent from the target IDs.
+
+Ambiguous mappings are dropped rather than guessed and are written to audit tables.
+
+## Outputs
+
+Main GMT outputs:
+
+```text
+gmt/<target_namespace>.gmt
+gmt/symbols.gmt
+```
+
+Main audit outputs:
+
+```text
+metadata/term_manifest.tsv.gz
+metadata/gene_mapping_<target>.tsv.gz
+metadata/removed_terms_size_filter.tsv.gz
+metadata/removed_terms_redundancy.tsv.gz
+metadata/unmapped_genes.tsv.gz
+metadata/ambiguous_gene_mappings.tsv.gz
+metadata/source_provenance.json
+qc/redundancy_summary.tsv
+qc/mapping_summary.tsv
+qc/warnings.txt
+```

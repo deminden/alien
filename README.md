@@ -50,23 +50,27 @@ This writes `gmt/human_gencode47.gmt`. When `include_symbols` is enabled, ALIEN 
 
 For built-in GENCODE releases, `version` is enough; ALIEN downloads and caches the GTF under `data/alien_sources/gencode/` if it is missing. You can still provide `annotation.path` to pin a local file explicitly.
 
-`source: GENCODE` is not special to the config shape; it is only the annotation origin used in this example. Another Ensembl-style GTF origin can use the same adapter:
-
-```yaml
-targets:
-  - name: my_ensembl_namespace
-    type: ensembl_gtf
-    annotation:
-      source: MyAnnotationProvider
-      version: "2026-05"
-      path: data/alien_sources/my_provider/genes.gtf.gz
-```
-
-Fully different target ID systems, such as Entrez or UniProt GMT output, are planned as future target adapters.
-
-Advanced use: add `restrict_to: path/to/matrix_or_gene_list.tsv` only when you deliberately want to narrow a target GMT to genes present in one dataset. Normal builds should omit it and use all genes from the target annotation.
+`source: GENCODE` is not special to the config shape; other Ensembl-style GTF origins can use the same adapter by providing a local path or URL. Fully different target ID systems, such as Entrez or UniProt GMT output, are planned as future target adapters.
 
 The build keeps audit outputs beside the GMTs so each namespace projection can be traced back to source terms, symbol repairs, unmapped genes, filters, redundancy decisions, and provenance.
+
+Redundancy filtering removes exact duplicate terms and then clusters highly overlapping terms by Jaccard similarity within each namespace and family. The default cutoff is `0.85`:
+
+```yaml
+redundancy:
+  jaccard_cutoff: 0.85
+```
+
+Within each redundant cluster, ALIEN keeps one representative using the configured source priority, then term size and name-based tie-breaks.
+
+Source priority is configured per term family and controls which library wins when redundant terms overlap. For example, pathway terms can prefer `REACTOME` over broader ontology-derived terms:
+
+```yaml
+source_priority:
+  biology_process_pathway: [REACTOME, WIKIPATHWAYS, KEGG_MEDICUS, GOBP]
+```
+
+See [docs/usage.md](docs/usage.md) for the full configuration reference.
 
 ## Source Inputs
 
@@ -84,7 +88,7 @@ Canonical tables require:
 term_id    gene_symbol
 ```
 
-Recommended optional fields are `original_name`, `display_name`, `description`, `source`, `source_tag`, `collection`, `family`, `aspect`, `gene_id`, and `gene_id_namespace`. If `gene_id_namespace` identifies Ensembl IDs, ALIEN audits those IDs before falling back through symbol mapping.
+Additional source metadata fields are documented in [docs/usage.md](docs/usage.md).
 
 ## Python API
 
@@ -97,9 +101,7 @@ print(result.namespaces)
 
 Only the small facade API is stable for 0.1.1. Lower-level modules are importable for experimentation but may change while the package grows.
 
-## MSigDB Cache Preparation
-
-ALIEN can read local MSigDB-style caches or download the current `msigdbr` release archive directly from Python with a source like:
+## MSigDB
 
 ```yaml
 sources:
@@ -109,14 +111,12 @@ sources:
     collection: C2
 ```
 
-The remote archive is cached under `data/alien_sources/msigdb_remote/`, verified by MD5, and read from the same collection-specific RDS files used by the R package.
-
-The older R helper is kept for compatibility and comparison tests:
-
-```bash
-Rscript scripts/fetch_msigdb.R data/alien_sources/msigdb FALSE 26.1.0
-```
+This downloads and caches the configured `msigdbr` release archive under `data/alien_sources/msigdb_remote/`, verifies it by MD5, and reads the collection-specific RDS files directly from Python.
 
 ## Scope
 
 The 0.1.1 release officially supports human gene sets using HGNC symbols, Python MSigDB cache integration, and Ensembl-style target namespaces. The code is organized so broader namespace integrations can be added later without tying the package to any single downstream analysis project.
+
+## Contributing
+
+Contributions are welcome. Useful areas include additional tests, documentation, source adapters, target namespace adapters, mapping-audit improvements, curated filtering/source-priority defaults, and validation against established gene-set resources. See [docs/development.md](docs/development.md) for development setup and current future plans.

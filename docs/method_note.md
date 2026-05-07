@@ -18,7 +18,11 @@ The builder creates a current-symbol namespace for display/review and any number
 
 Mapping uses HGNC current, previous, and alias symbols first. Source Ensembl IDs that are absent from the target IDs can be checked against the Ensembl archive cache. NCBI Gene history/info can be enabled as a lower-confidence rescue layer for configured legacy sources. Ambiguous mappings are not guessed; they are written to audit tables.
 
-Filtering records dropped non-gene tokens, broad configured terms, size-filtered terms, and redundancy removals. The primary GMT output is intentionally simple: one combined GMT per namespace. The surrounding metadata explains how each term reached that output.
+Filtering records dropped non-gene tokens, broad configured terms, size-filtered terms, and redundancy removals. Redundancy filtering first collapses exact duplicate memberships, then clusters terms whose Jaccard similarity is above the configured cutoff within each namespace and family. A representative term is chosen by source priority first, then mapped size and deterministic name tie-breaks.
+
+Source priority is configured per term family because different biological domains have different preferred authorities. For example, pathway outputs can prefer Reactome over broader ontology-derived terms, while disease outputs can prefer curated disease sources over noisier text-mined libraries. Priority only decides between redundant alternatives; it does not remove non-overlapping terms from lower-priority sources.
+
+The primary GMT output is intentionally simple: one combined GMT per namespace. The surrounding metadata explains how each term reached that output.
 
 ## Reproducibility
 
