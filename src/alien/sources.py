@@ -53,6 +53,9 @@ ENRICHR_LOGICAL = {
     "ccle": ("CCLE", "cancer_dependency_state", "cancer_signature"),
     "nci60": ("NCI60", "cancer_dependency_state", "cancer_signature"),
 }
+ENRICHR_BASE_URL = "https://maayanlab.cloud/Enrichr"
+ENRICHR_DATASET_STATISTICS_ENDPOINT = f"{ENRICHR_BASE_URL}/datasetStatistics"
+ENRICHR_LIBRARY_DOWNLOAD_ENDPOINT = f"{ENRICHR_BASE_URL}/geneSetLibrary?mode=text&libraryName={{library}}"
 
 HGNC_URL = "https://ftp.ebi.ac.uk/pub/databases/genenames/hgnc/tsv/hgnc_complete_set.txt"
 HGNC_FALLBACK_URLS = [
@@ -77,19 +80,24 @@ MSIGDB_RELEASES = {
 
 GENE_COLUMNS = ["Ensembl_gene_ID", "ensembl_gene_id", "gene_id", "gene", "Gene", "id"]
 CANONICAL_COLUMNS = list(empty_term_gene_frame().columns)
+DEFAULT_GTF_ATTRIBUTES = {
+    "gene_id": ["gene_id"],
+    "gene_name": ["gene_name"],
+    "gene_biotype": ["gene_type", "gene_biotype"],
+}
 
 
-def load_source_memberships(cfg: dict[str, Any]) -> pd.DataFrame:
+def load_source_memberships(cfg: dict[str, Any], force_download: bool = False) -> pd.DataFrame:
     frames: list[pd.DataFrame] = []
     source_dir = Path(cfg.get("project", {}).get("source_dir", "data/alien_sources"))
     for spec in cfg.get("sources", []):
         if not spec.get("enabled", True):
             continue
-        frames.append(_load_source_spec(spec, source_dir))
+        frames.append(_load_source_spec(spec, source_dir, force_download=force_download))
     return concat_frames(frames)
 
 
-def _load_source_spec(spec: dict[str, Any], source_dir: Path) -> pd.DataFrame:
+def _load_source_spec(spec: dict[str, Any], source_dir: Path, force_download: bool = False) -> pd.DataFrame:
     source_type = str(spec.get("type", "")).strip()
     if source_type == "canonical_tsv":
         return concat_frames([read_canonical_memberships(path, spec) for path in _source_paths(spec, source_dir)])
@@ -97,7 +105,9 @@ def _load_source_spec(spec: dict[str, Any], source_dir: Path) -> pd.DataFrame:
         path = Path(spec.get("path") or source_dir / "msigdb")
         return read_msigdb_cache(path, bool(spec.get("include_c4_cm", False)), spec)
     if source_type == "msigdb_remote":
-        return read_msigdb_remote(spec, source_dir)
+        return read_msigdb_remote(spec, source_dir, force=force_download)
+    if source_type == "enrichr_remote":
+        return read_enrichr_remote(spec, source_dir, force=force_download)
     if source_type == "msigdb_tsv":
         return concat_frames([read_msigdb_like_table(path, spec) for path in _source_paths(spec, source_dir)])
     if source_type in {"symbol_gmt", "enrichr_gmt"}:
@@ -159,13 +169,13 @@ def read_msigdb_cache(path: Path, include_c4_cm: bool, spec: dict[str, Any] | No
     return concat_frames(frames)
 
 
-def read_msigdb_remote(spec: dict[str, Any], source_dir: Path) -> pd.DataFrame:
+def read_msigdb_remote(spec: dict[str, Any], source_dir: Path, force: bool = False) -> pd.DataFrame:
     cache_dir = Path(spec.get("cache_dir") or source_dir / "msigdb_remote")
     release = _msigdb_release_info(spec)
     release_dir = ensure_msigdb_remote_cache(
         cache_dir=cache_dir,
         release=release,
-        force=bool(spec.get("force", False)),
+        force=force or bool(spec.get("force", False)),
         timeout=int(spec.get("timeout_seconds", 600)),
     )
     summary = _read_rds_dataframe(release_dir / str(release["summary_rds"]))
@@ -365,6 +375,115 @@ def read_symbol_gmt_source(path: Path, spec: dict[str, Any] | None = None) -> pd
     return pd.DataFrame(rows, columns=CANONICAL_COLUMNS)
 
 
+def read_enrichr_remote(spec: dict[str, Any], source_dir: Path, force: bool = False) -> pd.DataFrame:
+    spec = spec or {}
+    cache_dir = Path(spec.get("cache_dir") or source_dir / "enrichr")
+    force_refresh = force or bool(spec.get("force", False))
+    optional = bool(spec.get("optional", False))
+    metadata = ensure_enrichr_metadata(cache_dir, spec, force=force_refresh)
+    names = _extract_library_names(metadata)
+    if not names:
+        raise ValueError("Enrichr metadata did not contain any library names.")
+
+    frames: list[pd.DataFrame] = []
+    for library_spec in _enrichr_library_specs(spec):
+        try:
+            selected, candidates, match_method = resolve_enrichr_library(names, library_spec)
+            gmt_path = ensure_enrichr_library(cache_dir, selected, spec, force=force_refresh)
+            frames.append(
+                _normalize_enrichr_gmt(
+                    gmt_path,
+                    selected,
+                    source_tag=str(library_spec.get("source_tag") or spec.get("source_tag") or sanitize_id(selected).upper()),
+                    family=str(library_spec.get("family") or spec.get("family") or "biology_process_pathway"),
+                    aspect=str(library_spec.get("aspect") or spec.get("aspect") or "library"),
+                    metadata={
+                        "selected_library": selected,
+                        "configured_name": str(library_spec.get("name", "")),
+                        "match": str(library_spec.get("match", "")),
+                        "match_method": match_method,
+                        "candidate_libraries": candidates,
+                    },
+                )
+            )
+        except Exception as exc:
+            if optional:
+                LOGGER.warning("Optional Enrichr library skipped: %s", exc)
+                continue
+            raise
+    return concat_frames(frames)
+
+
+def ensure_enrichr_metadata(cache_dir: Path, spec: dict[str, Any], force: bool = False) -> object:
+    ensure_dirs(cache_dir)
+    path = cache_dir / "datasetStatistics.json"
+    if force or not path.exists():
+        endpoint = str(spec.get("dataset_statistics_endpoint", ENRICHR_DATASET_STATISTICS_ENDPOINT))
+        timeout = int(spec.get("timeout_seconds", 120))
+        LOGGER.info("Downloading Enrichr library metadata from %s", endpoint)
+        response = requests.get(endpoint, timeout=(15, timeout))
+        response.raise_for_status()
+        path.write_text(response.text, encoding="utf-8")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def ensure_enrichr_library(cache_dir: Path, library: str, spec: dict[str, Any], force: bool = False) -> Path:
+    ensure_dirs(cache_dir)
+    path = cache_dir / f"{sanitize_id(library)}.gmt"
+    if path.exists() and not force:
+        return path
+    endpoint = str(spec.get("library_download_endpoint", ENRICHR_LIBRARY_DOWNLOAD_ENDPOINT))
+    timeout = int(spec.get("timeout_seconds", 120))
+    url = endpoint.format(library=quote(library))
+    LOGGER.info("Downloading Enrichr library %s", library)
+    response = requests.get(url, timeout=(15, timeout))
+    response.raise_for_status()
+    if not response.text.strip():
+        raise ValueError(f"Downloaded Enrichr library {library!r} was empty.")
+    path.write_text(response.text, encoding="utf-8")
+    return path
+
+
+def resolve_enrichr_library(names: list[str], library_spec: dict[str, Any]) -> tuple[str, list[str], str]:
+    name = str(library_spec.get("name", "")).strip()
+    if name and name in names:
+        return name, [name], "exact"
+
+    match = str(library_spec.get("match", "")).strip()
+    if match:
+        pattern = re.compile(match, re.I)
+        candidates = sorted({library for library in names if pattern.search(library)})
+        if candidates:
+            selected = sorted(candidates, key=lambda value: (-_latest_year(value), len(value), value))[0]
+            return selected, candidates, "regex"
+        label = name or match
+        raise ValueError(f"No Enrichr libraries matched {label!r}.")
+
+    if name:
+        raise ValueError(f"Enrichr library {name!r} was not found in datasetStatistics metadata.")
+    raise ValueError("Every Enrichr remote library must define name or match.")
+
+
+def _enrichr_library_specs(spec: dict[str, Any]) -> list[dict[str, Any]]:
+    libraries = spec.get("libraries")
+    if libraries is None:
+        if spec.get("library"):
+            libraries = [{"name": spec["library"]}]
+        elif spec.get("name") or spec.get("match"):
+            libraries = [spec]
+        else:
+            raise ValueError("enrichr_remote source must define libraries.")
+    result: list[dict[str, Any]] = []
+    for library in libraries:
+        if isinstance(library, str):
+            result.append({"name": library})
+        elif isinstance(library, dict):
+            result.append(dict(library))
+        else:
+            raise TypeError("Each enrichr_remote library must be a string or mapping.")
+    return result
+
+
 def ensure_msigdb_sources(
     source_dir: Path,
     include_c4_cm: bool,
@@ -424,7 +543,7 @@ def load_enrichr(cfg: dict, source_dir: Path, force: bool = False) -> tuple[pd.D
     try:
         if force or not stats_path.exists():
             LOGGER.info("Downloading Enrichr library metadata.")
-            response = requests.get(cfg["dataset_statistics_endpoint"], timeout=(15, 120))
+            response = requests.get(cfg.get("dataset_statistics_endpoint", ENRICHR_DATASET_STATISTICS_ENDPOINT), timeout=(15, 120))
             response.raise_for_status()
             stats_path.write_text(response.text, encoding="utf-8")
         stats = json.loads(stats_path.read_text(encoding="utf-8"))
@@ -718,7 +837,7 @@ def load_ensembl_gtf_target(
     if version:
         label = f"{source_name} v{version}"
     LOGGER.info("Parsing %s target annotation genes from %s.", label, path)
-    return parse_gtf_genes(path, version), label, path
+    return parse_gtf_genes(path, version, _gtf_attribute_names(annotation.get("attributes", {}))), label, path
 
 
 def _optional_local_path(value: object) -> Path | None:
@@ -727,8 +846,9 @@ def _optional_local_path(value: object) -> Path | None:
     return Path(str(value))
 
 
-def parse_gtf_genes(path: Path, version: str) -> pd.DataFrame:
+def parse_gtf_genes(path: Path, version: str, attributes: dict[str, list[str]] | None = None) -> pd.DataFrame:
     # Extract gene records from GTF annotation
+    attributes = attributes or DEFAULT_GTF_ATTRIBUTES
     rows: list[dict[str, object]] = []
     with open_text(path) as handle:
         for line in handle:
@@ -738,14 +858,14 @@ def parse_gtf_genes(path: Path, version: str) -> pd.DataFrame:
             if len(parts) < 9 or parts[2] != "gene":
                 continue
             attrs = _parse_attrs(parts[8])
-            gene_id_versioned = attrs.get("gene_id", "")
+            gene_id_versioned = _first_attr(attrs, attributes["gene_id"])
             rows.append(
                 {
                     "gencode_version": f"v{version}",
                     "ensembl_gene_id_versioned": gene_id_versioned,
                     "ensembl_gene_id": strip_ensembl_version(gene_id_versioned),
-                    "gene_symbol": attrs.get("gene_name", ""),
-                    "gene_biotype": attrs.get("gene_type") or attrs.get("gene_biotype", ""),
+                    "gene_symbol": _first_attr(attrs, attributes["gene_name"]),
+                    "gene_biotype": _first_attr(attrs, attributes["gene_biotype"]),
                     "seqname": parts[0],
                     "start": parts[3],
                     "end": parts[4],
@@ -755,6 +875,29 @@ def parse_gtf_genes(path: Path, version: str) -> pd.DataFrame:
                 }
             )
     return pd.DataFrame(rows).drop_duplicates()
+
+
+def _gtf_attribute_names(config: object) -> dict[str, list[str]]:
+    result = {key: list(values) for key, values in DEFAULT_GTF_ATTRIBUTES.items()}
+    if not isinstance(config, dict):
+        return result
+    for canonical in result:
+        value = config.get(canonical)
+        if value is None:
+            continue
+        if isinstance(value, str):
+            result[canonical] = [value]
+        else:
+            result[canonical] = [str(item) for item in value if str(item)]
+    return result
+
+
+def _first_attr(attrs: dict[str, str], names: list[str]) -> str:
+    for name in names:
+        value = attrs.get(name, "")
+        if value:
+            return value
+    return ""
 
 
 def mark_universe(gencode: pd.DataFrame, universe: set[str] | None) -> pd.DataFrame:
@@ -771,33 +914,64 @@ def write_mapping(gencode: pd.DataFrame, out_path: Path) -> None:
     write_tsv_gz(gencode, out_path)
 
 
-def read_gene_universe(path: Path | None) -> tuple[set[str] | None, pd.DataFrame, str]:
+def read_gene_universe(
+    path: Path | None,
+    column: str | None = None,
+    ids: list[str] | tuple[str, ...] | set[str] | None = None,
+) -> tuple[set[str] | None, pd.DataFrame, str]:
     # Read Ensembl IDs from a count matrix or gene list
-    if path is None:
+    if ids is not None:
+        genes = [str(gene) for gene in ids]
+    elif path is None:
         return None, pd.DataFrame(columns=["input_gene_id", "ensembl_gene_id", "id_type"]), "none"
-
-    if path.suffix == ".parquet":
+    elif path.suffix == ".parquet":
         df = pd.read_parquet(path)
-        col = first_existing_column(list(df.columns), GENE_COLUMNS)
-        genes = df[col].astype(str).tolist() if col else df.index.astype(str).tolist()
-    elif _looks_tabular(path):
-        df = pd.read_csv(path, sep=None, engine="python", dtype=str, keep_default_na=False)
-        col = first_existing_column(list(df.columns), GENE_COLUMNS) or df.columns[0]
-        genes = df[col].astype(str).tolist()
+        genes = _gene_universe_values(df, column, path, allow_index=True)
+    elif column or _looks_tabular(path):
+        df = _read_gene_universe_table(path)
+        genes = _gene_universe_values(df, column, path, allow_index=False)
     else:
         with open_text(path) as handle:
             genes = [line.strip().split()[0] for line in handle if line.strip()]
 
     rows = []
     stable = set()
-    id_type = "symbol"
+    id_types: list[str] = []
     for gene in genes:
         stripped = strip_ensembl_version(gene)
+        row_id_type = "symbol"
         if stripped.startswith("ENSG"):
-            id_type = "ensembl_versioned" if stripped != gene else "ensembl_stable"
+            row_id_type = "ensembl_versioned" if stripped != gene else "ensembl_stable"
             stable.add(stripped)
-        rows.append({"input_gene_id": gene, "ensembl_gene_id": stripped, "id_type": id_type})
+        id_types.append(row_id_type)
+        rows.append({"input_gene_id": gene, "ensembl_gene_id": stripped, "id_type": row_id_type})
+    unique_id_types = set(id_types)
+    id_type = "none" if not unique_id_types else next(iter(unique_id_types)) if len(unique_id_types) == 1 else "mixed"
     return stable if stable else None, pd.DataFrame(rows).drop_duplicates(), id_type
+
+
+def _gene_universe_values(df: pd.DataFrame, column: str | None, path: Path, allow_index: bool) -> list[str]:
+    if column:
+        if column in {"index", "__index__"} and allow_index:
+            return df.index.astype(str).tolist()
+        if column not in df.columns:
+            raise ValueError(f"Gene universe column {column!r} was not found in {path}.")
+        return df[column].astype(str).tolist()
+    col = first_existing_column(list(df.columns), GENE_COLUMNS)
+    if col:
+        return df[col].astype(str).tolist()
+    if allow_index:
+        return df.index.astype(str).tolist()
+    return df[df.columns[0]].astype(str).tolist()
+
+
+def _read_gene_universe_table(path: Path) -> pd.DataFrame:
+    name = path.name.lower()
+    if name.endswith((".tsv", ".tsv.gz", ".tab", ".tab.gz")):
+        return pd.read_csv(path, sep="\t", dtype=str, keep_default_na=False)
+    if name.endswith((".csv", ".csv.gz")):
+        return pd.read_csv(path, sep=",", dtype=str, keep_default_na=False)
+    return pd.read_csv(path, sep=None, engine="python", dtype=str, keep_default_na=False)
 
 
 def _normalize_msigdb(
@@ -834,10 +1008,18 @@ def _normalize_msigdb(
     )
 
 
-def _normalize_enrichr_gmt(path: Path, library: str, source_tag: str, family: str, aspect: str) -> pd.DataFrame:
+def _normalize_enrichr_gmt(
+    path: Path,
+    library: str,
+    source_tag: str,
+    family: str,
+    aspect: str,
+    metadata: dict[str, object] | None = None,
+) -> pd.DataFrame:
     # Convert Enrichr GMT rows to the common source schema
     rows: list[dict[str, str]] = []
     safe_library = sanitize_id(library)
+    metadata_json = json.dumps(metadata or {}, sort_keys=True)
     for record in parse_gmt(path):
         term_name = str(record["term_id"])
         term_id = f"ENRICHR_{safe_library}__{sanitize_id(term_name)}"
@@ -859,10 +1041,10 @@ def _normalize_enrichr_gmt(path: Path, library: str, source_tag: str, family: st
                     "source_license_note": "Enrichr library provenance and upstream licenses apply.",
                     "gene_symbol": gene,
                     "gene_ensembl_from_source": "",
-                    "metadata_json": "{}",
+                    "metadata_json": metadata_json,
                 }
             )
-    return pd.DataFrame(rows)
+    return pd.DataFrame(rows, columns=CANONICAL_COLUMNS)
 
 
 def _col(raw: pd.DataFrame, name: str, default: str = "") -> pd.Series:
@@ -905,7 +1087,7 @@ def _download_library(cfg: dict, enrichr_dir: Path, library: str, force: bool) -
     path = enrichr_dir / f"{sanitize_id(library)}.gmt"
     if path.exists() and not force:
         return path
-    url = cfg["library_download_endpoint"].format(library=quote(library))
+    url = cfg.get("library_download_endpoint", ENRICHR_LIBRARY_DOWNLOAD_ENDPOINT).format(library=quote(library))
     LOGGER.info("Downloading Enrichr library %s.", library)
     response = requests.get(url, timeout=(15, 60))
     response.raise_for_status()
@@ -924,8 +1106,18 @@ def _split_hgnc_list(value: object) -> list[str]:
 
 def _parse_attrs(text: str) -> dict[str, str]:
     attrs: dict[str, str] = {}
-    for key, value in re.findall(r'([A-Za-z0-9_]+)\s+"([^"]*)"', text):
-        attrs[key] = value
+    for item in text.split(";"):
+        item = item.strip()
+        if not item:
+            continue
+        if "=" in item:
+            key, value = item.split("=", 1)
+        else:
+            parts = item.split(None, 1)
+            if len(parts) != 2:
+                continue
+            key, value = parts
+        attrs[key.strip()] = value.strip().strip('"')
     return attrs
 
 

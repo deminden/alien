@@ -72,7 +72,7 @@ def build(
     LOGGER.info("Source cache directory: %s", source_dir)
     LOGGER.info("Local worker processes: %d", worker_count)
 
-    source_terms = load_source_memberships(cfg)
+    source_terms = load_source_memberships(cfg, force_download=force_download)
     if source_terms.empty:
         raise RuntimeError("No source gene-set memberships were loaded.")
     LOGGER.info("Loaded %d source gene memberships across %d terms", len(source_terms), source_terms["term_id"].nunique())
@@ -219,8 +219,11 @@ def _prepare_targets(
         target_type = str(target.get("type", "ensembl_gtf"))
         if target_type != "ensembl_gtf":
             raise ValueError(f"Target {name} has unsupported type {target_type!r}.")
-        universe_path = _optional_path(target.get("restrict_to") or target.get("gene_universe"))
-        universe, universe_table, id_type = read_gene_universe(universe_path)
+        restriction = target.get("restrict_to")
+        if _empty_config_value(restriction):
+            restriction = target.get("gene_universe")
+        universe_path, universe_column, universe_ids = _target_restriction(restriction)
+        universe, universe_table, id_type = read_gene_universe(universe_path, column=universe_column, ids=universe_ids)
         if universe is None:
             LOGGER.info("No dataset restriction supplied for %s; using all annotation genes.", name)
         LOGGER.info("%s universe ID type: %s", name, id_type)
@@ -233,6 +236,7 @@ def _prepare_targets(
                 "name": name,
                 "type": target_type,
                 "source_path": universe_path,
+                "source_column": universe_column,
                 "universe": universe,
                 "universe_table": universe_table,
                 "annotation": annotation,
@@ -243,10 +247,39 @@ def _prepare_targets(
     return prepared
 
 
+def _target_restriction(value: object) -> tuple[Path | None, str | None, list[str] | tuple[str, ...] | set[str] | None]:
+    if _empty_config_value(value):
+        return None, None, None
+    if isinstance(value, dict):
+        path = _optional_path(value.get("path") or value.get("file"))
+        column = _optional_string(value.get("column") or value.get("gene_column") or value.get("field"))
+        ids = value.get("ids", value.get("genes"))
+        if ids is not None:
+            if isinstance(ids, str):
+                ids = [ids]
+            return path, column, ids
+        if path is None:
+            raise ValueError("Target restrict_to dictionaries must define either path or ids.")
+        return path, column, None
+    if isinstance(value, (list, tuple, set)):
+        return None, None, value
+    return _optional_path(value), None, None
+
+
+def _optional_string(value: object) -> str | None:
+    if _empty_config_value(value):
+        return None
+    return str(value)
+
+
 def _optional_path(value: object) -> Path | None:
-    if value in {None, "", "null"}:
+    if _empty_config_value(value):
         return None
     return Path(str(value))
+
+
+def _empty_config_value(value: object) -> bool:
+    return value is None or (isinstance(value, str) and value.strip() in {"", "null"})
 
 
 def _filter_namespaces(
@@ -373,6 +406,7 @@ def _target_gene_restrictions(targets: list[dict[str, Any]]) -> pd.DataFrame:
     for target in targets:
         namespace = str(target["name"])
         source_path = target.get("source_path")
+        source_column = target.get("source_column")
         universe_table = target.get("universe_table", pd.DataFrame())
         universe = target.get("universe")
         annotation = target["annotation"]
@@ -387,6 +421,7 @@ def _target_gene_restrictions(targets: list[dict[str, Any]]) -> pd.DataFrame:
                 {
                     "target_namespace": namespace,
                     "source_path": str(source_path or ""),
+                    "source_column": str(source_column or ""),
                     "input_gene_id": row.get("input_gene_id", ""),
                     "ensembl_gene_id": stable,
                     "id_type": row.get("id_type", ""),

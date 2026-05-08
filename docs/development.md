@@ -50,5 +50,5 @@ Near-term directions:
 Longer-term directions:
 
 - Support for non-human organisms where mapping resources are sufficiently auditable.
-- Optional Enrichr library discovery/download as a first-class source adapter.
+- Curated Enrichr source presets for common pathway, disease, and perturbation libraries.
 - More stable lower-level APIs once the package has real-world usage feedback.

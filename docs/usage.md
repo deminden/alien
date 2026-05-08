@@ -74,6 +74,37 @@ sources:
     include_c4_cm: false
 ```
 
+`enrichr_remote` downloads and caches Enrichr libraries by public library name:
+
+```yaml
+sources:
+  - type: enrichr_remote
+    libraries:
+      - name: KEGG_2021_Human
+        source_tag: KEGG
+        family: biology_process_pathway
+        aspect: pathway
+      - name: ClinVar_2019
+        source_tag: CLINVAR
+        family: disease_phenotype
+        aspect: disease
+```
+
+For versioned library names, exact names are tried first. If an exact library name is not present, provide `match` to select the latest matching library deterministically:
+
+```yaml
+sources:
+  - type: enrichr_remote
+    libraries:
+      - name: ClinVar
+        match: "^ClinVar_[0-9]{4}$"
+        source_tag: CLINVAR
+        family: disease_phenotype
+        aspect: disease
+```
+
+Downloaded Enrichr metadata is cached at `data/alien_sources/enrichr/datasetStatistics.json`; GMT files are cached as `data/alien_sources/enrichr/<library>.gmt`.
+
 `msigdb_tsv` reads one or more MSigDB-like tables with term names and symbols:
 
 ```yaml
@@ -103,7 +134,7 @@ sources:
 
 ## Targets
 
-The implemented target adapter is `ensembl_gtf`. It projects source terms into Ensembl stable gene IDs using a target annotation GTF.
+The implemented target adapter is `ensembl_gtf`. It projects source terms into Ensembl stable gene IDs using a target annotation GTF. The GTF must contain `gene` records with `gene_id` and `gene_name` attributes.
 
 For built-in GENCODE releases, `source` and `version` are enough:
 
@@ -116,7 +147,7 @@ targets:
       version: "47"
 ```
 
-For another Ensembl-style GTF origin, provide a local path or URL:
+For another Ensembl-style GTF origin, provide a local path:
 
 ```yaml
 targets:
@@ -128,7 +159,40 @@ targets:
       path: data/annotations/my_provider.gtf.gz
 ```
 
-Advanced narrowing: `restrict_to` can limit a target GMT to IDs present in a dataset matrix or gene list. Normal builds should omit it.
+or a URL:
+
+```yaml
+targets:
+  - name: my_remote_annotation
+    type: ensembl_gtf
+    annotation:
+      source: MyProvider
+      version: "2026-05"
+      url: https://example.org/annotations/my_provider.gtf.gz
+```
+
+ALIEN caches URL-based target annotations under `data/alien_sources/targets/<target_name>/`.
+
+If a GTF uses different attribute names, map them with `annotation.attributes`:
+
+```yaml
+targets:
+  - name: custom_annotation
+    type: ensembl_gtf
+    annotation:
+      source: MyProvider
+      path: data/annotations/custom.gtf.gz
+      attributes:
+        gene_id: ID
+        gene_name: Name
+        gene_biotype: biotype
+```
+
+These keys refer to attributes in the ninth GTF field, not the fixed positional GTF columns.
+
+Non-Ensembl target ID systems, such as Entrez, UniProt, or RefSeq output GMTs, are not supported by this adapter yet.
+
+Advanced narrowing: `restrict_to` can limit a target GMT to Ensembl IDs present in a dataset matrix or gene list. Normal builds should omit it.
 
 ```yaml
 targets:
@@ -138,6 +202,48 @@ targets:
       source: GENCODE
       version: "47"
     restrict_to: data/study/count_matrix.tsv
+```
+
+If the matrix is tabular and the gene ID column is known, use the explicit form:
+
+```yaml
+targets:
+  - name: human_gencode47_study_only
+    type: ensembl_gtf
+    annotation:
+      source: GENCODE
+      version: "47"
+    restrict_to:
+      path: data/study/expression.tsv.gz
+      column: feature_id
+```
+
+Without `column`, ALIEN tries common gene-ID column names and then falls back to the first tabular column. For Parquet files, `column: index` reads the row index.
+
+The same shape works from Python because `alien.build()` accepts a config dictionary:
+
+```python
+from alien import build
+
+cfg = {
+    "sources": [{"type": "symbol_gmt", "path": "data/source.gmt"}],
+    "targets": [
+        {
+            "name": "human_gencode47_study_only",
+            "type": "ensembl_gtf",
+            "annotation": {"source": "GENCODE", "version": "47"},
+            "restrict_to": {"path": "data/study/expression.tsv.gz", "column": "feature_id"},
+        }
+    ],
+}
+
+result = build(cfg, outdir="data/alien_gmt", workers=4)
+```
+
+For code-only workflows, `restrict_to` can also carry inline Ensembl IDs:
+
+```python
+"restrict_to": {"ids": ["ENSG00000141510.18", "ENSG000002"]}
 ```
 
 ## Filtering

@@ -82,6 +82,36 @@ def test_gencode_target_version_downloads_without_explicit_path(tmp_path, monkey
     assert annotation["ensembl_gene_id"].tolist() == ["ENSG00000141510"]
 
 
+def test_ensembl_gtf_target_allows_custom_attribute_names(tmp_path):
+    gtf = tmp_path / "custom.gtf"
+    gtf.write_text(
+        'chr1\tALIEN\tgene\t1\t10\t.\t+\t.\tID "ENSG00000141510.18"; Name "TP53"; biotype "protein_coding";\n'
+        'chr1\tALIEN\tgene\t20\t30\t.\t+\t.\tID=ENSG000002.1;Name=GENE2;biotype=lncRNA;\n',
+        encoding="utf-8",
+    )
+
+    annotation, _, _ = load_ensembl_gtf_target(
+        tmp_path,
+        {
+            "name": "custom_annotation",
+            "type": "ensembl_gtf",
+            "annotation": {
+                "source": "Custom",
+                "path": str(gtf),
+                "attributes": {
+                    "gene_id": "ID",
+                    "gene_name": "Name",
+                    "gene_biotype": "biotype",
+                },
+            },
+        },
+    )
+
+    assert annotation["ensembl_gene_id"].tolist() == ["ENSG00000141510", "ENSG000002"]
+    assert annotation["gene_symbol"].tolist() == ["TP53", "GENE2"]
+    assert annotation["gene_biotype"].tolist() == ["protein_coding", "lncRNA"]
+
+
 def test_msigdb_remote_reads_cached_rds_release(tmp_path):
     cache_dir = tmp_path / "remote"
     release_dir = tmp_path / "release"

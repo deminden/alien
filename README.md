@@ -2,7 +2,7 @@
 
 **ALIEN: Audited Library Integration for External Namespaces** builds namespace-specific GMT libraries for human gene-set workflows.
 
-ALIEN 0.1.1 is centered on one job: take configured source libraries, normalize their gene memberships into a canonical table, project them into configured target namespaces, and write combined GMT files with audit metadata.
+ALIEN 0.1.2 is centered on one job: take configured source libraries, normalize their gene memberships into a canonical table, project them into configured target namespaces, and write combined GMT files with audit metadata.
 
 ## Install
 
@@ -74,10 +74,11 @@ See [docs/usage.md](docs/usage.md) for the full configuration reference.
 
 ## Source Inputs
 
-ALIEN 0.1.1 supports managed MSigDB download/cache sources and local file sources:
+ALIEN 0.1.2 supports managed MSigDB and Enrichr download/cache sources and local file sources:
 
-- `msigdb_cache`: a directory of `msigdbr_<SOURCE_TAG>.tsv.gz` files.
 - `msigdb_remote`: a Python downloader/reader for the current `msigdbr` Zenodo release cache.
+- `enrichr_remote`: a Python downloader/reader for Enrichr libraries by public library name.
+- `msigdb_cache`: a directory of `msigdbr_<SOURCE_TAG>.tsv.gz` files.
 - `msigdb_tsv`: a MSigDB-like TSV with term names, gene symbols, and optional source Ensembl IDs.
 - `symbol_gmt`: a GMT file whose members are gene symbols.
 - `canonical_tsv`: ALIEN’s normalized membership schema.
@@ -99,7 +100,9 @@ result = build("configs/production.yml", outdir="data/alien_gmt", workers=4)
 print(result.namespaces)
 ```
 
-Only the small facade API is stable for 0.1.1. Lower-level modules are importable for experimentation but may change while the package grows.
+You can also pass the same configuration as a Python dictionary, including dataset restrictions such as `restrict_to: {"path": "expression.tsv.gz", "column": "feature_id"}` for a known gene-ID field.
+
+Only the small facade API is stable for 0.1.2. Lower-level modules are importable for experimentation but may change while the package grows.
 
 ## MSigDB
 
@@ -115,7 +118,7 @@ This downloads and caches the configured `msigdbr` release archive under `data/a
 
 ## Scope
 
-The 0.1.1 release officially supports human gene sets using HGNC symbols, Python MSigDB cache integration, and Ensembl-style target namespaces. The code is organized so broader namespace integrations can be added later without tying the package to any single downstream analysis project.
+The 0.1.2 release officially supports human gene sets using HGNC symbols, Python MSigDB and Enrichr cache integration, and Ensembl-style target namespaces. The code is organized so broader namespace integrations can be added later without tying the package to any single downstream analysis project.
 
 ## Contributing
 

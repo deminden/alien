@@ -1,4 +1,4 @@
-# ALIEN 0.1.1 Method Note
+# ALIEN 0.1.2 Method Note
 
 ALIEN builds gene-set GMT files when source libraries and analysis namespaces do not line up cleanly. Source collections often mix current symbols, retired symbols, aliases, source Ensembl IDs, and occasional non-gene tokens. Downstream workflows, meanwhile, may require a specific target annotation release.
 
@@ -6,13 +6,14 @@ ALIEN treats integration as an audited projection problem. Every input source is
 
 ## Design
 
-ALIEN 0.1.1 accepts three source styles:
+ALIEN 0.1.2 accepts three source styles:
 
 - Managed MSigDB release archives through the Python `msigdb_remote` reader.
+- Managed Enrichr libraries through the Python `enrichr_remote` reader.
 - Local MSigDB-like tables with symbols and optional source identifiers.
 - Symbol-only GMT libraries, including local Enrichr-style exports.
 
-The builder creates a current-symbol namespace for display/review and any number of configured target namespaces. In 0.1.1 the implemented target adapter is `ensembl_gtf`: each target is defined by one Ensembl-style annotation GTF. The GTF can come from GENCODE by version or from another annotation origin via a local path or URL, as long as it has compatible `gene_id` and `gene_name` attributes. The optional `restrict_to` field is an advanced dataset-specific narrowing filter, not the main target path.
+The builder creates a current-symbol namespace for display/review and any number of configured target namespaces. In 0.1.2 the implemented target adapter is `ensembl_gtf`: each target is defined by one Ensembl-style annotation GTF. The GTF can come from GENCODE by version or from another annotation origin via a local path or URL, as long as gene ID and symbol attributes are present or mapped in config. The optional `restrict_to` field is an advanced dataset-specific narrowing filter, not the main target path.
 
 ## Auditing
 
@@ -30,4 +31,4 @@ ALIEN writes source provenance, package versions, target coverage summaries, map
 
 ## Limitations
 
-ALIEN 0.1.1 is scoped to human gene-set integration with HGNC symbols, MSigDB local/remote caches, and Ensembl-style target namespaces. Non-Ensembl target ID systems, such as Entrez or UniProt GMT output, are future target adapters.
+ALIEN 0.1.2 is scoped to human gene-set integration with HGNC symbols, MSigDB and Enrichr local/remote caches, and Ensembl-style target namespaces. Non-Ensembl target ID systems, such as Entrez or UniProt GMT output, are future target adapters.

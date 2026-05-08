@@ -1,5 +1,6 @@
 project:
   source_dir: examples/fixtures/sources
+  outdir: examples/out
 
 outputs:
   include_symbols: true
@@ -20,13 +21,23 @@ sources:
 
 targets:
   - name: tiny_ensembl
-    gencode_version: tiny
-    annotation_gtf: examples/fixtures/genes.gtf
-    gene_universe: examples/fixtures/universe.tsv
+    type: ensembl_gtf
+    annotation:
+      source: TinyFixture
+      version: tiny
+      path: examples/fixtures/genes.gtf
 
 filtering:
-  min_size_default: 1
-  max_size_default: 10
+  min_size_default: 10
+  max_size_default: 500
+  max_size_disease: 500
+  max_size_cancer: 500
+
+redundancy:
+  jaccard_cutoff: 0.85
+
+source_priority:
+  biology_process_pathway: [REACTOME, LOCAL]
 
 ncbi_gene:
   enabled: false

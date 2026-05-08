@@ -15,7 +15,7 @@ def test_small_build_is_deterministic_and_writes_combined_gmts(tmp_path):
     _write_source_table(source_tsv)
     symbol_gmt.write_text("SYMBOL_TERM\tdesc\tTP53\tGENE3\n", encoding="utf-8")
     _write_gtf(gtf)
-    universe.write_text("Ensembl_gene_ID\nENSG00000141510.18\nENSG000002.1\nENSG000003.1\n", encoding="utf-8")
+    universe.write_text("feature\nENSG00000141510.18\nENSG000002.1\nENSG000003.1\n", encoding="utf-8")
 
     cfg = {
         "project": {"source_dir": str(source)},
@@ -46,7 +46,7 @@ def test_small_build_is_deterministic_and_writes_combined_gmts(tmp_path):
                     "version": "test",
                     "path": str(gtf),
                 },
-                "restrict_to": str(universe),
+                "restrict_to": {"path": str(universe), "column": "feature"},
             }
         ],
         "filtering": {
