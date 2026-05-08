@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from .build import DEFAULT_OUTDIR, build
+from .build import build
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -12,7 +12,7 @@ def main(argv: list[str] | None = None) -> int:
 
     build_parser = subparsers.add_parser("build", help="Build audited combined GMT files")
     build_parser.add_argument("--config", type=Path, required=True, help="YAML configuration file")
-    build_parser.add_argument("--outdir", type=Path, default=DEFAULT_OUTDIR, help="Output directory")
+    build_parser.add_argument("--outdir", type=Path, default=None, help="Override project.outdir from the config")
     build_parser.add_argument("--workers", type=_positive_int, default=None, help="Number of local worker processes")
     build_parser.add_argument("--dry-run", action="store_true", help="Validate configuration and report planned output")
     build_parser.add_argument("--force-download", action="store_true", help="Refresh mapping-resource downloads and caches")

@@ -6,6 +6,7 @@ import re
 import shutil
 import subprocess
 import zipfile
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
@@ -268,6 +269,7 @@ def _verify_md5(path: Path, expected: str) -> None:
         raise RuntimeError(f"Cached MSigDB archive failed MD5 verification: {path}")
 
 
+@lru_cache(maxsize=16)
 def _read_rds_dataframe(path: Path) -> pd.DataFrame:
     try:
         import rdata
@@ -282,7 +284,9 @@ def _read_rds_dataframe(path: Path) -> pd.DataFrame:
 def _normalize_msigdb_remote_frame(raw: pd.DataFrame, spec: dict[str, Any]) -> pd.DataFrame:
     if "db_gene_symbol" not in raw or "gs_name" not in raw:
         raise ValueError("MSigDB remote RDS must contain db_gene_symbol and gs_name columns.")
-    raw = raw.copy()
+    raw = _filter_msigdb_remote_rows(raw, spec).copy()
+    if raw.empty:
+        raise ValueError("No MSigDB remote rows matched the requested filters.")
     raw["gene_symbol"] = raw["db_gene_symbol"]
     raw["ensembl_gene"] = raw.get("db_ensembl_gene", "")
     raw["_alien_source_tag"] = raw.apply(_msigdb_remote_row_source_tag, axis=1)
@@ -294,6 +298,24 @@ def _normalize_msigdb_remote_frame(raw: pd.DataFrame, spec: dict[str, Any]) -> p
         subcollection = str(tag_frame["gs_subcollection"].iloc[0]) if "gs_subcollection" in tag_frame else ""
         frames.append(_normalize_msigdb(tag_frame, tag, collection, subcollection, family, aspect))
     return concat_frames(frames)
+
+
+def _filter_msigdb_remote_rows(raw: pd.DataFrame, spec: dict[str, Any]) -> pd.DataFrame:
+    frame = raw
+    db_species = str(spec.get("db_species", "HS")).upper()
+    if "db_target_species" in frame:
+        frame = frame[frame["db_target_species"].astype(str).str.upper().eq(db_species)]
+    collection = spec.get("collection")
+    if collection and "gs_collection" in frame:
+        frame = frame[frame["gs_collection"].astype(str).eq(str(collection))]
+    subcollection = spec.get("subcollection")
+    if subcollection and "gs_subcollection" in frame:
+        sub = str(subcollection)
+        frame = frame[
+            frame["gs_subcollection"].astype(str).eq(sub)
+            | frame["gs_subcollection"].astype(str).str.replace(r".*:", "", regex=True).eq(sub)
+        ]
+    return frame
 
 
 def _msigdb_remote_source_tag(value: object) -> str:
@@ -925,7 +947,15 @@ def read_gene_universe(
     elif path is None:
         return None, pd.DataFrame(columns=["input_gene_id", "ensembl_gene_id", "id_type"]), "none"
     elif path.suffix == ".parquet":
-        df = pd.read_parquet(path)
+        if column in {"index", "__index__"}:
+            df = pd.read_parquet(path, columns=[])
+        elif column:
+            try:
+                df = pd.read_parquet(path, columns=[column])
+            except Exception as exc:
+                raise ValueError(f"Gene universe column {column!r} was not found in {path}.") from exc
+        else:
+            df = pd.read_parquet(path)
         genes = _gene_universe_values(df, column, path, allow_index=True)
     elif column or _looks_tabular(path):
         df = _read_gene_universe_table(path)

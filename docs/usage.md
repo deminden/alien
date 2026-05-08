@@ -5,7 +5,7 @@ ALIEN builds combined GMT files from configured source libraries and projects th
 ## Run
 
 ```bash
-alien build --config configs/production.yml --outdir data/alien_gmt --workers 4
+alien build --config configs/production.yml --workers 4
 ```
 
 The Python API is equivalent:
@@ -13,7 +13,7 @@ The Python API is equivalent:
 ```python
 from alien import build
 
-result = build("configs/production.yml", outdir="data/alien_gmt", workers=4)
+result = build("configs/production.yml", workers=4)
 print(result.namespaces)
 ```
 
@@ -21,7 +21,9 @@ print(result.namespaces)
 
 ```yaml
 project:
+  # Download/cache root for source libraries and mapping resources.
   source_dir: data/alien_sources
+  # Output root. ALIEN creates gmt/, metadata/, and qc/ below this folder.
   outdir: data/alien_gmt
 
 outputs:
@@ -51,6 +53,8 @@ data/alien_gmt/
   metadata/
   qc/
 ```
+
+Those are the two normal filesystem locations in an ALIEN config. `project.source_dir` stores downloaded source GMTs, MSigDB/Enrichr caches, annotation files, HGNC/NCBI mapping resources, and other conversion inputs. `project.outdir` is the result root; ALIEN creates `gmt/`, `metadata/`, and `qc/` inside it. The CLI `--outdir` option is only an override for `project.outdir`.
 
 ## Source Types
 
@@ -104,6 +108,28 @@ sources:
 ```
 
 Downloaded Enrichr metadata is cached at `data/alien_sources/enrichr/datasetStatistics.json`; GMT files are cached as `data/alien_sources/enrichr/<library>.gmt`.
+
+Cached remote resources are reused by default. To refresh MSigDB archives, Enrichr metadata/GMTs, GENCODE annotations, HGNC/NCBI resources, and Ensembl archive caches, run:
+
+```bash
+alien build --config configs/production.yml --force-download
+```
+
+For a single remote source, set `force: true` on that source:
+
+```yaml
+sources:
+  - type: enrichr_remote
+    force: true
+    libraries:
+      - name: ClinVar
+        match: "^ClinVar_[0-9]{4}$"
+        source_tag: CLINVAR
+        family: disease_phenotype
+        aspect: disease
+```
+
+This matters for regex-matched Enrichr libraries: ALIEN chooses the latest matching library from the cached `datasetStatistics` file unless the cache is refreshed.
 
 `msigdb_tsv` reads one or more MSigDB-like tables with term names and symbols:
 

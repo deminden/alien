@@ -1,5 +1,7 @@
 project:
+  # Download/cache root for all source and mapping resources.
   source_dir: examples/fixtures/sources
+  # Output root. ALIEN writes gmt/, metadata/, and qc/ subfolders here.
   outdir: examples/out
 
 outputs:

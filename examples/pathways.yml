@@ -1,0 +1,64 @@
+project:
+  # Download/cache root for MSigDB, Enrichr, HGNC, GENCODE, NCBI, and conversion helpers.
+  source_dir: data/alien_sources
+  # Output root. ALIEN writes gmt/, metadata/, and qc/ subfolders here.
+  outdir: data/alien_gmt/pathways
+
+outputs:
+  include_symbols: false
+
+sources:
+  - type: msigdb_remote
+    version: "2026.1"
+    db_species: HS
+    collection: C2
+    subcollection: CP:REACTOME
+  - type: msigdb_remote
+    version: "2026.1"
+    db_species: HS
+    collection: C2
+    subcollection: CP:WIKIPATHWAYS
+  - type: msigdb_remote
+    version: "2026.1"
+    db_species: HS
+    collection: C2
+    subcollection: CP:KEGG_MEDICUS
+  - type: msigdb_remote
+    version: "2026.1"
+    db_species: HS
+    collection: C5
+    subcollection: GO:BP
+
+targets:
+  - name: gtex_v11_gencode47
+    type: ensembl_gtf
+    annotation:
+      source: GENCODE
+      version: "47"
+    restrict_to:
+      path: data/gtex/GTEx_Analysis_2025-08-22_v11_RNASeQCv2.4.3_gene_reads.parquet
+      column: index
+  - name: tcga_recount3_gencode29
+    type: ensembl_gtf
+    annotation:
+      source: GENCODE
+      version: "29"
+    restrict_to:
+      path: data/tcga/normalised_counts_cancers/ACC_gencode_v29_normalised_counts.tsv.gz
+      column: Ensembl_gene_ID
+
+filtering:
+  min_size_default: 10
+  max_size_default: 500
+  remove_empty_after_universe_projection: true
+
+redundancy:
+  exact_duplicate_removal: true
+  jaccard_cutoff: 0.85
+  apply_per_family: true
+
+source_priority:
+  biology_process_pathway: [REACTOME, WIKIPATHWAYS, KEGG_MEDICUS, GOBP]
+
+runtime:
+  workers: 4

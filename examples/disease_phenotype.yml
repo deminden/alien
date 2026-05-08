@@ -1,0 +1,98 @@
+project:
+  # Download/cache root for MSigDB, Enrichr, HGNC, GENCODE, NCBI, and conversion helpers.
+  source_dir: data/alien_sources
+  # Output root. ALIEN writes gmt/, metadata/, and qc/ subfolders here.
+  outdir: data/alien_gmt/disease_phenotype
+
+outputs:
+  include_symbols: false
+
+sources:
+  - type: msigdb_remote
+    version: "2026.1"
+    db_species: HS
+    collection: C5
+    subcollection: HPO
+  - type: enrichr_remote
+    optional: true
+    libraries:
+      - name: DisGeNET
+        match: "^DisGeNET$"
+        source_tag: DISGENET
+        family: disease_phenotype
+        aspect: disease
+      - name: ClinVar
+        match: "^ClinVar_[0-9]{4}$"
+        source_tag: CLINVAR
+        family: disease_phenotype
+        aspect: disease
+      - name: GWAS_Catalog
+        match: "^GWAS_Catalog_[0-9]{4}$"
+        source_tag: GWAS_CATALOG
+        family: disease_phenotype
+        aspect: disease
+      - name: Jensen diseases curated
+        match: "Jensen.*DISEASES.*Curated|DISEASES.*Curated.*20[0-9]{2}"
+        source_tag: JENSEN_DISEASES_CURATED
+        family: disease_phenotype
+        aspect: disease
+      - name: Jensen diseases experimental
+        match: "Jensen.*DISEASES.*Experimental|DISEASES.*Experimental.*20[0-9]{2}"
+        source_tag: JENSEN_DISEASES_EXPERIMENTAL
+        family: disease_phenotype
+        aspect: disease
+
+targets:
+  - name: gtex_v11_gencode47
+    type: ensembl_gtf
+    annotation:
+      source: GENCODE
+      version: "47"
+    restrict_to:
+      path: data/gtex/GTEx_Analysis_2025-08-22_v11_RNASeQCv2.4.3_gene_reads.parquet
+      column: index
+  - name: tcga_recount3_gencode29
+    type: ensembl_gtf
+    annotation:
+      source: GENCODE
+      version: "29"
+    restrict_to:
+      path: data/tcga/normalised_counts_cancers/ACC_gencode_v29_normalised_counts.tsv.gz
+      column: Ensembl_gene_ID
+
+filtering:
+  min_size_default: 10
+  max_size_default: 500
+  max_size_disease: 500
+  remove_empty_after_universe_projection: true
+  drop_broad_disease_terms: true
+  broad_disease_regex:
+    - "^disease$"
+    - "^diseases$"
+    - "^cancer$"
+    - "^neoplasm$"
+    - "^neoplasms$"
+    - "^malignant neoplasm$"
+    - "^malignant neoplasms$"
+    - "^carcinoma$"
+    - "^tumor$"
+    - "^tumour$"
+    - "^genetic disease$"
+    - "^genetic disorder$"
+
+redundancy:
+  exact_duplicate_removal: true
+  jaccard_cutoff: 0.85
+  apply_per_family: true
+
+source_priority:
+  disease_phenotype:
+    - HPO
+    - DISGENET
+    - CLINVAR
+    - GWAS_CATALOG
+    - JENSEN_DISEASES_CURATED
+    - JENSEN_DISEASES_EXPERIMENTAL
+
+runtime:
+  workers: 4

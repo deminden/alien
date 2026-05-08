@@ -9,6 +9,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "project": {
         "name": "alien",
         "source_dir": "data/alien_sources",
+        "outdir": "data/alien_gmt",
     },
     "outputs": {
         "include_symbols": True,

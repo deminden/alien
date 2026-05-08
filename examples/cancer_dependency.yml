@@ -1,0 +1,84 @@
+project:
+  # Download/cache root for MSigDB, Enrichr, HGNC, GENCODE, NCBI, and conversion helpers.
+  source_dir: data/alien_sources
+  # Output root. ALIEN writes gmt/, metadata/, and qc/ subfolders here.
+  outdir: data/alien_gmt/cancer_dependency
+
+outputs:
+  include_symbols: false
+
+sources:
+  - type: msigdb_remote
+    version: "2026.1"
+    db_species: HS
+    collection: C9
+  - type: msigdb_remote
+    version: "2026.1"
+    db_species: HS
+    collection: C6
+  - type: msigdb_remote
+    version: "2026.1"
+    db_species: HS
+    collection: C4
+    subcollection: 3CA
+    family: cancer_dependency_state
+    aspect: cancer_signature
+  - type: msigdb_remote
+    version: "2026.1"
+    db_species: HS
+    collection: C4
+    subcollection: CGN
+    family: cancer_dependency_state
+    aspect: cancer_signature
+  - type: enrichr_remote
+    optional: true
+    libraries:
+      - name: DepMap
+        match: "DepMap.*(CRISPR|Dependency)|DepMap"
+        source_tag: DEPMAP
+        family: cancer_dependency_state
+        aspect: dependency_signature
+      - name: Cancer Cell Line Encyclopedia
+        match: "^Cancer_Cell_Line_Encyclopedia$|Cancer.*Cell.*Line.*Encyclopedia"
+        source_tag: CCLE
+        family: cancer_dependency_state
+        aspect: cancer_signature
+      - name: NCI-60
+        match: "^NCI-60_Cancer_Cell_Lines$|NCI-60"
+        source_tag: NCI60
+        family: cancer_dependency_state
+        aspect: cancer_signature
+
+targets:
+  - name: tcga_recount3_gencode29
+    type: ensembl_gtf
+    annotation:
+      source: GENCODE
+      version: "29"
+    restrict_to:
+      path: data/tcga/normalised_counts_cancers/ACC_gencode_v29_normalised_counts.tsv.gz
+      column: Ensembl_gene_ID
+
+filtering:
+  min_size_default: 10
+  max_size_default: 500
+  max_size_cancer: 500
+  remove_empty_after_universe_projection: true
+
+redundancy:
+  exact_duplicate_removal: true
+  jaccard_cutoff: 0.85
+  apply_per_family: true
+
+source_priority:
+  cancer_dependency_state:
+    - C9
+    - C6
+    - 3CA
+    - CGN
+    - DEPMAP
+    - CCLE
+    - NCI60
+
+runtime:
+  workers: 4

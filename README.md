@@ -19,7 +19,7 @@ python -m pip install -e .
 Prepare a config with sources and a target annotation, then run:
 
 ```bash
-alien build --config configs/production.yml --outdir data/alien_gmt --workers 4
+alien build --config configs/production.yml --workers 4
 ```
 
 The primary outputs are:
@@ -27,6 +27,8 @@ The primary outputs are:
 - `gmt/<target_namespace>.gmt`: combined GMT for each namespace, including `symbols.gmt` when enabled.
 - `metadata/`: term manifest, gene mapping tables, removed terms, unmapped genes, ambiguity logs, and provenance.
 - `qc/`: collection, mapping, redundancy, target coverage, and warning summaries.
+
+The two filesystem roots are configured in YAML: `project.source_dir` is for downloaded/cached source and mapping resources, while `project.outdir` is the output root containing `gmt/`, `metadata/`, and `qc/`.
 
 ## How It Works
 
@@ -96,7 +98,7 @@ Additional source metadata fields are documented in [docs/usage.md](docs/usage.m
 ```python
 from alien import build
 
-result = build("configs/production.yml", outdir="data/alien_gmt", workers=4)
+result = build("configs/production.yml", workers=4)
 print(result.namespaces)
 ```
 
@@ -115,6 +117,8 @@ sources:
 ```
 
 This downloads and caches the configured `msigdbr` release archive under `data/alien_sources/msigdb_remote/`, verifies it by MD5, and reads the collection-specific RDS files directly from Python.
+
+Remote caches are reused by default. Use `alien build --force-download` or per-source `force: true` to refresh managed downloads such as MSigDB, Enrichr, GENCODE, HGNC, and NCBI resources.
 
 ## Scope
 
