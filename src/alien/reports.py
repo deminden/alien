@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import platform
-import subprocess
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
+from .sources import gencode_annotation_url
 from .utils import ensure_dirs, utc_now, write_json
 
 
@@ -33,54 +33,69 @@ def build_source_provenance(
         }
         for target in targets
     ]
+    sources = {
+        "MSigDB": {
+            "target_release": "2026.1.Hs",
+            "db_version": db_version,
+            "source_url": "https://www.gsea-msigdb.org/gsea/msigdb",
+            "local_raw_dir": str(msigdb_dir),
+            "license_note": "MSigDB license and attribution terms apply.",
+        },
+        "HGNC": {
+            "source_url": "https://ftp.ebi.ac.uk/pub/databases/genenames/hgnc/tsv/hgnc_complete_set.txt",
+            "local_raw_file": str(source_dir / "hgnc" / "hgnc_complete_set.txt"),
+            "license_note": "HGNC data license and attribution terms apply.",
+        },
+        "NCBI_Gene": {
+            "gene_info_url": "https://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz",
+            "gene_history_url": "https://ftp.ncbi.nlm.nih.gov/gene/DATA/gene_history.gz",
+            "local_cache_file": str(source_dir / "ncbi_gene" / "ncbi_gene_symbol_rescue.tsv.gz"),
+            "license_note": "NCBI Gene history and gene info are used only as a lower-confidence audited rescue layer.",
+        },
+        "Ensembl_archive": {
+            "source_url": "https://rest.ensembl.org/archive/id",
+            "local_cache_file": str(source_dir / "ensembl_archive" / "archive_id_cache.json"),
+            "license_note": "Ensembl REST archive stable-ID lookup; cached for reproducible reruns.",
+        },
+    }
+    sources.update(_target_annotation_sources(targets))
     return {
         "created_at": utc_now(),
         "tool": "ALIEN",
         "python_version": platform.python_version(),
-        "r_version": _r_version(),
         "packages": _python_packages(),
         "configured_sources": cfg.get("sources", []),
         "configured_targets": target_records,
-        "sources": {
-            "MSigDB": {
-                "target_release": "2026.1.Hs",
-                "db_version": db_version,
-                "source_url": "https://www.gsea-msigdb.org/gsea/msigdb",
-                "local_raw_dir": str(msigdb_dir),
-                "license_note": "MSigDB license and attribution terms apply.",
-            },
-            "HGNC": {
-                "source_url": "https://ftp.ebi.ac.uk/pub/databases/genenames/hgnc/tsv/hgnc_complete_set.txt",
-                "local_raw_file": str(source_dir / "hgnc" / "hgnc_complete_set.txt"),
-                "license_note": "HGNC data license and attribution terms apply.",
-            },
-            "NCBI_Gene": {
-                "gene_info_url": "https://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz",
-                "gene_history_url": "https://ftp.ncbi.nlm.nih.gov/gene/DATA/gene_history.gz",
-                "local_cache_file": str(source_dir / "ncbi_gene" / "ncbi_gene_symbol_rescue.tsv.gz"),
-                "license_note": "NCBI Gene history and gene info are used only as a lower-confidence audited rescue layer.",
-            },
-            "GENCODE_v47": {
-                "source_url": "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_47/gencode.v47.annotation.gtf.gz",
-                "license_note": "GENCODE release 47; used as a symbol/metadata helper while configured target IDs define the GMT namespace.",
-            },
-            "GENCODE_v29": {
-                "source_url": "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_29/gencode.v29.annotation.gtf.gz",
-                "license_note": "GENCODE release 29; used as a symbol/metadata helper while configured target IDs define the GMT namespace.",
-            },
-            "Ensembl_archive": {
-                "source_url": "https://rest.ensembl.org/archive/id",
-                "local_cache_file": str(source_dir / "ensembl_archive" / "archive_id_cache.json"),
-                "license_note": "Ensembl REST archive stable-ID lookup; cached for reproducible reruns.",
-            },
-        },
+        "sources": sources,
         "reference_facts": {
             "msigdb_target_release": "2026.1.Hs",
-            "min_msigdbr_version": "26.1.0",
             "official_v0_1_scope": "human gene sets with HGNC symbols and Ensembl target namespaces",
         },
         "warnings": warnings,
     }
+
+
+def _target_annotation_sources(targets: list[dict[str, Any]]) -> dict[str, dict[str, str]]:
+    records: dict[str, dict[str, str]] = {}
+    for target in targets:
+        label = str(target.get("annotation_label", "")).strip()
+        path = str(target.get("annotation_path") or target.get("annotation_gtf", ""))
+        if not label and not path:
+            continue
+        key = f"Target_annotation__{target.get('name', 'unnamed')}"
+        record = {
+            "annotation": label,
+            "local_cache_file": path,
+            "license_note": "Target annotation GTF; used as a symbol/metadata helper unless it also defines the target ID set.",
+        }
+        if label.startswith("GENCODE v"):
+            version = label.replace("GENCODE v", "", 1)
+            try:
+                record["source_url"] = gencode_annotation_url(version)
+            except ValueError:
+                pass
+        records[key] = record
+    return records
 
 
 def write_provenance(obj: dict[str, Any], path: Path) -> None:
@@ -286,14 +301,6 @@ def _removed_count(df: pd.DataFrame, namespace: str, family: str, reason: str) -
         return 0
     mask = df["target_namespace"].eq(namespace) & df["family"].eq(family) & df["reason"].eq(reason)
     return int(mask.sum())
-
-
-def _r_version() -> str:
-    try:
-        result = subprocess.run(["Rscript", "--version"], check=False, capture_output=True, text=True)
-        return (result.stderr or result.stdout).strip()
-    except FileNotFoundError:
-        return "Rscript unavailable"
 
 
 def _python_packages() -> dict[str, str]:

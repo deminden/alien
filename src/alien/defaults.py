@@ -35,11 +35,11 @@ DEFAULT_CONFIG: dict[str, Any] = {
     ],
     "targets": [
         {
-            "name": "human_gencode47",
+            "name": "human_gencode49",
             "type": "ensembl_gtf",
             "annotation": {
                 "source": "GENCODE",
-                "version": "47",
+                "version": "49",
             },
         }
     ],

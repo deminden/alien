@@ -7,7 +7,7 @@ import rdata
 
 from alien.config import load_config
 from alien import sources
-from alien.sources import load_ensembl_gtf_target, read_canonical_memberships, read_msigdb_like_table, read_msigdb_remote, read_symbol_gmt_source
+from alien.sources import gencode_annotation_url, load_ensembl_gtf_target, read_canonical_memberships, read_msigdb_like_table, read_msigdb_remote, read_symbol_gmt_source
 
 
 def test_canonical_table_normalization_with_source_gene_id(tmp_path):
@@ -59,7 +59,7 @@ def test_symbol_gmt_source_normalization(tmp_path):
 
 def test_gencode_target_version_downloads_without_explicit_path(tmp_path, monkeypatch):
     def fake_download(url, path, force=False):
-        assert url == sources.GENCODE_URLS["47"]
+        assert url == gencode_annotation_url("49")
         path.parent.mkdir(parents=True, exist_ok=True)
         with gzip.open(path, "wt", encoding="utf-8") as handle:
             handle.write(
@@ -71,15 +71,42 @@ def test_gencode_target_version_downloads_without_explicit_path(tmp_path, monkey
     annotation, label, path = load_ensembl_gtf_target(
         tmp_path,
         {
-            "name": "human_gencode47",
+            "name": "human_gencode49",
             "type": "ensembl_gtf",
-            "annotation": {"source": "GENCODE", "version": "47"},
+            "annotation": {"source": "GENCODE", "version": "49"},
         },
     )
 
-    assert label == "GENCODE v47"
-    assert path == tmp_path / "gencode" / "gencode.v47.annotation.gtf.gz"
+    assert label == "GENCODE v49"
+    assert path == tmp_path / "gencode" / "gencode.v49.annotation.gtf.gz"
     assert annotation["ensembl_gene_id"].tolist() == ["ENSG00000141510"]
+
+
+def test_gencode_target_accepts_v_prefixed_version(tmp_path, monkeypatch):
+    seen = {}
+
+    def fake_download(url, path, force=False):
+        seen["url"] = url
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with gzip.open(path, "wt", encoding="utf-8") as handle:
+            handle.write(
+                'chr1\tALIEN\tgene\t1\t10\t.\t+\t.\tgene_id "ENSG000002.1"; gene_name "GENE2"; gene_type "protein_coding";\n'
+            )
+
+    monkeypatch.setattr(sources, "download_file", fake_download)
+
+    _, label, path = load_ensembl_gtf_target(
+        tmp_path,
+        {
+            "name": "human_gencode50",
+            "type": "ensembl_gtf",
+            "annotation": {"source": "GENCODE", "version": "v50"},
+        },
+    )
+
+    assert seen["url"] == "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_50/gencode.v50.annotation.gtf.gz"
+    assert label == "GENCODE v50"
+    assert path == tmp_path / "gencode" / "gencode.v50.annotation.gtf.gz"
 
 
 def test_ensembl_gtf_target_allows_custom_attribute_names(tmp_path):

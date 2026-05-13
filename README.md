@@ -50,7 +50,7 @@ targets:
 
 This writes `gmt/human_gencode49.gmt`. When `include_symbols` is enabled, ALIEN also writes `gmt/symbols.gmt`.
 
-For built-in GENCODE releases, `version` is enough; ALIEN downloads and caches the GTF under `data/alien_sources/gencode/` if it is missing. You can still provide `annotation.path` to pin a local file explicitly.
+For human GENCODE releases, any numeric `version` is enough; ALIEN builds the official FTP URL and caches the GTF under `data/alien_sources/gencode/` if it is missing. You can still provide `annotation.path` to pin a local file explicitly.
 
 `source: GENCODE` is not special to the config shape; other Ensembl-style GTF origins can use the same adapter by providing a local path or URL. Fully different target ID systems, such as Entrez or UniProt GMT output, are planned as future target adapters.
 
@@ -84,16 +84,7 @@ ALIEN 0.1.3 supports managed MSigDB and Enrichr download/cache sources and local
 
 - `msigdb_remote`: a Python downloader/reader for the current `msigdbr` Zenodo release cache, with normalized Parquet caches for repeated builds.
 - `enrichr_remote`: a Python downloader/reader for Enrichr libraries by public library name.
-- `msigdb_cache`: a directory of `msigdbr_<SOURCE_TAG>.tsv.gz` files.
-- `msigdb_tsv`: a MSigDB-like TSV with term names, gene symbols, and optional source Ensembl IDs.
 - `symbol_gmt`: a GMT file whose members are gene symbols.
-- `canonical_tsv`: ALIEN’s normalized membership schema.
-
-Canonical tables require:
-
-```text
-term_id    gene_symbol
-```
 
 Additional source metadata fields are documented in [docs/usage.md](docs/usage.md).
 

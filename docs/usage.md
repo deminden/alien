@@ -190,7 +190,7 @@ The implemented target adapter is `ensembl_gtf`. It projects source terms into E
 
 The annotation GTF has two roles: it maps source gene symbols to Ensembl IDs and supplies gene metadata for audit tables. It owns the final target ID set only when neither `gene_universe` nor `gene_filter` is configured.
 
-For built-in GENCODE releases, `source` and `version` are enough:
+For human GENCODE releases, `source` and any numeric `version` are enough. ALIEN builds the official FTP URL as `release_<version>/gencode.v<version>.annotation.gtf.gz`:
 
 ```yaml
 targets:

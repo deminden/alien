@@ -4,7 +4,6 @@ import hashlib
 import json
 import re
 import shutil
-import subprocess
 import zipfile
 from functools import lru_cache
 from pathlib import Path
@@ -64,10 +63,7 @@ HGNC_FALLBACK_URLS = [
     "https://storage.googleapis.com/public-download-files/hgnc/tsv/tsv/hgnc_complete_set.txt",
 ]
 
-GENCODE_URLS = {
-    "47": "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_47/gencode.v47.annotation.gtf.gz",
-    "29": "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_29/gencode.v29.annotation.gtf.gz",
-}
+GENCODE_HUMAN_BASE_URL = "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human"
 
 NCBI_GENE_INFO_URL = "https://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz"
 NCBI_GENE_HISTORY_URL = "https://ftp.ncbi.nlm.nih.gov/gene/DATA/gene_history.gz"
@@ -563,54 +559,6 @@ def _enrichr_library_specs(spec: dict[str, Any]) -> list[dict[str, Any]]:
     return result
 
 
-def ensure_msigdb_sources(
-    source_dir: Path,
-    include_c4_cm: bool,
-    min_version: str,
-    force: bool = False,
-    r_script: Path | None = None,
-) -> None:
-    # Fetch MSigDB cache through the R helper when needed
-    msigdb_dir = source_dir / "msigdb"
-    wanted = [tag for tag in MSIGDB_SOURCES if include_c4_cm or tag != "C4_CM"]
-    missing = [tag for tag in wanted if not (msigdb_dir / f"msigdbr_{tag}.tsv.gz").exists()]
-    if not missing and not force:
-        return
-
-    r_script = r_script or Path("scripts/fetch_msigdb.R")
-    cmd = ["Rscript", str(r_script), str(msigdb_dir), str(include_c4_cm).upper(), min_version]
-    LOGGER.info("Fetching MSigDB through msigdbr.")
-    try:
-        subprocess.run(cmd, check=True)
-    except FileNotFoundError as exc:
-        raise RuntimeError(
-            "Rscript is unavailable. Install R and msigdbr >= "
-            f"{min_version}, then rerun the GMT builder."
-        ) from exc
-    except subprocess.CalledProcessError as exc:
-        raise RuntimeError(
-            "MSigDB fetch failed. Install/update msigdbr in R, for example: "
-            "install.packages('msigdbr'), and ensure msigdbr meets the configured version."
-        ) from exc
-
-
-def read_msigdb(source_dir: Path, include_c4_cm: bool) -> pd.DataFrame:
-    # Read cached MSigDB collections
-    frames: list[pd.DataFrame] = []
-    msigdb_dir = source_dir / "msigdb"
-    for tag, (collection, subcollection, family, aspect) in MSIGDB_SOURCES.items():
-        if tag == "C4_CM" and not include_c4_cm:
-            continue
-        path = msigdb_dir / f"msigdbr_{tag}.tsv.gz"
-        if not path.exists():
-            raise FileNotFoundError(f"Missing MSigDB cache file: {path}")
-        raw = pd.read_csv(path, sep="\t", dtype=str, keep_default_na=False)
-        if "gs_name" not in raw or "gene_symbol" not in raw:
-            raise ValueError(f"{path} must contain gs_name and gene_symbol columns.")
-        frames.append(_normalize_msigdb(raw, tag, collection, subcollection, family, aspect))
-    return concat_frames(frames)
-
-
 def load_enrichr(cfg: dict, source_dir: Path, force: bool = False) -> tuple[pd.DataFrame, dict, list[str]]:
     # Select and fetch optional Enrichr libraries
     enrichr_dir = source_dir / "enrichr"
@@ -884,16 +832,18 @@ def load_gencode(
     supplied_gtf: Path | None = None,
     force: bool = False,
 ) -> pd.DataFrame:
-    # Backward-compatible helper for the built-in GENCODE URLs.
+    # Backward-compatible helper for human GENCODE annotation releases.
+    version = normalize_gencode_version(version)
     if supplied_gtf:
         path = supplied_gtf
     else:
         path = source_dir / "gencode" / f"gencode.v{version}.annotation.gtf.gz"
+        url = gencode_annotation_url(version)
         try:
-            download_file(GENCODE_URLS[version], path, force=force)
+            download_file(url, path, force=force)
         except Exception as exc:
             raise RuntimeError(
-                f"Could not download GENCODE v{version} from {GENCODE_URLS[version]}. "
+                f"Could not download GENCODE v{version} from {url}. "
                 "Supply an annotation_gtf path in the target config if the release URL changed."
             ) from exc
     LOGGER.info("Parsing GENCODE v%s genes.", version)
@@ -909,6 +859,8 @@ def load_ensembl_gtf_target(
     annotation = target.get("annotation", {}) if isinstance(target.get("annotation", {}), dict) else {}
     version = str(annotation.get("version") or target.get("gencode_version") or "")
     source_name = str(annotation.get("source") or ("GENCODE" if target.get("gencode_version") else "GTF"))
+    if source_name.upper() == "GENCODE" and version:
+        version = normalize_gencode_version(version)
     supplied_path = _optional_local_path(annotation.get("path") or target.get("annotation_gtf"))
     if supplied_path:
         path = supplied_path
@@ -925,13 +877,14 @@ def load_ensembl_gtf_target(
             raise ValueError(
                 f"Target {target.get('name', '<unnamed>')} uses annotation source {source_name!r}; "
                 "provide annotation.path or annotation.url for non-GENCODE target annotations."
-            )
+        )
         path = source_dir / "gencode" / f"gencode.v{version}.annotation.gtf.gz"
+        url = gencode_annotation_url(version)
         try:
-            download_file(GENCODE_URLS[version], path, force=force)
+            download_file(url, path, force=force)
         except Exception as exc:
             raise RuntimeError(
-                f"Could not download GENCODE v{version} from {GENCODE_URLS[version]}. "
+                f"Could not download GENCODE v{version} from {url}. "
                 "Supply annotation.path or annotation.url in the target config if the release URL changed."
             ) from exc
         source_name = "GENCODE"
@@ -940,6 +893,20 @@ def load_ensembl_gtf_target(
         label = f"{source_name} v{version}"
     LOGGER.info("Parsing %s target annotation genes from %s.", label, path)
     return parse_gtf_genes(path, version, _gtf_attribute_names(annotation.get("attributes", {}))), label, path
+
+
+def normalize_gencode_version(version: object) -> str:
+    text = str(version).strip()
+    if text.lower().startswith("v"):
+        text = text[1:]
+    if not re.fullmatch(r"[0-9]+", text):
+        raise ValueError(f"GENCODE version must be numeric, got {version!r}.")
+    return text
+
+
+def gencode_annotation_url(version: object) -> str:
+    version = normalize_gencode_version(version)
+    return f"{GENCODE_HUMAN_BASE_URL}/release_{version}/gencode.v{version}.annotation.gtf.gz"
 
 
 def _optional_local_path(value: object) -> Path | None:
