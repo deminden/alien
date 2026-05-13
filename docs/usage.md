@@ -5,7 +5,7 @@ ALIEN builds combined GMT files from configured source libraries and projects th
 ## Run
 
 ```bash
-alien build --config configs/production.yml --workers 4
+alien build --config examples/pathways.yml --workers 4
 ```
 
 The Python API is equivalent:
@@ -13,7 +13,7 @@ The Python API is equivalent:
 ```python
 from alien import build
 
-result = build("configs/production.yml", workers=4)
+result = build("examples/pathways.yml", workers=4)
 print(result.namespaces)
 ```
 
@@ -58,7 +58,7 @@ Those are the two normal filesystem locations in an ALIEN config. `project.sourc
 
 ## Source Types
 
-`msigdb_remote` reads a managed `msigdbr` release archive from Zenodo:
+`msigdb_remote` reads a managed `msigdbr` release archive from Zenodo and keeps normalized ALIEN Parquet caches for repeated builds:
 
 ```yaml
 sources:
@@ -109,10 +109,12 @@ sources:
 
 Downloaded Enrichr metadata is cached at `data/alien_sources/enrichr/datasetStatistics.json`; GMT files are cached as `data/alien_sources/enrichr/<library>.gmt`.
 
+For MSigDB remote sources, ALIEN keeps two cache layers under `project.source_dir`: the verified upstream release archive/extracted files and a derived `alien_cache/` directory with normalized Parquet memberships. The first build for a source filter performs conversion from the upstream RDS tables; later builds read the Parquet cache directly.
+
 Cached remote resources are reused by default. To refresh MSigDB archives, Enrichr metadata/GMTs, GENCODE annotations, HGNC/NCBI resources, and Ensembl archive caches, run:
 
 ```bash
-alien build --config configs/production.yml --force-download
+alien build --config examples/pathways.yml --force-download
 ```
 
 For a single remote source, set `force: true` on that source:
@@ -130,6 +132,8 @@ sources:
 ```
 
 This matters for regex-matched Enrichr libraries: ALIEN chooses the latest matching library from the cached `datasetStatistics` file unless the cache is refreshed.
+
+NCBI rescue maps are prepared once into a JSON cache after the raw NCBI files are read. Repeated builds also reuse in-memory mapping lookups during each run, and multiple configured target namespaces can be mapped in parallel with `--workers`.
 
 `msigdb_tsv` reads one or more MSigDB-like tables with term names and symbols:
 
@@ -183,6 +187,8 @@ term_id_collisions:
 ## Targets
 
 The implemented target adapter is `ensembl_gtf`. It projects source terms into Ensembl stable gene IDs using a target annotation GTF. The GTF must contain `gene` records with `gene_id` and `gene_name` attributes.
+
+The annotation GTF has two roles: it maps source gene symbols to Ensembl IDs and supplies gene metadata for audit tables. It owns the final target ID set only when neither `gene_universe` nor `gene_filter` is configured.
 
 For built-in GENCODE releases, `source` and `version` are enough:
 
@@ -240,7 +246,13 @@ These keys refer to attributes in the ninth GTF field, not the fixed positional 
 
 Non-Ensembl target ID systems, such as Entrez, UniProt, or RefSeq output GMTs, are not supported by this adapter yet.
 
-Advanced narrowing: `restrict_to` can limit a target GMT to Ensembl IDs present in a dataset matrix or gene list. Normal builds should omit it.
+`gene_universe` defines the Ensembl IDs that belong to a target output namespace when the downstream dataset has its own measured-gene universe. The annotation GTF remains the symbol/metadata helper; the configured universe file supplies the target ID set. Normal whole-annotation builds can omit it.
+
+Target ID set rules:
+
+- no `gene_universe` and no `gene_filter`: use all IDs from the annotation GTF.
+- `gene_universe`: use IDs from the configured universe file/list.
+- `gene_filter`: use IDs present in both the annotation GTF and the configured filter file/list.
 
 ```yaml
 targets:
@@ -249,7 +261,7 @@ targets:
     annotation:
       source: GENCODE
       version: "47"
-    restrict_to: data/study/count_matrix.tsv
+    gene_universe: data/study/count_matrix.tsv
 ```
 
 If the matrix is tabular and the gene ID column is known, use the explicit form:
@@ -261,12 +273,28 @@ targets:
     annotation:
       source: GENCODE
       version: "47"
-    restrict_to:
+    gene_universe:
       path: data/study/expression.tsv.gz
       column: feature_id
 ```
 
 Without `column`, ALIEN tries common gene-ID column names and then falls back to the first tabular column. For Parquet files, `column: index` reads the row index.
+
+`gene_filter` is the stricter alternative for true restriction behavior. It keeps only IDs present in both the annotation and the configured file/list:
+
+```yaml
+targets:
+  - name: human_gencode47_filtered
+    type: ensembl_gtf
+    annotation:
+      source: GENCODE
+      version: "47"
+    gene_filter:
+      path: data/study/allowed_genes.tsv
+      column: ensembl_gene_id
+```
+
+Use only one of `gene_universe` or `gene_filter` for a target. ALIEN rejects configs that define both because they mean different set operations.
 
 The same shape works from Python because `alien.build()` accepts a config dictionary:
 
@@ -280,7 +308,7 @@ cfg = {
             "name": "human_gencode47_study_only",
             "type": "ensembl_gtf",
             "annotation": {"source": "GENCODE", "version": "47"},
-            "restrict_to": {"path": "data/study/expression.tsv.gz", "column": "feature_id"},
+            "gene_universe": {"path": "data/study/expression.tsv.gz", "column": "feature_id"},
         }
     ],
 }
@@ -288,10 +316,10 @@ cfg = {
 result = build(cfg, outdir="data/alien_gmt", workers=4)
 ```
 
-For code-only workflows, `restrict_to` can also carry inline Ensembl IDs:
+For code-only workflows, `gene_universe` can also carry inline Ensembl IDs:
 
 ```python
-"restrict_to": {"ids": ["ENSG00000141510.18", "ENSG000002"]}
+"gene_universe": {"ids": ["ENSG00000141510.18", "ENSG000002"]}
 ```
 
 ## Filtering
@@ -336,10 +364,20 @@ ALIEN maps source symbols through audited human mapping resources:
 
 - HGNC current symbols.
 - HGNC previous and alias symbols.
-- Optional NCBI Gene history/info rescue.
-- Optional Ensembl archive lookup for source Ensembl IDs absent from the target IDs.
+- NCBI Gene history/info rescue, enabled by default for configured legacy source tags.
+- Ensembl archive lookup, enabled by default for source Ensembl IDs absent from the target annotation, any configured target gene universe/filter, and HGNC's current Ensembl IDs.
 
 Ambiguous mappings are dropped rather than guessed and are written to audit tables.
+
+Disable these fallback layers explicitly when a build must avoid managed remote mapping resources:
+
+```yaml
+ncbi_gene:
+  enabled: false
+
+ensembl_archive:
+  enabled: false
+```
 
 ## Outputs
 
@@ -354,6 +392,8 @@ Main audit outputs:
 
 ```text
 metadata/term_manifest.tsv.gz
+metadata/target_gene_universe.tsv.gz
+metadata/target_gene_filter.tsv.gz
 metadata/gene_mapping_<target>.tsv.gz
 metadata/removed_terms_size_filter.tsv.gz
 metadata/removed_terms_redundancy.tsv.gz
@@ -363,5 +403,6 @@ metadata/ambiguous_gene_mappings.tsv.gz
 metadata/source_provenance.json
 qc/redundancy_summary.tsv
 qc/mapping_summary.tsv
+qc/target_namespace_summary.tsv
 qc/warnings.txt
 ```

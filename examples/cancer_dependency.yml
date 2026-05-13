@@ -2,7 +2,7 @@ project:
   # Download/cache root for MSigDB, Enrichr, HGNC, GENCODE, NCBI, and conversion helpers.
   source_dir: data/alien_sources
   # Output root. ALIEN writes gmt/, metadata/, and qc/ subfolders here.
-  outdir: data/alien_gmt/cancer_dependency
+  outdir: results/alien_outputs/cancer_dependency
 
 outputs:
   include_symbols: false
@@ -55,7 +55,7 @@ targets:
     annotation:
       source: GENCODE
       version: "29"
-    restrict_to:
+    gene_universe:
       path: data/tcga/normalised_counts_cancers/ACC_gencode_v29_normalised_counts.tsv.gz
       column: Ensembl_gene_ID
 
@@ -81,4 +81,4 @@ source_priority:
     - NCI60
 
 runtime:
-  workers: 4
+  workers: 16

@@ -48,7 +48,7 @@ def test_small_build_is_deterministic_and_writes_combined_gmts(tmp_path):
                     "version": "test",
                     "path": str(gtf),
                 },
-                "restrict_to": {"path": str(universe), "column": "feature"},
+                "gene_universe": {"path": str(universe), "column": "feature"},
             }
         ],
         "filtering": {
@@ -69,6 +69,7 @@ def test_small_build_is_deterministic_and_writes_combined_gmts(tmp_path):
     assert (out1 / "gmt" / "symbols.gmt").exists()
     assert (out1 / "gmt" / "human_test.gmt").exists()
     assert (out1 / "metadata" / "term_manifest.tsv.gz").exists()
+    assert (out1 / "metadata" / "target_gene_universe.tsv.gz").exists()
     assert (out1 / "qc" / "warnings.txt").exists()
     mapping = pd.read_csv(out1 / "metadata" / "gene_mapping_human_test.tsv.gz", sep="\t", dtype=str)
     assert mapping["source_gtf"].unique().tolist() == [str(gtf)]
@@ -88,6 +89,121 @@ def test_term_id_collision_audit_ignores_membership_rows_for_same_term_identity(
     )
 
     assert _term_id_collision_audit(source_terms).empty
+
+
+def test_restrict_to_key_is_not_supported(tmp_path):
+    source = tmp_path / "sources"
+    source_tsv = tmp_path / "source.tsv"
+    gtf = tmp_path / "genes.gtf"
+    _write_hgnc(source)
+    _write_source_table(source_tsv)
+    _write_gtf(gtf)
+
+    cfg = {
+        "project": {"source_dir": str(source)},
+        "outputs": {"include_symbols": False},
+        "sources": [
+            {
+                "type": "msigdb_tsv",
+                "path": str(source_tsv),
+                "source_tag": "REACTOME",
+                "collection": "C2",
+                "family": "biology_process_pathway",
+                "aspect": "pathway",
+            }
+        ],
+        "targets": [
+            {
+                "name": "human_test",
+                "type": "ensembl_gtf",
+                "annotation": {"source": "TestAnnotation", "version": "test", "path": str(gtf)},
+                "restrict_to": {"ids": ["ENSG00000141510"]},
+            }
+        ],
+        "ncbi_gene": {"enabled": False},
+        "ensembl_archive": {"enabled": False},
+    }
+
+    with pytest.raises(ValueError, match="use 'gene_universe' or 'gene_filter' instead"):
+        build(config=cfg, outdir=tmp_path / "out", workers=1)
+
+
+def test_gene_filter_intersects_annotation_namespace(tmp_path):
+    source = tmp_path / "sources"
+    outdir = tmp_path / "out"
+    source_tsv = tmp_path / "source.tsv"
+    gtf = tmp_path / "genes.gtf"
+    gene_filter = tmp_path / "filter.tsv"
+    _write_hgnc(source)
+    _write_source_table(source_tsv)
+    _write_gtf(gtf)
+    gene_filter.write_text("feature\nENSG000002.1\nENSG00000499999.1\n", encoding="utf-8")
+
+    cfg = {
+        "project": {"source_dir": str(source)},
+        "outputs": {"include_symbols": False},
+        "sources": [
+            {
+                "type": "msigdb_tsv",
+                "path": str(source_tsv),
+                "source_tag": "REACTOME",
+                "collection": "C2",
+                "family": "biology_process_pathway",
+                "aspect": "pathway",
+            }
+        ],
+        "targets": [
+            {
+                "name": "filtered_annotation",
+                "type": "ensembl_gtf",
+                "annotation": {"source": "TestAnnotation", "version": "test", "path": str(gtf)},
+                "gene_filter": {"path": str(gene_filter), "column": "feature"},
+            }
+        ],
+        "filtering": {"min_size_default": 1, "max_size_default": 10},
+        "ncbi_gene": {"enabled": False},
+        "ensembl_archive": {"enabled": False},
+    }
+
+    build(config=cfg, outdir=outdir, workers=1)
+
+    gmt_line = (outdir / "gmt" / "filtered_annotation.gmt").read_text(encoding="utf-8").strip().split("\t")
+    assert gmt_line[2:] == ["ENSG000002"]
+    audit = pd.read_csv(outdir / "metadata" / "target_gene_filter.tsv.gz", sep="\t", dtype=str)
+    assert audit["ensembl_gene_id"].tolist() == ["ENSG000002", "ENSG00000499999"]
+    assert audit["has_annotation_metadata"].tolist() == ["True", "False"]
+    summary = pd.read_csv(outdir / "qc" / "target_namespace_summary.tsv", sep="\t")
+    assert summary.loc[0, "gene_filter_size"] == 2
+    assert summary.loc[0, "effective_target_size"] == 1
+
+
+def test_gene_universe_and_gene_filter_are_mutually_exclusive(tmp_path):
+    source = tmp_path / "sources"
+    source_tsv = tmp_path / "source.tsv"
+    gtf = tmp_path / "genes.gtf"
+    _write_hgnc(source)
+    _write_source_table(source_tsv)
+    _write_gtf(gtf)
+
+    cfg = {
+        "project": {"source_dir": str(source)},
+        "outputs": {"include_symbols": False},
+        "sources": [{"type": "msigdb_tsv", "path": str(source_tsv), "source_tag": "REACTOME"}],
+        "targets": [
+            {
+                "name": "bad_target",
+                "type": "ensembl_gtf",
+                "annotation": {"source": "TestAnnotation", "version": "test", "path": str(gtf)},
+                "gene_universe": {"ids": ["ENSG00000141510"]},
+                "gene_filter": {"ids": ["ENSG00000141510"]},
+            }
+        ],
+        "ncbi_gene": {"enabled": False},
+        "ensembl_archive": {"enabled": False},
+    }
+
+    with pytest.raises(ValueError, match="only one of gene_universe or gene_filter"):
+        build(config=cfg, outdir=tmp_path / "out", workers=1)
 
 
 def test_build_errors_and_writes_audit_for_conflicting_term_ids(tmp_path):

@@ -26,6 +26,7 @@ from .utils import (
     sanitize_id,
     strip_ensembl_version,
     utc_now,
+    write_json,
     write_tsv_gz,
 )
 
@@ -172,14 +173,20 @@ def read_msigdb_cache(path: Path, include_c4_cm: bool, spec: dict[str, Any] | No
 
 def read_msigdb_remote(spec: dict[str, Any], source_dir: Path, force: bool = False) -> pd.DataFrame:
     cache_dir = Path(spec.get("cache_dir") or source_dir / "msigdb_remote")
+    force_refresh = force or bool(spec.get("force", False))
     release = _msigdb_release_info(spec)
     release_dir = ensure_msigdb_remote_cache(
         cache_dir=cache_dir,
         release=release,
-        force=force or bool(spec.get("force", False)),
+        force=force_refresh,
         timeout=int(spec.get("timeout_seconds", 600)),
     )
-    summary = _read_rds_dataframe(release_dir / str(release["summary_rds"]))
+    alien_cache_path = _msigdb_remote_alien_cache_path(release_dir, release, spec)
+    if alien_cache_path.exists() and not force_refresh:
+        LOGGER.info("Loading cached normalized MSigDB memberships from %s", alien_cache_path)
+        return _read_canonical_parquet(alien_cache_path)
+
+    summary = _read_msigdb_summary(release_dir, release, force_refresh)
     db_species = str(spec.get("db_species", "HS")).upper()
     collection = spec.get("collection")
     subcollection = spec.get("subcollection")
@@ -199,7 +206,55 @@ def read_msigdb_remote(spec: dict[str, Any], source_dir: Path, force: bool = Fal
     for rds_name in sorted(set(summary["df_rds"].astype(str))):
         frame = _read_rds_dataframe(release_dir / rds_name)
         frames.append(_normalize_msigdb_remote_frame(frame, spec))
-    return concat_frames(frames)
+    memberships = concat_frames(frames)
+    _write_canonical_parquet(memberships, alien_cache_path)
+    return memberships
+
+
+def _read_msigdb_summary(release_dir: Path, release: dict[str, str], force: bool = False) -> pd.DataFrame:
+    summary_rds = release_dir / str(release["summary_rds"])
+    summary_cache = release_dir / "alien_cache" / f"{summary_rds.stem}.parquet"
+    if summary_cache.exists() and not force:
+        return pd.read_parquet(summary_cache).fillna("").astype(str)
+    summary = _read_rds_dataframe(summary_rds)
+    ensure_dirs(summary_cache.parent)
+    summary.to_parquet(summary_cache, index=False)
+    return summary
+
+
+def _msigdb_remote_alien_cache_path(release_dir: Path, release: dict[str, str], spec: dict[str, Any]) -> Path:
+    relevant = {
+        "zip_md5": release.get("zip_md5", ""),
+        "summary_rds": release.get("summary_rds", ""),
+        "db_species": str(spec.get("db_species", "HS")).upper(),
+        "collection": spec.get("collection", ""),
+        "subcollection": spec.get("subcollection", ""),
+        "family": spec.get("family", ""),
+        "aspect": spec.get("aspect", ""),
+    }
+    digest = hashlib.md5(json.dumps(relevant, sort_keys=True).encode("utf-8")).hexdigest()[:16]
+    label_bits = [
+        relevant["db_species"],
+        str(relevant["collection"] or "all"),
+        str(relevant["subcollection"] or "all"),
+        str(relevant["family"] or "default"),
+        str(relevant["aspect"] or "default"),
+    ]
+    label = sanitize_id("__".join(label_bits))
+    return release_dir / "alien_cache" / f"memberships__{label}__{digest}.parquet"
+
+
+def _read_canonical_parquet(path: Path) -> pd.DataFrame:
+    frame = pd.read_parquet(path).fillna("").astype(str)
+    for column in CANONICAL_COLUMNS:
+        if column not in frame:
+            frame[column] = ""
+    return frame[CANONICAL_COLUMNS]
+
+
+def _write_canonical_parquet(frame: pd.DataFrame, path: Path) -> None:
+    ensure_dirs(path.parent)
+    frame[CANONICAL_COLUMNS].to_parquet(path, index=False)
 
 
 def ensure_msigdb_remote_cache(cache_dir: Path, release: dict[str, str], force: bool = False, timeout: int = 600) -> Path:
@@ -289,7 +344,9 @@ def _normalize_msigdb_remote_frame(raw: pd.DataFrame, spec: dict[str, Any]) -> p
         raise ValueError("No MSigDB remote rows matched the requested filters.")
     raw["gene_symbol"] = raw["db_gene_symbol"]
     raw["ensembl_gene"] = raw.get("db_ensembl_gene", "")
-    raw["_alien_source_tag"] = raw.apply(_msigdb_remote_row_source_tag, axis=1)
+    subcollection = raw.get("gs_subcollection", pd.Series([""] * len(raw), index=raw.index)).fillna("").astype(str).str.strip()
+    collection = raw.get("gs_collection", pd.Series([""] * len(raw), index=raw.index)).fillna("").astype(str).str.strip()
+    raw["_alien_source_tag"] = subcollection.where(subcollection.ne(""), collection).replace("", "MSIGDB").map(_msigdb_remote_source_tag)
     frames = []
     for tag, tag_frame in raw.groupby("_alien_source_tag", sort=True):
         family = str(spec.get("family") or _family_for_msigdb_tag(tag))
@@ -630,9 +687,17 @@ def load_ncbi_gene_maps(cfg: dict[str, Any], source_dir: Path, force: bool = Fal
     ncbi_dir = source_dir / "ncbi_gene"
     ensure_dirs(ncbi_dir)
     cache_path = ncbi_dir / "ncbi_gene_symbol_rescue.tsv.gz"
+    map_cache_path = ncbi_dir / "ncbi_gene_symbol_rescue_maps.json"
+    if map_cache_path.exists() and not force:
+        LOGGER.info("Loading cached NCBI Gene rescue maps from %s", map_cache_path)
+        maps = _read_ncbi_gene_map_json(map_cache_path)
+        if maps is not None:
+            return maps
     if cache_path.exists() and not force:
         LOGGER.info("Loading cached NCBI Gene rescue map from %s", cache_path)
-        return _read_ncbi_gene_map_cache(cache_path)
+        maps = _read_ncbi_gene_map_cache(cache_path)
+        write_json(maps, map_cache_path)
+        return maps
 
     info_path = ncbi_dir / "Homo_sapiens.gene_info.gz"
     history_path = ncbi_dir / "gene_history.gz"
@@ -644,7 +709,9 @@ def load_ncbi_gene_maps(cfg: dict[str, Any], source_dir: Path, force: bool = Fal
     rescue_rows = _build_ncbi_rescue_rows(gene_info, history_path, bool(cfg.get("use_gene_info_synonyms", True)))
     LOGGER.info("Writing %d NCBI Gene rescue records to %s", len(rescue_rows), cache_path)
     rescue_rows.to_csv(cache_path, sep="\t", index=False, compression="gzip")
-    return _ncbi_maps_from_rows(rescue_rows)
+    maps = _ncbi_maps_from_rows(rescue_rows)
+    write_json(maps, map_cache_path)
+    return maps
 
 
 def build_hgnc_maps(raw: pd.DataFrame) -> dict[str, object]:
@@ -685,6 +752,19 @@ def build_hgnc_maps(raw: pd.DataFrame) -> dict[str, object]:
 def _read_ncbi_gene_map_cache(path: Path) -> dict[str, object]:
     rows = pd.read_csv(path, sep="\t", dtype=str, keep_default_na=False)
     return _ncbi_maps_from_rows(rows)
+
+
+def _read_ncbi_gene_map_json(path: Path) -> dict[str, object] | None:
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            maps = json.load(handle)
+    except Exception as exc:
+        LOGGER.warning("Could not read cached NCBI Gene rescue maps %s: %s", path, exc)
+        return None
+    if not isinstance(maps, dict) or not isinstance(maps.get("stages"), dict) or not isinstance(maps.get("ambiguous"), dict):
+        LOGGER.warning("Cached NCBI Gene rescue maps have an unexpected shape: %s", path)
+        return None
+    return maps
 
 
 def _read_ncbi_gene_info(path: Path) -> pd.DataFrame:

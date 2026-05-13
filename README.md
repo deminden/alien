@@ -2,7 +2,7 @@
 
 **ALIEN: Audited Library Integration for External Namespaces** builds namespace-specific GMT libraries for human gene-set workflows.
 
-ALIEN 0.1.2 is centered on one job: take configured source libraries, normalize their gene memberships into a canonical table, project them into configured target namespaces, and write combined GMT files with audit metadata.
+ALIEN is centered on one job: take configured source libraries, normalize their gene memberships into a canonical table, project them into configured target namespaces, and write combined GMT files with audit metadata.
 
 ## Install
 
@@ -19,7 +19,7 @@ python -m pip install -e .
 Prepare a config with sources and a target annotation, then run:
 
 ```bash
-alien build --config configs/production.yml --workers 4
+alien build --config examples/cancer_dependency.yml --workers 16
 ```
 
 The primary outputs are:
@@ -41,18 +41,20 @@ outputs:
   include_symbols: true
 
 targets:
-  - name: human_gencode47
+  - name: human_gencode49
     type: ensembl_gtf
     annotation:
       source: GENCODE
-      version: "47"
+      version: "49"
 ```
 
-This writes `gmt/human_gencode47.gmt`. When `include_symbols` is enabled, ALIEN also writes `gmt/symbols.gmt`.
+This writes `gmt/human_gencode49.gmt`. When `include_symbols` is enabled, ALIEN also writes `gmt/symbols.gmt`.
 
 For built-in GENCODE releases, `version` is enough; ALIEN downloads and caches the GTF under `data/alien_sources/gencode/` if it is missing. You can still provide `annotation.path` to pin a local file explicitly.
 
 `source: GENCODE` is not special to the config shape; other Ensembl-style GTF origins can use the same adapter by providing a local path or URL. Fully different target ID systems, such as Entrez or UniProt GMT output, are planned as future target adapters.
+
+Targets can also define `gene_universe` when a dataset file supplies the output ID namespace, or `gene_filter` when the annotation namespace should be intersected with a file/list of allowed Ensembl IDs. In those cases the GTF still acts as the symbol/metadata helper, not necessarily as the owner of the final namespace.
 
 The build keeps audit outputs beside the GMTs so each namespace projection can be traced back to source terms, symbol repairs, unmapped genes, filters, redundancy decisions, and provenance.
 
@@ -78,9 +80,9 @@ See [docs/usage.md](docs/usage.md) for the full configuration reference.
 
 ## Source Inputs
 
-ALIEN 0.1.2 supports managed MSigDB and Enrichr download/cache sources and local file sources:
+ALIEN 0.1.3 supports managed MSigDB and Enrichr download/cache sources and local file sources:
 
-- `msigdb_remote`: a Python downloader/reader for the current `msigdbr` Zenodo release cache.
+- `msigdb_remote`: a Python downloader/reader for the current `msigdbr` Zenodo release cache, with normalized Parquet caches for repeated builds.
 - `enrichr_remote`: a Python downloader/reader for Enrichr libraries by public library name.
 - `msigdb_cache`: a directory of `msigdbr_<SOURCE_TAG>.tsv.gz` files.
 - `msigdb_tsv`: a MSigDB-like TSV with term names, gene symbols, and optional source Ensembl IDs.
@@ -100,13 +102,11 @@ Additional source metadata fields are documented in [docs/usage.md](docs/usage.m
 ```python
 from alien import build
 
-result = build("configs/production.yml", workers=4)
+result = build("examples/pathways.yml", workers=16)
 print(result.namespaces)
 ```
 
-You can also pass the same configuration as a Python dictionary, including dataset restrictions such as `restrict_to: {"path": "expression.tsv.gz", "column": "feature_id"}` for a known gene-ID field.
-
-Only the small facade API is stable for 0.1.2. Lower-level modules are importable for experimentation but may change while the package grows.
+You can also pass the same configuration as a Python dictionary, including target gene universes such as `gene_universe: {"path": "expression.tsv.gz", "column": "feature_id"}` for a known Ensembl ID field.
 
 ## MSigDB
 
@@ -118,13 +118,13 @@ sources:
     collection: C2
 ```
 
-This downloads and caches the configured `msigdbr` release archive under `data/alien_sources/msigdb_remote/`, verifies it by MD5, and reads the collection-specific RDS files directly from Python.
+This downloads and caches the configured `msigdbr` release archive under `data/alien_sources/msigdb_remote/`, verifies it by MD5, and converts matching RDS files into ALIEN's normalized Parquet cache for later builds.
 
-Remote caches are reused by default. Use `alien build --force-download` or per-source `force: true` to refresh managed downloads such as MSigDB, Enrichr, GENCODE, HGNC, and NCBI resources.
+Remote caches are reused by default. ALIEN also caches normalized MSigDB memberships and prepared NCBI rescue maps, so repeated large builds avoid expensive source-format conversion. Use `alien build --force-download` or per-source `force: true` to refresh managed downloads such as MSigDB, Enrichr, GENCODE, HGNC, and NCBI resources.
 
 ## Scope
 
-The 0.1.2 release officially supports human gene sets using HGNC symbols, Python MSigDB and Enrichr cache integration, and Ensembl-style target namespaces. The code is organized so broader namespace integrations can be added later without tying the package to any single downstream analysis project.
+The 0.1.3 release officially supports human gene sets using HGNC symbols, Python MSigDB and Enrichr cache integration, optimized repeated-build caches, and Ensembl-style target namespaces. The code is organized so broader namespace integrations can be added later without tying the package to any single downstream analysis project.
 
 ## Contributing
 

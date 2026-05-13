@@ -1,4 +1,4 @@
-# ALIEN 0.1.2 Method Note
+# ALIEN 0.1.3 Method Note
 
 ALIEN builds gene-set GMT files when source libraries and analysis namespaces do not line up cleanly. Source collections often mix current symbols, retired symbols, aliases, source Ensembl IDs, and occasional non-gene tokens. Downstream workflows, meanwhile, may require a specific target annotation release.
 
@@ -6,18 +6,18 @@ ALIEN treats integration as an audited projection problem. Every input source is
 
 ## Design
 
-ALIEN 0.1.2 accepts three source styles:
+ALIEN 0.1.3 accepts these source styles:
 
 - Managed MSigDB release archives through the Python `msigdb_remote` reader.
 - Managed Enrichr libraries through the Python `enrichr_remote` reader.
 - Local MSigDB-like tables with symbols and optional source identifiers.
 - Symbol-only GMT libraries, including local Enrichr-style exports.
 
-The builder creates a current-symbol namespace for display/review and any number of configured target namespaces. In 0.1.2 the implemented target adapter is `ensembl_gtf`: each target is defined by one Ensembl-style annotation GTF. The GTF can come from GENCODE by version or from another annotation origin via a local path or URL, as long as gene ID and symbol attributes are present or mapped in config. The optional `restrict_to` field is an advanced dataset-specific narrowing filter, not the main target path.
+The builder creates a current-symbol namespace for display/review and any number of configured target namespaces. In 0.1.3 the implemented target adapter is `ensembl_gtf`: each target is defined by one Ensembl-style annotation GTF plus, when needed, either a `gene_universe` file/list that defines the output ID namespace or a `gene_filter` file/list that restricts the annotation namespace by intersection. The GTF can come from GENCODE by version or from another annotation origin via a local path or URL, as long as gene ID and symbol attributes are present or mapped in config. When `gene_universe` is present, the GTF is primarily a symbol and metadata helper; the configured universe owns the output ID set.
 
 ## Auditing
 
-Mapping uses HGNC current, previous, and alias symbols first. Source Ensembl IDs that are absent from the target IDs can be checked against the Ensembl archive cache. NCBI Gene history/info can be enabled as a lower-confidence rescue layer for configured legacy sources. Ambiguous mappings are not guessed; they are written to audit tables.
+Mapping uses HGNC current, previous, and alias symbols first. By default, source Ensembl IDs that are absent from the target annotation, any configured target gene universe/filter, and HGNC's current Ensembl IDs are checked against the Ensembl archive cache. NCBI Gene history/info rescue is also enabled by default, but restricted to configured legacy source tags. Both fallback layers can be disabled in config. Ambiguous mappings are not guessed; they are written to audit tables.
 
 Before mapping, ALIEN checks that each `term_id` refers to one source-term identity. Conflicting reuse of the same identifier across libraries is treated as an input error by default, because otherwise memberships would be merged while one term's metadata silently wins. When this happens, `metadata/term_id_collisions.tsv` records the conflicting identities for repair.
 
@@ -31,6 +31,12 @@ The primary GMT output is intentionally simple: one combined GMT per namespace. 
 
 ALIEN writes source provenance, package versions, target coverage summaries, mapping summaries, and warning logs. The source cache remains outside the package so license-sensitive resources can be managed by each user.
 
+## Cache And Performance
+
+Managed downloads are treated as reproducible source artifacts, while ALIEN keeps its own derived caches for repeated builds. MSigDB remote releases are verified and unpacked from the official archive, then matching RDS tables are normalized once into ALIEN Parquet membership caches. NCBI Gene rescue maps are also stored in a prepared JSON form after first construction.
+
+Large builds reuse those derived caches unless `--force-download` or source-level `force: true` is requested. Namespace mapping uses cached symbol/source-ID resolutions and can map multiple target namespaces in parallel when workers are available. Redundancy filtering uses deterministic set logic and union-find clustering rather than a graph dependency. These optimizations are intended to change runtime, not output semantics; audit tables and GMT outputs remain deterministic for the same inputs and configuration.
+
 ## Limitations
 
-ALIEN 0.1.2 is scoped to human gene-set integration with HGNC symbols, MSigDB and Enrichr local/remote caches, and Ensembl-style target namespaces. Non-Ensembl target ID systems, such as Entrez or UniProt GMT output, are future target adapters.
+ALIEN 0.1.3 is scoped to human gene-set integration with HGNC symbols, MSigDB and Enrichr local/remote caches, optimized repeated-build caches, and Ensembl-style target namespaces. Non-Ensembl target ID systems, such as Entrez or UniProt GMT output, are future target adapters.

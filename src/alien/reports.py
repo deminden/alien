@@ -26,7 +26,10 @@ def build_source_provenance(
             "type": target.get("type", ""),
             "annotation": target.get("annotation_label", ""),
             "annotation_path": str(target.get("annotation_path") or target.get("annotation_gtf", "")),
-            "restrict_to": str(target.get("source_path") or ""),
+            "gene_universe_path": str(target.get("source_path") or ""),
+            "gene_universe_column": str(target.get("source_column") or ""),
+            "gene_filter_path": str(target.get("filter_source_path") or ""),
+            "gene_filter_column": str(target.get("filter_source_column") or ""),
         }
         for target in targets
     ]
@@ -295,7 +298,7 @@ def _r_version() -> str:
 
 def _python_packages() -> dict[str, str]:
     packages = {}
-    for package in ["pandas", "pyarrow", "yaml", "requests", "networkx"]:
+    for package in ["pandas", "pyarrow", "yaml", "requests"]:
         try:
             mod = __import__(package)
             packages[package] = getattr(mod, "__version__", "unknown")

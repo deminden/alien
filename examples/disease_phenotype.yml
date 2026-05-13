@@ -2,7 +2,7 @@ project:
   # Download/cache root for MSigDB, Enrichr, HGNC, GENCODE, NCBI, and conversion helpers.
   source_dir: data/alien_sources
   # Output root. ALIEN writes gmt/, metadata/, and qc/ subfolders here.
-  outdir: data/alien_gmt/disease_phenotype
+  outdir: results/alien_outputs/disease_phenotype
 
 outputs:
   include_symbols: false
@@ -48,7 +48,7 @@ targets:
     annotation:
       source: GENCODE
       version: "47"
-    restrict_to:
+    gene_universe:
       path: data/gtex/GTEx_Analysis_2025-08-22_v11_RNASeQCv2.4.3_gene_reads.parquet
       column: index
   - name: tcga_recount3_gencode29
@@ -56,7 +56,7 @@ targets:
     annotation:
       source: GENCODE
       version: "29"
-    restrict_to:
+    gene_universe:
       path: data/tcga/normalised_counts_cancers/ACC_gencode_v29_normalised_counts.tsv.gz
       column: Ensembl_gene_ID
 
@@ -95,4 +95,4 @@ source_priority:
     - JENSEN_DISEASES_EXPERIMENTAL
 
 runtime:
-  workers: 4
+  workers: 16

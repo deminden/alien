@@ -1,6 +1,6 @@
 import pandas as pd
 
-from alien.mapping import EnsemblArchiveResolver, map_ensembl, resolve_current_symbol
+from alien.mapping import EnsemblArchiveResolver, map_ensembl, map_namespaces, resolve_current_symbol
 from alien.sources import build_hgnc_maps
 
 
@@ -114,6 +114,124 @@ def test_ensembl_mapping_priority_and_universe_projection():
     assert mapping_status[("human_test", "biology_process_pathway", "REACTOME", "archive_ensembl_rescue")] == 1
     assert mapping_status[("human_test", "biology_process_pathway", "REACTOME", "ambiguous_drop")] == 1
     assert mapping_status[("human_test", "biology_process_pathway", "REACTOME", "unmapped_drop")] == 2
+
+
+def test_archive_lookup_ignores_current_annotation_ids_outside_restricted_universe():
+    hgnc = build_hgnc_maps(
+        pd.DataFrame([{"symbol": "OUTSIDE", "prev_symbol": "", "alias_symbol": "", "ensembl_gene_id": "ENSG00000000001"}])
+    )
+    gencode = pd.DataFrame(
+        [
+            {"gene_symbol": "OUTSIDE", "ensembl_gene_id": "ENSG00000000001", "gene_biotype": "protein_coding", "is_in_expression_universe": False},
+            {"gene_symbol": "INSIDE", "ensembl_gene_id": "ENSG00000000002", "gene_biotype": "protein_coding", "is_in_expression_universe": True},
+        ]
+    )
+    unmapped = []
+    archive_audit = []
+    resolver = _FakeArchiveResolver()
+
+    mapped = map_ensembl(
+        pd.DataFrame([_row("T_OUTSIDE", "OUTSIDE", "ENSG00000000001.1")]),
+        hgnc,
+        {},
+        gencode,
+        {"ENSG00000000002"},
+        "human_test",
+        {"gene_mapping": {"manual_symbol_repairs": {}}},
+        unmapped,
+        [],
+        [],
+        archive_audit=archive_audit,
+        archive_resolver=resolver,
+    )
+
+    assert mapped == {}
+    assert unmapped[0]["reason"] == "not_in_target_universe"
+    assert resolver.stable_ids == []
+    assert resolver.lookups == []
+    assert archive_audit == []
+
+
+def test_archive_lookup_ignores_current_hgnc_ids_absent_from_old_annotation():
+    hgnc = build_hgnc_maps(
+        pd.DataFrame([{"symbol": "CURRENTONLY", "prev_symbol": "", "alias_symbol": "", "ensembl_gene_id": "ENSG00000000003"}])
+    )
+    gencode = pd.DataFrame(
+        [{"gene_symbol": "INSIDE", "ensembl_gene_id": "ENSG00000000002", "gene_biotype": "protein_coding", "is_in_expression_universe": True}]
+    )
+    unmapped = []
+    archive_audit = []
+    resolver = _FakeArchiveResolver()
+
+    mapped = map_ensembl(
+        pd.DataFrame([_row("T_CURRENTONLY", "CURRENTONLY", "ENSG00000000003.1")]),
+        hgnc,
+        {},
+        gencode,
+        {"ENSG00000000002"},
+        "old_annotation",
+        {"gene_mapping": {"manual_symbol_repairs": {}}},
+        unmapped,
+        [],
+        [],
+        archive_audit=archive_audit,
+        archive_resolver=resolver,
+    )
+
+    assert mapped == {}
+    assert unmapped[0]["reason"] == "not_in_target_universe"
+    assert resolver.stable_ids == []
+    assert resolver.lookups == []
+    assert archive_audit == []
+
+
+def test_map_namespaces_parallel_maps_multiple_targets():
+    hgnc = build_hgnc_maps(
+        pd.DataFrame(
+            [
+                {"symbol": "TP53", "prev_symbol": "", "alias_symbol": "", "ensembl_gene_id": "ENSG00000141510"},
+                {"symbol": "GENE2", "prev_symbol": "", "alias_symbol": "", "ensembl_gene_id": "ENSG000002"},
+            ]
+        )
+    )
+    term_df = pd.DataFrame([_row("T_PARALLEL", "TP53", ""), _row("T_PARALLEL", "GENE2", "")])
+    targets = [
+        {
+            "name": "target_a",
+            "annotation": pd.DataFrame(
+                [
+                    {"gene_symbol": "TP53", "ensembl_gene_id": "ENSG00000141510", "gene_biotype": "protein_coding", "is_in_expression_universe": True},
+                    {"gene_symbol": "GENE2", "ensembl_gene_id": "ENSG000002", "gene_biotype": "protein_coding", "is_in_expression_universe": True},
+                ]
+            ),
+            "universe": {"ENSG00000141510", "ENSG000002"},
+        },
+        {
+            "name": "target_b",
+            "annotation": pd.DataFrame(
+                [{"gene_symbol": "TP53", "ensembl_gene_id": "ENSG00000141510", "gene_biotype": "protein_coding", "is_in_expression_universe": True}]
+            ),
+            "universe": {"ENSG00000141510"},
+        },
+    ]
+
+    mapped, unmapped, ambiguous, non_gene, archive_audit, ncbi_audit, mapping_status = map_namespaces(
+        term_df,
+        hgnc,
+        {},
+        targets,
+        {"outputs": {"include_symbols": False}, "gene_mapping": {"manual_symbol_repairs": {}}, "ensembl_archive": {"enabled": False}},
+        workers=2,
+    )
+
+    assert mapped["target_a"]["T_PARALLEL"]["genes"] == {"ENSG00000141510", "ENSG000002"}
+    assert mapped["target_b"]["T_PARALLEL"]["genes"] == {"ENSG00000141510"}
+    assert unmapped["target_namespace"].tolist() == ["target_b"]
+    assert ambiguous.empty
+    assert non_gene.empty
+    assert archive_audit.empty
+    assert ncbi_audit.empty
+    assert set(mapping_status["target_namespace"]) == {"target_a", "target_b"}
 
 
 def test_configured_non_gene_tokens_are_dropped_before_mapping():
@@ -232,11 +350,17 @@ def test_ncbi_rescue_can_be_restricted_by_source_tag():
 
 
 class _FakeArchiveResolver:
+    def __init__(self):
+        self.stable_ids = []
+        self.namespace = ""
+        self.lookups = []
+
     def prefetch(self, stable_ids, namespace=""):
         self.stable_ids = stable_ids
         self.namespace = namespace
 
     def lookup(self, stable_id):
+        self.lookups.append(stable_id)
         if stable_id == "ENSG00000199999":
             return {
                 "found": True,

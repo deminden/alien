@@ -3,13 +3,14 @@ from __future__ import annotations
 import json
 import re
 import time
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 import requests
 
-from .utils import LOGGER, description_from_record, ensure_dirs, strip_ensembl_version, write_json
+from .utils import LOGGER, description_from_record, ensure_dirs, process_pool_context, strip_ensembl_version, write_json
 
 
 def map_namespaces(
@@ -30,32 +31,51 @@ def map_namespaces(
     ncbi_audit: list[dict[str, object]] = []
     mapping_status: dict[tuple[str, str, str, str], int] = {}
     archive_resolver = _build_archive_resolver(source_dir, cfg)
+    term_records = _term_records(term_df)
 
     mapped: dict[str, dict[str, dict[str, Any]]] = {}
     if cfg.get("outputs", {}).get("include_symbols", True):
-        mapped["symbols"] = map_symbols(term_df, hgnc_maps, cfg, unmapped, ambiguous, non_gene)
+        mapped["symbols"] = map_symbols(term_records, hgnc_maps, cfg, unmapped, ambiguous, non_gene)
+
+    if targets and archive_resolver is not None:
+        for target in targets:
+            namespace = str(target["name"])
+            _, _, known_target_ids = _target_id_sets(target["annotation"], target.get("universe"), target.get("gene_filter"), hgnc_maps)
+            archive_resolver.prefetch(_problematic_source_ids(term_records, known_target_ids), namespace)
+        archive_resolver.save()
 
     if workers > 1 and len(targets) > 1:
-        LOGGER.info("Mapping %d target namespaces serially; workers are used for filtering in this release.", len(targets))
-
-    for target in targets:
-        namespace = str(target["name"])
-        mapped[namespace] = map_ensembl(
-            term_df,
-            hgnc_maps,
-            ncbi_maps,
-            target["annotation"],
-            target.get("universe"),
-            namespace,
-            cfg,
-            unmapped,
-            ambiguous,
-            non_gene,
-            archive_audit,
-            ncbi_audit,
-            mapping_status,
-            archive_resolver,
-        )
+        LOGGER.info("Mapping %d target namespaces with %d worker process(es).", len(targets), min(workers, len(targets)))
+        target_results = _map_targets_parallel(term_records, hgnc_maps, ncbi_maps, targets, cfg, archive_resolver, workers)
+        for namespace, target_mapped, target_unmapped, target_ambiguous, target_non_gene, target_archive_audit, target_ncbi_audit, target_mapping_status in target_results:
+            mapped[namespace] = target_mapped
+            unmapped.extend(target_unmapped)
+            ambiguous.extend(target_ambiguous)
+            non_gene.extend(target_non_gene)
+            archive_audit.extend(target_archive_audit)
+            ncbi_audit.extend(target_ncbi_audit)
+            _merge_mapping_status(mapping_status, target_mapping_status)
+    else:
+        for target in targets:
+            namespace = str(target["name"])
+            mapped[namespace] = map_ensembl(
+                term_records,
+                hgnc_maps,
+                ncbi_maps,
+                target["annotation"],
+                target.get("universe"),
+                namespace,
+                cfg,
+                unmapped,
+                ambiguous,
+                non_gene,
+                archive_audit,
+                ncbi_audit,
+                mapping_status,
+                archive_resolver,
+                gene_filter=target.get("gene_filter"),
+                prefetch_archive=False,
+            )
 
     if archive_resolver is not None:
         archive_resolver.save()
@@ -70,8 +90,75 @@ def map_namespaces(
     )
 
 
+def _map_targets_parallel(
+    term_records: list[dict[str, Any]],
+    hgnc_maps: dict[str, object],
+    ncbi_maps: dict[str, object],
+    targets: list[dict[str, Any]],
+    cfg: dict,
+    archive_resolver: "EnsemblArchiveResolver | None",
+    workers: int,
+) -> list[tuple[str, dict[str, dict[str, Any]], list[dict[str, object]], list[dict[str, object]], list[dict[str, object]], list[dict[str, object]], list[dict[str, object]], dict[tuple[str, str, str, str], int]]]:
+    target_order = [str(target["name"]) for target in targets]
+    with ProcessPoolExecutor(max_workers=min(workers, len(targets)), mp_context=process_pool_context()) as executor:
+        futures = [
+            executor.submit(_map_target_task, term_records, hgnc_maps, ncbi_maps, target, cfg, archive_resolver)
+            for target in targets
+        ]
+        results = [future.result() for future in as_completed(futures)]
+    order_index = {namespace: i for i, namespace in enumerate(target_order)}
+    return sorted(results, key=lambda item: order_index[item[0]])
+
+
+def _map_target_task(
+    term_records: list[dict[str, Any]],
+    hgnc_maps: dict[str, object],
+    ncbi_maps: dict[str, object],
+    target: dict[str, Any],
+    cfg: dict,
+    archive_resolver: "EnsemblArchiveResolver | None",
+) -> tuple[str, dict[str, dict[str, Any]], list[dict[str, object]], list[dict[str, object]], list[dict[str, object]], list[dict[str, object]], list[dict[str, object]], dict[tuple[str, str, str, str], int]]:
+    namespace = str(target["name"])
+    unmapped: list[dict[str, object]] = []
+    ambiguous: list[dict[str, object]] = []
+    non_gene: list[dict[str, object]] = []
+    archive_audit: list[dict[str, object]] = []
+    ncbi_audit: list[dict[str, object]] = []
+    mapping_status: dict[tuple[str, str, str, str], int] = {}
+    mapped = map_ensembl(
+        term_records,
+        hgnc_maps,
+        ncbi_maps,
+        target["annotation"],
+        target.get("universe"),
+        namespace,
+        cfg,
+        unmapped,
+        ambiguous,
+        non_gene,
+        archive_audit,
+        ncbi_audit,
+        mapping_status,
+        archive_resolver,
+        gene_filter=target.get("gene_filter"),
+        prefetch_archive=False,
+    )
+    return namespace, mapped, unmapped, ambiguous, non_gene, archive_audit, ncbi_audit, mapping_status
+
+
+def _merge_mapping_status(target: dict[tuple[str, str, str, str], int], source: dict[tuple[str, str, str, str], int]) -> None:
+    for key, value in source.items():
+        target[key] = target.get(key, 0) + value
+
+
+def _term_records(term_df: pd.DataFrame | list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if isinstance(term_df, list):
+        return term_df
+    return term_df.fillna("").to_dict("records")
+
+
 def map_symbols(
-    term_df: pd.DataFrame,
+    term_df: pd.DataFrame | list[dict[str, Any]],
     hgnc_maps: dict[str, object],
     cfg: dict,
     unmapped: list[dict[str, object]],
@@ -82,11 +169,18 @@ def map_symbols(
     output: dict[str, dict[str, Any]] = {}
     non_gene = non_gene if non_gene is not None else []
     preserve = cfg.get("gene_mapping", {}).get("preserve_unmapped_symbols_in_symbol_gmt", True)
-    for _, row in term_df.iterrows():
-        if _is_non_gene_token(row.get("gene_symbol", ""), cfg):
+    is_non_gene = _non_gene_matcher(cfg)
+    resolve_cache: dict[str, tuple[str, str, list[str]]] = {}
+    for row in _term_records(term_df):
+        gene_symbol = str(row.get("gene_symbol", ""))
+        if is_non_gene(gene_symbol):
             non_gene.append(_non_gene_row("symbols", row, row["gene_symbol"], "configured_non_gene_token"))
             continue
-        symbol, status, matches = resolve_current_symbol(str(row["gene_symbol"]), hgnc_maps)
+        resolved = resolve_cache.get(gene_symbol)
+        if resolved is None:
+            resolved = resolve_current_symbol(gene_symbol, hgnc_maps)
+            resolve_cache[gene_symbol] = resolved
+        symbol, status, matches = resolved
         if status == "ambiguous_alias":
             ambiguous.append(_ambiguous_row("symbols", row, row["gene_symbol"], "hgnc_alias_symbol", matches, [], "drop_alias"))
             if not preserve:
@@ -102,7 +196,7 @@ def map_symbols(
 
 
 def map_ensembl(
-    term_df: pd.DataFrame,
+    term_df: pd.DataFrame | list[dict[str, Any]],
     hgnc_maps: dict[str, object],
     ncbi_maps: dict[str, object] | None,
     gencode: pd.DataFrame,
@@ -116,32 +210,33 @@ def map_ensembl(
     ncbi_audit: list[dict[str, object]] | None = None,
     mapping_status: dict[tuple[str, str, str, str], int] | None = None,
     archive_resolver: "EnsemblArchiveResolver | None" = None,
+    gene_filter: set[str] | None = None,
     prefetch_archive: bool = True,
 ) -> dict[str, dict[str, Any]]:
-    # Project source genes onto one target matrix universe
+    # Project source genes onto one target namespace.
     output: dict[str, dict[str, Any]] = {}
     non_gene = non_gene if non_gene is not None else []
     archive_audit = archive_audit if archive_audit is not None else []
     ncbi_audit = ncbi_audit if ncbi_audit is not None else []
     mapping_status = mapping_status if mapping_status is not None else {}
+    term_records = _term_records(term_df)
     symbol_index = _gencode_symbol_index(gencode)
-    gencode_ids = {str(gene) for gene in gencode["ensembl_gene_id"]}
-    target_ids = {strip_ensembl_version(gene) for gene in universe} if universe else set(gencode_ids)
+    target_ids, _, known_target_ids = _target_id_sets(gencode, universe, gene_filter, hgnc_maps)
     manual_repairs = cfg.get("gene_mapping", {}).get("manual_symbol_repairs", {}) or {}
+    is_non_gene = _non_gene_matcher(cfg)
+    resolve_cache: dict[str, tuple[str, str, list[str]]] = {}
+    candidate_cache: dict[str, list[dict[str, Any]]] = {}
+    ncbi_rescue_cache: dict[tuple[str, str], dict[str, object]] = {}
 
-    # Query archive only for source Ensembl IDs absent from the target universe
-    problematic_source_ids = sorted(
-        {
-            strip_ensembl_version(value)
-            for value in term_df.get("gene_ensembl_from_source", pd.Series(dtype=str))
-            if strip_ensembl_version(value) and strip_ensembl_version(value) not in target_ids
-        }
-    )
+    # Query archive only for source Ensembl IDs absent from known annotation/config/current HGNC IDs.
+    # Target gene universes or older target annotations can exclude current genes; that alone should not trigger archive calls.
+    problematic_source_ids = _problematic_source_ids(term_records, known_target_ids)
     if archive_resolver is not None and prefetch_archive:
         archive_resolver.prefetch(problematic_source_ids, namespace)
 
-    for _, row in term_df.iterrows():
-        if _is_non_gene_token(row.get("gene_symbol", ""), cfg):
+    for row in term_records:
+        gene_symbol = str(row.get("gene_symbol", ""))
+        if is_non_gene(gene_symbol):
             _count_status(mapping_status, namespace, row, "non_gene_token_drop")
             non_gene.append(_non_gene_row(namespace, row, row["gene_symbol"], "configured_non_gene_token"))
             continue
@@ -153,9 +248,11 @@ def map_ensembl(
             continue
         archive_info: dict[str, Any] = {}
         archive_matches: list[str] = []
-        if source_ensembl and archive_resolver is not None:
+        archive_checked = False
+        if source_ensembl and archive_resolver is not None and source_ensembl not in known_target_ids:
             # Rescue retired Ensembl IDs only when the archive gives one target match
             archive_info = archive_resolver.lookup(source_ensembl)
+            archive_checked = True
             archive_matches = _archive_target_matches(archive_info, target_ids)
             if len(archive_matches) == 1:
                 rescued = archive_matches[0]
@@ -165,21 +262,25 @@ def map_ensembl(
                 continue
 
         # Fall back through HGNC symbol history and target annotation helpers
-        current_symbol, status, matches = resolve_current_symbol(str(row["gene_symbol"]), hgnc_maps, manual_repairs)
+        resolved = resolve_cache.get(gene_symbol)
+        if resolved is None:
+            resolved = resolve_current_symbol(gene_symbol, hgnc_maps, manual_repairs)
+            resolve_cache[gene_symbol] = resolved
+        current_symbol, status, matches = resolved
         if status == "ambiguous_alias":
             _count_status(mapping_status, namespace, row, "ambiguous_drop")
             ambiguous.append(_ambiguous_row(namespace, row, row["gene_symbol"], "hgnc_alias_symbol", matches, [], "drop"))
-            if source_ensembl:
+            if archive_checked:
                 archive_audit.append(_archive_audit_row(namespace, row, source_ensembl, archive_info, "", _archive_unresolved_status(archive_info, archive_matches, "ambiguous_symbol")))
             continue
         if not current_symbol:
-            ncbi_rescue = _try_ncbi_rescue(row, ncbi_maps or {}, symbol_index, hgnc_maps, target_ids, cfg)
+            ncbi_rescue = _cached_ncbi_rescue(ncbi_rescue_cache, row, ncbi_maps or {}, symbol_index, hgnc_maps, target_ids, cfg)
             if ncbi_rescue["status"] in {"ncbi_gene_history", "ncbi_gene_info_synonym"}:
                 rescued = str(ncbi_rescue["ensembl_gene_id"])
                 _add_gene(output, row, rescued)
                 _count_status(mapping_status, namespace, row, str(ncbi_rescue["status"]))
                 ncbi_audit.append(_ncbi_audit_row(namespace, row, ncbi_rescue, rescued, "rescued"))
-                if source_ensembl:
+                if archive_checked:
                     archive_audit.append(_archive_audit_row(namespace, row, source_ensembl, archive_info, rescued, str(ncbi_rescue["status"])))
                 continue
             if ncbi_rescue["status"].startswith("ambiguous"):
@@ -191,27 +292,29 @@ def map_ensembl(
                 unmapped.append(_unmapped_row(namespace, row, row["gene_symbol"], "", "unmapped_symbol", matches))
                 if ncbi_rescue["status"] != "ncbi_not_checked":
                     ncbi_audit.append(_ncbi_audit_row(namespace, row, ncbi_rescue, "", "unmapped_drop"))
-            if source_ensembl:
+            if archive_checked:
                 archive_audit.append(_archive_audit_row(namespace, row, source_ensembl, archive_info, "", _archive_unresolved_status(archive_info, archive_matches, "unmapped_symbol")))
             continue
 
-        candidates = _symbol_candidates(current_symbol, symbol_index, hgnc_maps)
-        candidates = [candidate for candidate in candidates if candidate["ensembl_gene_id"] in target_ids]
+        candidates = candidate_cache.get(current_symbol)
+        if candidates is None:
+            candidates = [candidate for candidate in _symbol_candidates(current_symbol, symbol_index, hgnc_maps) if candidate["ensembl_gene_id"] in target_ids]
+            candidate_cache[current_symbol] = candidates
         if not candidates:
-            ncbi_rescue = _try_ncbi_rescue(row, ncbi_maps or {}, symbol_index, hgnc_maps, target_ids, cfg)
+            ncbi_rescue = _cached_ncbi_rescue(ncbi_rescue_cache, row, ncbi_maps or {}, symbol_index, hgnc_maps, target_ids, cfg)
             if ncbi_rescue["status"] in {"ncbi_gene_history", "ncbi_gene_info_synonym"}:
                 rescued = str(ncbi_rescue["ensembl_gene_id"])
                 _add_gene(output, row, rescued)
                 _count_status(mapping_status, namespace, row, str(ncbi_rescue["status"]))
                 ncbi_audit.append(_ncbi_audit_row(namespace, row, ncbi_rescue, rescued, "rescued"))
-                if source_ensembl:
+                if archive_checked:
                     archive_audit.append(_archive_audit_row(namespace, row, source_ensembl, archive_info, rescued, str(ncbi_rescue["status"])))
                 continue
             _count_status(mapping_status, namespace, row, "not_in_target_universe")
             unmapped.append(_unmapped_row(namespace, row, row["gene_symbol"], current_symbol, "not_in_target_universe", []))
             if ncbi_rescue["status"] != "ncbi_not_checked":
                 ncbi_audit.append(_ncbi_audit_row(namespace, row, ncbi_rescue, "", "not_in_target_universe"))
-            if source_ensembl:
+            if archive_checked:
                 archive_audit.append(_archive_audit_row(namespace, row, source_ensembl, archive_info, "", _archive_unresolved_status(archive_info, archive_matches, "not_in_target_universe")))
             continue
         chosen = _choose_gencode_candidate(candidates)
@@ -220,16 +323,16 @@ def map_ensembl(
             if chosen is not None:
                 _add_gene(output, row, chosen["ensembl_gene_id"])
                 _count_status(mapping_status, namespace, row, "hgnc_ensembl_tiebreak")
-                if source_ensembl:
+                if archive_checked:
                     archive_audit.append(_archive_audit_row(namespace, row, source_ensembl, archive_info, chosen["ensembl_gene_id"], "hgnc_ensembl_tiebreak"))
                 continue
-            ncbi_rescue = _try_ncbi_rescue(row, ncbi_maps or {}, symbol_index, hgnc_maps, target_ids, cfg)
+            ncbi_rescue = _cached_ncbi_rescue(ncbi_rescue_cache, row, ncbi_maps or {}, symbol_index, hgnc_maps, target_ids, cfg)
             if ncbi_rescue["status"] in {"ncbi_gene_history", "ncbi_gene_info_synonym"}:
                 rescued = str(ncbi_rescue["ensembl_gene_id"])
                 _add_gene(output, row, rescued)
                 _count_status(mapping_status, namespace, row, str(ncbi_rescue["status"]))
                 ncbi_audit.append(_ncbi_audit_row(namespace, row, ncbi_rescue, rescued, "rescued"))
-                if source_ensembl:
+                if archive_checked:
                     archive_audit.append(_archive_audit_row(namespace, row, source_ensembl, archive_info, rescued, str(ncbi_rescue["status"])))
                 continue
             _count_status(mapping_status, namespace, row, "ambiguous_drop")
@@ -244,15 +347,62 @@ def map_ensembl(
                     "drop",
                 )
             )
-            if source_ensembl:
+            if archive_checked:
                 archive_audit.append(_archive_audit_row(namespace, row, source_ensembl, archive_info, "", _archive_unresolved_status(archive_info, archive_matches, "ambiguous_gencode")))
             continue
         _add_gene(output, row, chosen["ensembl_gene_id"])
         mapping_status_name = _symbol_mapping_status(status)
         _count_status(mapping_status, namespace, row, mapping_status_name)
-        if source_ensembl:
+        if archive_checked:
             archive_audit.append(_archive_audit_row(namespace, row, source_ensembl, archive_info, chosen["ensembl_gene_id"], mapping_status_name))
     return output
+
+
+def _target_id_sets(
+    gencode: pd.DataFrame,
+    universe: set[str] | None,
+    gene_filter: set[str] | None,
+    hgnc_maps: dict[str, object],
+) -> tuple[set[str], set[str], set[str]]:
+    annotation_ids = {str(gene) for gene in gencode["ensembl_gene_id"]}
+    universe_ids = {strip_ensembl_version(gene) for gene in universe} if universe else set()
+    filter_ids = {strip_ensembl_version(gene) for gene in gene_filter} if gene_filter else set()
+    if universe_ids:
+        target_ids = universe_ids
+    elif filter_ids:
+        target_ids = annotation_ids & filter_ids
+    else:
+        target_ids = set(annotation_ids)
+    current_hgnc_ensembl_ids = {
+        strip_ensembl_version(value) for value in hgnc_maps.get("current_to_ensembl", {}).values() if strip_ensembl_version(value)
+    }
+    return target_ids, annotation_ids, annotation_ids | target_ids | universe_ids | filter_ids | current_hgnc_ensembl_ids
+
+
+def _problematic_source_ids(term_records: list[dict[str, Any]], known_target_ids: set[str]) -> list[str]:
+    return sorted(
+        {
+            stable
+            for row in term_records
+            for stable in [strip_ensembl_version(row.get("gene_ensembl_from_source", ""))]
+            if stable and stable not in known_target_ids
+        }
+    )
+
+
+def _cached_ncbi_rescue(
+    cache: dict[tuple[str, str], dict[str, object]],
+    row: dict[str, Any],
+    ncbi_maps: dict[str, object],
+    symbol_index: dict[str, list[dict[str, str]]],
+    hgnc_maps: dict[str, object],
+    target_ids: set[str],
+    cfg: dict,
+) -> dict[str, object]:
+    key = (str(row.get("gene_symbol", "")), str(row.get("source_tag", "")))
+    if key not in cache:
+        cache[key] = _try_ncbi_rescue(row, ncbi_maps, symbol_index, hgnc_maps, target_ids, cfg)
+    return cache[key]
 
 
 def resolve_current_symbol(symbol: str, hgnc_maps: dict[str, object], manual_repairs: dict[str, str] | None = None) -> tuple[str, str, list[str]]:
@@ -282,16 +432,17 @@ def resolve_current_symbol(symbol: str, hgnc_maps: dict[str, object], manual_rep
 
 def _gencode_symbol_index(gencode: pd.DataFrame) -> dict[str, list[dict[str, str]]]:
     index: dict[str, list[dict[str, str]]] = {}
-    for _, row in gencode.iterrows():
-        symbol = str(row.get("gene_symbol", ""))
+    for row in gencode.itertuples(index=False):
+        row_dict = row._asdict()
+        symbol = str(row_dict.get("gene_symbol", ""))
         if not symbol:
             continue
         index.setdefault(symbol, []).append(
             {
-                "ensembl_gene_id": str(row["ensembl_gene_id"]),
-                "gene_biotype": str(row.get("gene_biotype", "")),
-                "is_in_expression_universe": str(row.get("is_in_expression_universe", "")) == "True"
-                or bool(row.get("is_in_expression_universe", False)),
+                "ensembl_gene_id": str(row_dict["ensembl_gene_id"]),
+                "gene_biotype": str(row_dict.get("gene_biotype", "")),
+                "is_in_expression_universe": str(row_dict.get("is_in_expression_universe", "")) == "True"
+                or bool(row_dict.get("is_in_expression_universe", False)),
                 "annotation_source": "GENCODE",
             }
         )
@@ -344,7 +495,7 @@ def _symbol_candidates(current_symbol: str, symbol_index: dict[str, list[dict[st
 
 
 def _try_ncbi_rescue(
-    row: pd.Series,
+    row: dict[str, Any],
     ncbi_maps: dict[str, object],
     symbol_index: dict[str, list[dict[str, str]]],
     hgnc_maps: dict[str, object],
@@ -386,7 +537,7 @@ def _try_ncbi_rescue(
     return _empty_ncbi_rescue("ncbi_not_checked")
 
 
-def _ncbi_rescue_allowed_for_source(row: pd.Series, cfg: dict) -> bool:
+def _ncbi_rescue_allowed_for_source(row: dict[str, Any], cfg: dict) -> bool:
     allowed = cfg.get("ncbi_gene", {}).get("allowed_source_tags", [])
     if not allowed:
         return True
@@ -451,7 +602,7 @@ def _symbol_mapping_status(status: str) -> str:
     }.get(status, status)
 
 
-def _count_status(mapping_status: dict[tuple[str, str, str, str], int], namespace: str, row: pd.Series, status: str) -> None:
+def _count_status(mapping_status: dict[tuple[str, str, str, str], int], namespace: str, row: dict[str, Any], status: str) -> None:
     key = (namespace, str(row.get("family", "")), str(row.get("source_tag", "")), status)
     mapping_status[key] = mapping_status.get(key, 0) + 1
 
@@ -475,12 +626,12 @@ def _mapping_status_frame(mapping_status: dict[tuple[str, str, str, str], int]) 
     )
 
 
-def _add_gene(output: dict[str, dict[str, Any]], row: pd.Series, gene: str) -> None:
+def _add_gene(output: dict[str, dict[str, Any]], row: dict[str, Any], gene: str) -> None:
     if not gene:
         return
     term_id = str(row["term_id"])
     if term_id not in output:
-        record = row.to_dict()
+        record = dict(row)
         output[term_id] = {
             "genes": set(),
             "description": description_from_record(record),
@@ -491,18 +642,27 @@ def _add_gene(output: dict[str, dict[str, Any]], row: pd.Series, gene: str) -> N
     output[term_id]["original_genes"].add(str(row.get("gene_symbol", "")))
 
 
-def _is_non_gene_token(value: object, cfg: dict) -> bool:
-    text = str(value).strip()
-    if not text:
-        return False
+def _non_gene_matcher(cfg: dict):
     mapping_cfg = cfg.get("gene_mapping", {})
     exact = {str(token).casefold() for token in mapping_cfg.get("non_gene_tokens", [])}
-    if text.casefold() in exact:
-        return True
-    return any(re.match(pattern, text, re.I) for pattern in mapping_cfg.get("non_gene_token_regex", []))
+    patterns = [re.compile(pattern, re.I) for pattern in mapping_cfg.get("non_gene_token_regex", [])]
+
+    def is_non_gene(value: object) -> bool:
+        text = str(value).strip()
+        if not text:
+            return False
+        if text.casefold() in exact:
+            return True
+        return any(pattern.match(text) for pattern in patterns)
+
+    return is_non_gene
 
 
-def _non_gene_row(namespace: str, row: pd.Series, input_gene: object, reason: str) -> dict[str, object]:
+def _is_non_gene_token(value: object, cfg: dict) -> bool:
+    return _non_gene_matcher(cfg)(value)
+
+
+def _non_gene_row(namespace: str, row: dict[str, Any], input_gene: object, reason: str) -> dict[str, object]:
     return {
         "target_namespace": namespace,
         "family": row.get("family", ""),
@@ -513,7 +673,7 @@ def _non_gene_row(namespace: str, row: pd.Series, input_gene: object, reason: st
     }
 
 
-def _unmapped_row(namespace: str, row: pd.Series, input_gene: object, attempted: object, reason: str, matches: list[str]) -> dict[str, object]:
+def _unmapped_row(namespace: str, row: dict[str, Any], input_gene: object, attempted: object, reason: str, matches: list[str]) -> dict[str, object]:
     return {
         "target_namespace": namespace,
         "family": row.get("family", ""),
@@ -526,7 +686,7 @@ def _unmapped_row(namespace: str, row: pd.Series, input_gene: object, attempted:
     }
 
 
-def _ncbi_audit_row(namespace: str, row: pd.Series, rescue: dict[str, object], resolved_ensembl: str, action: str) -> dict[str, object]:
+def _ncbi_audit_row(namespace: str, row: dict[str, Any], rescue: dict[str, object], resolved_ensembl: str, action: str) -> dict[str, object]:
     return {
         "target_namespace": namespace,
         "family": row.get("family", ""),
@@ -545,7 +705,7 @@ def _ncbi_audit_row(namespace: str, row: pd.Series, rescue: dict[str, object], r
     }
 
 
-def _ambiguous_row(namespace: str, row: pd.Series, input_gene: object, stage: str, symbols: list[str], ensembl: list[str], action: str) -> dict[str, object]:
+def _ambiguous_row(namespace: str, row: dict[str, Any], input_gene: object, stage: str, symbols: list[str], ensembl: list[str], action: str) -> dict[str, object]:
     return {
         "target_namespace": namespace,
         "family": row.get("family", ""),
@@ -761,7 +921,7 @@ def _archive_unresolved_status(archive_info: dict[str, Any], archive_matches: li
 
 def _archive_audit_row(
     namespace: str,
-    row: pd.Series,
+    row: dict[str, Any],
     source_ensembl: str,
     archive_info: dict[str, Any],
     rescued_ensembl: str,

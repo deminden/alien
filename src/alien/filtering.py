@@ -3,7 +3,6 @@ from __future__ import annotations
 import re
 from typing import Any
 
-import networkx as nx
 import pandas as pd
 
 
@@ -127,12 +126,15 @@ def _remove_jaccard(
     cutoff: float,
 ) -> tuple[dict[str, dict[str, Any]], list[dict[str, object]]]:
     # Cluster highly overlapping terms by Jaccard similarity
-    graph = nx.Graph()
-    graph.add_nodes_from(terms)
+    parent = {term_id: term_id for term_id in terms}
+    rank = {term_id: 0 for term_id in terms}
+    gene_sets = {term_id: record["genes"] for term_id, record in terms.items()}
+    sizes = {term_id: len(record["genes"]) for term_id, record in terms.items()}
     inverted: dict[str, list[str]] = {}
     for term_id, record in terms.items():
         for gene in record["genes"]:
             inverted.setdefault(gene, []).append(term_id)
+
     compared: set[tuple[str, str]] = set()
     for term_ids in inverted.values():
         term_ids = sorted(set(term_ids))
@@ -142,17 +144,25 @@ def _remove_jaccard(
                 if pair in compared:
                     continue
                 compared.add(pair)
-                size_a = len(terms[a]["genes"])
-                size_b = len(terms[b]["genes"])
+                size_a = sizes[a]
+                size_b = sizes[b]
                 if min(size_a, size_b) / max(size_a, size_b) <= cutoff:
                     continue
-                inter = len(terms[a]["genes"] & terms[b]["genes"])
-                union = len(terms[a]["genes"] | terms[b]["genes"])
+                if size_a < size_b:
+                    inter = sum(1 for gene in gene_sets[a] if gene in gene_sets[b])
+                else:
+                    inter = sum(1 for gene in gene_sets[b] if gene in gene_sets[a])
+                union = size_a + size_b - inter
                 if union and inter / union > cutoff:
-                    graph.add_edge(a, b)
+                    _union(parent, rank, a, b)
+
+    components: dict[str, list[str]] = {}
+    for term_id in terms:
+        components.setdefault(_find(parent, term_id), []).append(term_id)
+
     kept: dict[str, dict[str, Any]] = {}
     removed: list[dict[str, object]] = []
-    for component in nx.connected_components(graph):
+    for component in components.values():
         members = sorted(component)
         representative = _choose_representative(members, terms, priority)
         kept[representative] = terms[representative]
@@ -160,6 +170,27 @@ def _remove_jaccard(
         for term_id in sorted(set(members) - {representative}):
             removed.append(_redundancy_removed(namespace, family, term_id, representative, cluster, "jaccard_duplicate", len(terms[term_id]["genes"])))
     return kept, removed
+
+
+def _find(parent: dict[str, str], item: str) -> str:
+    root = item
+    while parent[root] != root:
+        root = parent[root]
+    while parent[item] != item:
+        item, parent[item] = parent[item], root
+    return root
+
+
+def _union(parent: dict[str, str], rank: dict[str, int], a: str, b: str) -> None:
+    root_a = _find(parent, a)
+    root_b = _find(parent, b)
+    if root_a == root_b:
+        return
+    if rank[root_a] < rank[root_b]:
+        root_a, root_b = root_b, root_a
+    parent[root_b] = root_a
+    if rank[root_a] == rank[root_b]:
+        rank[root_a] += 1
 
 
 def _choose_representative(term_ids: list[str], terms: dict[str, dict[str, Any]], priority: list[str]) -> str:

@@ -118,7 +118,8 @@ def build(
 
     LOGGER.info("Writing metadata and QC reports")
     write_tsv_gz(build_term_manifest(source_terms, filtered, removed_size, removed_redundancy), metadata_dir / "term_manifest.tsv.gz")
-    write_tsv_gz(_target_gene_restrictions(targets), metadata_dir / "target_gene_restrictions.tsv.gz")
+    write_tsv_gz(_target_gene_universe(targets), metadata_dir / "target_gene_universe.tsv.gz")
+    write_tsv_gz(_target_gene_filter(targets), metadata_dir / "target_gene_filter.tsv.gz")
     write_tsv_gz(removed_size, metadata_dir / "removed_terms_size_filter.tsv.gz")
     write_tsv_gz(removed_redundancy, metadata_dir / "removed_terms_redundancy.tsv.gz")
     write_tsv_gz(_with_columns(unmapped, ["target_namespace", "family", "term_id", "source_tag", "input_gene", "attempted_current_symbol", "reason", "possible_matches"]), metadata_dir / "unmapped_genes.tsv.gz")
@@ -179,7 +180,7 @@ def build(
     _ensembl_archive_summary(ensembl_archive_audit).to_csv(qc_dir / "ensembl_archive_summary.tsv", sep="\t", index=False)
     _non_gene_summary(non_gene).to_csv(qc_dir / "non_gene_token_summary.tsv", sep="\t", index=False)
     _ncbi_gene_summary(ncbi_gene_audit).to_csv(qc_dir / "ncbi_gene_rescue_summary.tsv", sep="\t", index=False)
-    _target_universe_summary(targets, source_terms).to_csv(qc_dir / "target_universe_summary.tsv", sep="\t", index=False)
+    _target_namespace_summary(targets, source_terms).to_csv(qc_dir / "target_namespace_summary.tsv", sep="\t", index=False)
     mapping_status_summary.to_csv(qc_dir / "mapping_status_summary.tsv", sep="\t", index=False)
     provenance = build_source_provenance(cfg, source_dir, targets, warnings)
     write_provenance(provenance, metadata_dir / "source_provenance.json")
@@ -325,16 +326,20 @@ def _prepare_targets(
         target_type = str(target.get("type", "ensembl_gtf"))
         if target_type != "ensembl_gtf":
             raise ValueError(f"Target {name} has unsupported type {target_type!r}.")
-        restriction = target.get("restrict_to")
-        if _empty_config_value(restriction):
-            restriction = target.get("gene_universe")
-        universe_path, universe_column, universe_ids = _target_restriction(restriction)
+        if "restrict_to" in target:
+            raise ValueError(f"Target {name} uses unsupported key 'restrict_to'; use 'gene_universe' or 'gene_filter' instead.")
+        if not _empty_config_value(target.get("gene_universe")) and not _empty_config_value(target.get("gene_filter")):
+            raise ValueError(f"Target {name} must define only one of gene_universe or gene_filter.")
+        universe_path, universe_column, universe_ids = _target_gene_id_spec(target.get("gene_universe"), "gene_universe")
         universe, universe_table, id_type = read_gene_universe(universe_path, column=universe_column, ids=universe_ids)
-        if universe is None:
-            LOGGER.info("No dataset restriction supplied for %s; using all annotation genes.", name)
-        LOGGER.info("%s universe ID type: %s", name, id_type)
+        filter_path, filter_column, filter_ids = _target_gene_id_spec(target.get("gene_filter"), "gene_filter")
+        gene_filter, gene_filter_table, filter_id_type = read_gene_universe(filter_path, column=filter_column, ids=filter_ids)
+        if universe is None and gene_filter is None:
+            LOGGER.info("No gene_universe or gene_filter supplied for %s; using all annotation genes.", name)
+        LOGGER.info("%s gene_universe ID type: %s", name, id_type)
+        LOGGER.info("%s gene_filter ID type: %s", name, filter_id_type)
         annotation, annotation_label, annotation_path = load_ensembl_gtf_target(source_dir, target, force_download)
-        annotation = mark_universe(annotation, universe)
+        annotation = mark_universe(annotation, universe or gene_filter)
         write_mapping(annotation, metadata_dir / f"gene_mapping_{name}.tsv.gz")
         prepared.append(
             {
@@ -345,6 +350,10 @@ def _prepare_targets(
                 "source_column": universe_column,
                 "universe": universe,
                 "universe_table": universe_table,
+                "filter_source_path": filter_path,
+                "filter_source_column": filter_column,
+                "gene_filter": gene_filter,
+                "gene_filter_table": gene_filter_table,
                 "annotation": annotation,
                 "annotation_path": annotation_path,
                 "annotation_label": annotation_label,
@@ -353,7 +362,7 @@ def _prepare_targets(
     return prepared
 
 
-def _target_restriction(value: object) -> tuple[Path | None, str | None, list[str] | tuple[str, ...] | set[str] | None]:
+def _target_gene_id_spec(value: object, field_name: str) -> tuple[Path | None, str | None, list[str] | tuple[str, ...] | set[str] | None]:
     if _empty_config_value(value):
         return None, None, None
     if isinstance(value, dict):
@@ -365,7 +374,7 @@ def _target_restriction(value: object) -> tuple[Path | None, str | None, list[st
                 ids = [ids]
             return path, column, ids
         if path is None:
-            raise ValueError("Target restrict_to dictionaries must define either path or ids.")
+            raise ValueError(f"Target {field_name} dictionaries must define either path or ids.")
         return path, column, None
     if isinstance(value, (list, tuple, set)):
         return None, None, value
@@ -507,19 +516,46 @@ def _redundancy_family_task(
     return namespace, family, final_terms, removed_redundancy, redundancy_summary
 
 
-def _target_gene_restrictions(targets: list[dict[str, Any]]) -> pd.DataFrame:
+def _target_gene_universe(targets: list[dict[str, Any]]) -> pd.DataFrame:
+    return _target_gene_id_table(
+        targets,
+        table_key="universe_table",
+        id_key="universe",
+        source_path_key="source_path",
+        source_column_key="source_column",
+    )
+
+
+def _target_gene_filter(targets: list[dict[str, Any]]) -> pd.DataFrame:
+    return _target_gene_id_table(
+        targets,
+        table_key="gene_filter_table",
+        id_key="gene_filter",
+        source_path_key="filter_source_path",
+        source_column_key="filter_source_column",
+    )
+
+
+def _target_gene_id_table(
+    targets: list[dict[str, Any]],
+    table_key: str,
+    id_key: str,
+    source_path_key: str,
+    source_column_key: str,
+) -> pd.DataFrame:
+    columns = ["target_namespace", "source_path", "source_column", "input_gene_id", "ensembl_gene_id", "id_type", "has_annotation_metadata"]
     rows: list[dict[str, object]] = []
     for target in targets:
         namespace = str(target["name"])
-        source_path = target.get("source_path")
-        source_column = target.get("source_column")
-        universe_table = target.get("universe_table", pd.DataFrame())
-        universe = target.get("universe")
+        source_path = target.get(source_path_key)
+        source_column = target.get(source_column_key)
+        gene_table = target.get(table_key, pd.DataFrame())
+        gene_ids = target.get(id_key)
         annotation = target["annotation"]
         annotation_ids = {strip_ensembl_version(gene) for gene in annotation.get("ensembl_gene_id", pd.Series(dtype=str))}
-        if universe_table.empty and universe:
-            universe_table = pd.DataFrame({"input_gene_id": sorted(universe), "ensembl_gene_id": sorted(universe), "id_type": "ensembl_stable"})
-        for _, row in universe_table.iterrows():
+        if gene_table.empty and gene_ids:
+            gene_table = pd.DataFrame({"input_gene_id": sorted(gene_ids), "ensembl_gene_id": sorted(gene_ids), "id_type": "ensembl_stable"})
+        for _, row in gene_table.iterrows():
             stable = strip_ensembl_version(row.get("ensembl_gene_id", ""))
             if not stable:
                 continue
@@ -534,10 +570,12 @@ def _target_gene_restrictions(targets: list[dict[str, Any]]) -> pd.DataFrame:
                     "has_annotation_metadata": stable in annotation_ids,
                 }
             )
-    return pd.DataFrame(rows).drop_duplicates()
+    if not rows:
+        return pd.DataFrame(columns=columns)
+    return pd.DataFrame(rows, columns=columns).drop_duplicates()
 
 
-def _target_universe_summary(targets: list[dict[str, Any]], source_terms: pd.DataFrame) -> pd.DataFrame:
+def _target_namespace_summary(targets: list[dict[str, Any]], source_terms: pd.DataFrame) -> pd.DataFrame:
     rows: list[dict[str, object]] = []
     source_ids = {
         strip_ensembl_version(value)
@@ -547,21 +585,29 @@ def _target_universe_summary(targets: list[dict[str, Any]], source_terms: pd.Dat
     for target in targets:
         namespace = str(target["name"])
         universe = target.get("universe")
+        gene_filter = target.get("gene_filter")
         annotation = target["annotation"]
-        universe_ids = {strip_ensembl_version(gene) for gene in universe} if universe else {
-            strip_ensembl_version(gene) for gene in annotation.get("ensembl_gene_id", pd.Series(dtype=str))
-        }
         annotation_ids = {strip_ensembl_version(gene) for gene in annotation.get("ensembl_gene_id", pd.Series(dtype=str))}
-        annotated_ids = universe_ids & annotation_ids
-        missing_annotation = universe_ids - annotated_ids
+        configured_universe_ids = {strip_ensembl_version(gene) for gene in universe} if universe else set()
+        filter_ids = {strip_ensembl_version(gene) for gene in gene_filter} if gene_filter else set()
+        if configured_universe_ids:
+            target_ids = configured_universe_ids
+        elif filter_ids:
+            target_ids = annotation_ids & filter_ids
+        else:
+            target_ids = annotation_ids
+        annotated_ids = target_ids & annotation_ids
+        missing_annotation = target_ids - annotated_ids
         rows.append(
             {
                 "target_namespace": namespace,
-                "matrix_universe_size": len(universe_ids),
+                "gene_universe_size": len(configured_universe_ids),
+                "gene_filter_size": len(filter_ids),
+                "effective_target_size": len(target_ids),
                 "annotation_helper_size": len(annotation_ids),
                 "ids_in_both": len(annotated_ids),
-                "matrix_ids_missing_annotation_metadata": len(missing_annotation),
-                "annotation_ids_absent_from_matrix": len(annotation_ids - universe_ids),
+                "target_ids_missing_annotation_metadata": len(missing_annotation),
+                "annotation_ids_absent_from_target": len(annotation_ids - target_ids),
                 "source_ensembl_ids_kept_without_annotation": len(source_ids & missing_annotation),
             }
         )
