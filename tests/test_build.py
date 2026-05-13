@@ -1,6 +1,8 @@
 import pandas as pd
+import pytest
 
 from alien import build
+from alien.build import _term_id_collision_audit
 
 
 def test_small_build_is_deterministic_and_writes_combined_gmts(tmp_path):
@@ -72,6 +74,48 @@ def test_small_build_is_deterministic_and_writes_combined_gmts(tmp_path):
     assert mapping["source_gtf"].unique().tolist() == [str(gtf)]
     assert (out1 / "gmt" / "symbols.gmt").read_text(encoding="utf-8") == (out2 / "gmt" / "symbols.gmt").read_text(encoding="utf-8")
     assert (out1 / "gmt" / "human_test.gmt").read_text(encoding="utf-8") == (out2 / "gmt" / "human_test.gmt").read_text(encoding="utf-8")
+
+
+def test_term_id_collision_audit_ignores_membership_rows_for_same_term_identity():
+    source_terms = pd.DataFrame(
+        {
+            "term_id": ["TERM", "TERM"],
+            "source_tag": ["LOCAL", "LOCAL"],
+            "collection": ["example", "example"],
+            "original_name": ["Term", "Term"],
+            "gene_symbol": ["TP53", "GENE2"],
+        }
+    )
+
+    assert _term_id_collision_audit(source_terms).empty
+
+
+def test_build_errors_and_writes_audit_for_conflicting_term_ids(tmp_path):
+    source_a = tmp_path / "a.tsv"
+    source_b = tmp_path / "b.tsv"
+    outdir = tmp_path / "out"
+    pd.DataFrame({"term_id": ["SHARED_TERM"], "gene_symbol": ["TP53"]}).to_csv(source_a, sep="\t", index=False)
+    pd.DataFrame({"term_id": ["SHARED_TERM"], "gene_symbol": ["GENE2"]}).to_csv(source_b, sep="\t", index=False)
+
+    cfg = {
+        "project": {"source_dir": str(tmp_path / "sources")},
+        "outputs": {"include_symbols": True},
+        "sources": [
+            {"type": "canonical_tsv", "path": str(source_a), "source": "Library A", "source_tag": "LIB_A", "collection": "a"},
+            {"type": "canonical_tsv", "path": str(source_b), "source": "Library B", "source_tag": "LIB_B", "collection": "b"},
+        ],
+        "targets": [],
+    }
+
+    with pytest.raises(RuntimeError, match="conflicting term/source identities"):
+        build(config=cfg, outdir=outdir, workers=1)
+
+    audit_path = outdir / "metadata" / "term_id_collisions.tsv"
+    assert audit_path.exists()
+    audit = pd.read_csv(audit_path, sep="\t", dtype=str)
+    assert audit["term_id"].unique().tolist() == ["SHARED_TERM"]
+    assert sorted(audit["source_tag"].tolist()) == ["LIB_A", "LIB_B"]
+    assert audit["action"].unique().tolist() == ["error"]
 
 
 def _write_hgnc(source):

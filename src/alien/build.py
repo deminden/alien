@@ -32,6 +32,21 @@ from .utils import LOGGER, ensure_dirs, process_pool_context, setup_logging, str
 
 
 DEFAULT_OUTDIR = Path("data/alien_gmt")
+TERM_ID_IDENTITY_COLUMNS = [
+    "original_name",
+    "display_name",
+    "description",
+    "source",
+    "source_tag",
+    "collection",
+    "subcollection",
+    "family",
+    "aspect",
+    "db_version",
+    "source_url",
+    "source_license_note",
+    "metadata_json",
+]
 
 
 @dataclass(frozen=True)
@@ -76,6 +91,7 @@ def build(
     if source_terms.empty:
         raise RuntimeError("No source gene-set memberships were loaded.")
     LOGGER.info("Loaded %d source gene memberships across %d terms", len(source_terms), source_terms["term_id"].nunique())
+    _check_term_id_collisions(source_terms, metadata_dir, cfg, warnings)
 
     LOGGER.info("Loading mapping resources")
     hgnc_maps = load_hgnc(source_dir, force=force_download)
@@ -203,6 +219,96 @@ def _worker_count(cfg: dict[str, Any]) -> int:
     if workers < 1:
         raise ValueError("workers must be a positive integer")
     return workers
+
+
+def _check_term_id_collisions(
+    source_terms: pd.DataFrame,
+    metadata_dir: Path,
+    cfg: dict[str, Any],
+    warnings: list[str],
+) -> None:
+    audit = _term_id_collision_audit(source_terms)
+    if audit.empty:
+        return
+    options = cfg.get("term_id_collisions", {})
+    if isinstance(options, str):
+        action = options
+    elif isinstance(options, dict):
+        action = str(options.get("action", "error"))
+    else:
+        raise ValueError("term_id_collisions must be a mapping or one of: error, warn, merge")
+    action = action.lower().strip()
+    if action not in {"error", "warn", "merge"}:
+        raise ValueError("term_id_collisions.action must be one of: error, warn, merge")
+    audit = audit.assign(action=action)
+    audit_path = metadata_dir / "term_id_collisions.tsv"
+    ensure_dirs(audit_path.parent)
+    audit.to_csv(audit_path, sep="\t", index=False)
+    n_terms = int(audit["term_id"].nunique())
+    n_signatures = len(audit)
+    message = (
+        f"Detected {n_signatures} conflicting term/source identities across {n_terms} term_id value(s); "
+        f"see {audit_path}."
+    )
+    if action == "error":
+        raise RuntimeError(f"{message} Rename or prefix the colliding term IDs, or set term_id_collisions.action explicitly.")
+    warnings.append(f"{message} Continuing because term_id_collisions.action is {action!r}.")
+    LOGGER.warning("%s Continuing because term_id_collisions.action is %r.", message, action)
+
+
+def _term_id_collision_audit(source_terms: pd.DataFrame) -> pd.DataFrame:
+    columns = _term_identity_columns(source_terms)
+    audit_columns = [
+        "term_id",
+        "n_identities_for_term",
+        "collision_identity_id",
+        "n_rows",
+        "n_gene_symbols",
+        "sample_gene_symbols",
+        *columns,
+    ]
+    if source_terms.empty or "term_id" not in source_terms:
+        return pd.DataFrame(columns=audit_columns)
+
+    working = source_terms.copy()
+    for column in ["term_id", "gene_symbol", *columns]:
+        if column not in working:
+            working[column] = ""
+        working[column] = working[column].fillna("").astype(str)
+
+    identity = working[["term_id", *columns]].drop_duplicates()
+    counts = identity.groupby("term_id", sort=False).size().rename("n_identities_for_term").reset_index()
+    collided_ids = set(counts.loc[counts["n_identities_for_term"] > 1, "term_id"])
+    if not collided_ids:
+        return pd.DataFrame(columns=audit_columns)
+
+    collided = working[working["term_id"].isin(collided_ids)]
+    grouped = (
+        collided.groupby(["term_id", *columns], dropna=False, sort=False)
+        .agg(
+            n_rows=("gene_symbol", "size"),
+            n_gene_symbols=("gene_symbol", _n_unique_nonempty),
+            sample_gene_symbols=("gene_symbol", _sample_values),
+        )
+        .reset_index()
+    )
+    grouped = grouped.merge(counts, on="term_id", how="left")
+    grouped = grouped.sort_values(["term_id", *columns], kind="mergesort").reset_index(drop=True)
+    grouped["collision_identity_id"] = grouped.groupby("term_id").cumcount() + 1
+    return grouped[audit_columns]
+
+
+def _term_identity_columns(source_terms: pd.DataFrame) -> list[str]:
+    return [column for column in TERM_ID_IDENTITY_COLUMNS if column in source_terms.columns]
+
+
+def _n_unique_nonempty(values: pd.Series) -> int:
+    return len({str(value) for value in values if str(value)})
+
+
+def _sample_values(values: pd.Series, limit: int = 12) -> str:
+    unique = sorted({str(value) for value in values if str(value)})
+    return ";".join(unique[:limit])
 
 
 def _prepare_targets(

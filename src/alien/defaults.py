@@ -14,6 +14,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "outputs": {
         "include_symbols": True,
     },
+    "term_id_collisions": {
+        "action": "error",
+    },
     "sources": [
         {
             "type": "msigdb_cache",

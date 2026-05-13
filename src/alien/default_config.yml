@@ -6,6 +6,9 @@ project:
 outputs:
   include_symbols: true
 
+term_id_collisions:
+  action: error
+
 sources:
   - type: msigdb_cache
     name: msigdb

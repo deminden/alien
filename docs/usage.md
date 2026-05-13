@@ -158,6 +158,28 @@ sources:
 
 `canonical_tsv` reads ALIEN's normalized table format. Required columns are `term_id` and `gene_symbol`; optional metadata columns include `source`, `source_tag`, `collection`, `family`, `aspect`, `gene_id`, and `gene_id_namespace`.
 
+## Term ID Collisions
+
+`term_id` values are the stable identifiers used for merging, filtering, auditing, and GMT writing. Multiple gene rows for the same term are expected, but the same `term_id` must not describe two different source terms.
+
+By default ALIEN stops if a `term_id` has conflicting source or term metadata:
+
+```yaml
+term_id_collisions:
+  action: error
+```
+
+When collisions are found, ALIEN writes `metadata/term_id_collisions.tsv` before raising an error. The table lists each conflicting identity, source metadata, row counts, and sample genes. The usual fix is to rename or prefix one source's term IDs.
+
+For legacy inputs where intentional merging is acceptable, the guard can be relaxed:
+
+```yaml
+term_id_collisions:
+  action: merge
+```
+
+`merge` keeps the previous behavior: memberships with the same `term_id` are combined and the first term metadata used downstream wins. ALIEN still writes the collision audit table and adds a warning.
+
 ## Targets
 
 The implemented target adapter is `ensembl_gtf`. It projects source terms into Ensembl stable gene IDs using a target annotation GTF. The GTF must contain `gene` records with `gene_id` and `gene_name` attributes.
@@ -335,6 +357,7 @@ metadata/term_manifest.tsv.gz
 metadata/gene_mapping_<target>.tsv.gz
 metadata/removed_terms_size_filter.tsv.gz
 metadata/removed_terms_redundancy.tsv.gz
+metadata/term_id_collisions.tsv
 metadata/unmapped_genes.tsv.gz
 metadata/ambiguous_gene_mappings.tsv.gz
 metadata/source_provenance.json
