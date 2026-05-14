@@ -31,7 +31,6 @@ sources:
     family: cancer_dependency_state
     aspect: cancer_signature
   - type: enrichr_remote
-    optional: true
     libraries:
       - name: DepMap
         match: "DepMap.*(CRISPR|Dependency)|DepMap"
@@ -55,15 +54,20 @@ targets:
     annotation:
       source: GENCODE
       version: "29"
-    gene_universe:
+      supplements:
+        - source: recount3
+          version: G029
+          path: data/recount3/human.gene_sums.G029.gtf.gz
+          mode: fill_missing_output_genes
+    output_genes:
       path: data/tcga/normalised_counts_cancers/ACC_gencode_v29_normalised_counts.tsv.gz
-      column: Ensembl_gene_ID
+      id_column: Ensembl_gene_ID
 
 filtering:
   min_size_default: 10
   max_size_default: 500
   max_size_cancer: 500
-  remove_empty_after_universe_projection: true
+  remove_empty_after_output_gene_projection: true
 
 redundancy:
   exact_duplicate_removal: true

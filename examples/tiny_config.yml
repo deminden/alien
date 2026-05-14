@@ -1,19 +1,22 @@
 project:
-  # Download/cache root for all source and mapping resources.
+  # Fixture cache root; contains a tiny HGNC table so this example is fully offline.
   source_dir: examples/fixtures/sources
-  # Output root. ALIEN writes gmt/, metadata/, and qc/ subfolders here.
-  outdir: examples/out
+  # Output root. ALIEN creates gmt/, metadata/, and qc/ below this folder.
+  outdir: results/alien_outputs/tiny
 
 outputs:
+  # Also write a symbols.gmt beside the target-namespace GMT.
   include_symbols: true
 
 sources:
+  # MSigDB-like table: term rows with symbols plus optional source Ensembl IDs.
   - type: msigdb_tsv
     path: examples/fixtures/msigdb_like.tsv
     source_tag: REACTOME
     collection: C2
     family: biology_process_pathway
     aspect: pathway
+  # Symbol-only GMT: useful for local/Enrichr-style libraries.
   - type: symbol_gmt
     path: examples/fixtures/symbolic.gmt
     source: Example symbolic
@@ -22,6 +25,7 @@ sources:
     aspect: pathway
 
 targets:
+  # No output_genes is set, so the local GTF defines the full output namespace.
   - name: tiny_ensembl
     type: ensembl_gtf
     annotation:
@@ -32,15 +36,16 @@ targets:
 filtering:
   min_size_default: 10
   max_size_default: 500
-  max_size_disease: 500
-  max_size_cancer: 500
 
 redundancy:
+  # Cluster highly overlapping terms within each family/namespace.
   jaccard_cutoff: 0.85
 
 source_priority:
+  # If redundant pathway terms collide, prefer the MSigDB-like fixture over local GMT.
   biology_process_pathway: [REACTOME, LOCAL]
 
+# Disable remote rescue layers so the fixture uses only local files.
 ncbi_gene:
   enabled: false
 

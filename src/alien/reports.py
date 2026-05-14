@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import platform
 from pathlib import Path
 from typing import Any
@@ -26,8 +27,10 @@ def build_source_provenance(
             "type": target.get("type", ""),
             "annotation": target.get("annotation_label", ""),
             "annotation_path": str(target.get("annotation_path") or target.get("annotation_gtf", "")),
-            "gene_universe_path": str(target.get("source_path") or ""),
-            "gene_universe_column": str(target.get("source_column") or ""),
+            "annotation_supplements": target.get("annotation_supplements", []),
+            "output_genes_path": str(target.get("output_source_path") or ""),
+            "output_genes_id_column": str(target.get("output_id_column") or ""),
+            "output_genes_symbol_column": str(target.get("output_symbol_column") or ""),
             "gene_filter_path": str(target.get("filter_source_path") or ""),
             "gene_filter_column": str(target.get("filter_source_column") or ""),
         }
@@ -95,6 +98,18 @@ def _target_annotation_sources(targets: list[dict[str, Any]]) -> dict[str, dict[
             except ValueError:
                 pass
         records[key] = record
+        for supplement in target.get("annotation_supplements", []):
+            supplement_label = str(supplement.get("annotation", "")).strip()
+            supplement_path = str(supplement.get("annotation_path", "")).strip()
+            supplement_index = supplement.get("supplement_index", "")
+            supplement_key = f"Target_annotation_supplement__{target.get('name', 'unnamed')}__{supplement_index}"
+            records[supplement_key] = {
+                "annotation": supplement_label,
+                "local_cache_file": supplement_path,
+                "mode": str(supplement.get("mode", "")),
+                "n_rows_added": str(supplement.get("n_rows_added", "")),
+                "license_note": "Supplemental target annotation GTF; used only to fill output IDs missing from the primary annotation.",
+            }
     return records
 
 
@@ -148,6 +163,59 @@ def build_term_manifest(
             manifest_row[f"kept_{safe_namespace}"] = term_id in sizes
         rows.append(manifest_row)
     return pd.DataFrame(rows)
+
+
+def build_source_manifest(source_terms: pd.DataFrame) -> pd.DataFrame:
+    """Summarize the resolved source collections used in a build."""
+    columns = [
+        "source",
+        "source_tag",
+        "collection",
+        "subcollection",
+        "family",
+        "aspect",
+        "db_version",
+        "selected_library",
+        "configured_name",
+        "match",
+        "match_method",
+        "candidate_libraries",
+        "n_terms",
+        "n_memberships",
+        "n_unique_symbols",
+        "source_url",
+        "source_license_note",
+    ]
+    if source_terms.empty:
+        return pd.DataFrame(columns=columns)
+
+    frame = source_terms.copy()
+    group_columns = ["source", "source_tag", "collection", "subcollection", "family", "aspect", "db_version"]
+    for column in group_columns + ["source_url", "source_license_note", "metadata_json", "term_id", "gene_symbol"]:
+        if column not in frame:
+            frame[column] = ""
+
+    rows: list[dict[str, object]] = []
+    grouped = frame.groupby(group_columns, dropna=False, sort=True)
+    for key, group in grouped:
+        record = dict(zip(group_columns, key))
+        metadata = _source_group_metadata(group)
+        rows.append(
+            {
+                **record,
+                "selected_library": metadata.get("selected_library", ""),
+                "configured_name": metadata.get("configured_name", ""),
+                "match": metadata.get("match", ""),
+                "match_method": metadata.get("match_method", ""),
+                "candidate_libraries": metadata.get("candidate_libraries", ""),
+                "n_terms": int(group["term_id"].nunique()),
+                "n_memberships": int(len(group)),
+                "n_unique_symbols": int(group["gene_symbol"].nunique()),
+                "source_url": _single_value(group["source_url"]),
+                "source_license_note": _single_value(group["source_license_note"]),
+            }
+        )
+    return pd.DataFrame(rows, columns=columns)
 
 
 def collection_summary(
@@ -264,6 +332,49 @@ def _group_terms(terms: dict[str, dict[str, Any]]) -> dict[tuple[str, str], dict
         key = (str(meta.get("family", "")), str(meta.get("source_tag", "")))
         grouped.setdefault(key, {})[term_id] = record
     return grouped
+
+
+def _source_group_metadata(group: pd.DataFrame) -> dict[str, str]:
+    parsed = [_parse_metadata_json(value) for value in group.get("metadata_json", pd.Series(dtype=str)).drop_duplicates()]
+    return {
+        "selected_library": _metadata_value(parsed, "selected_library"),
+        "configured_name": _metadata_value(parsed, "configured_name"),
+        "match": _metadata_value(parsed, "match"),
+        "match_method": _metadata_value(parsed, "match_method"),
+        "candidate_libraries": _metadata_list_value(parsed, "candidate_libraries"),
+    }
+
+
+def _parse_metadata_json(value: object) -> dict[str, Any]:
+    text = str(value or "").strip()
+    if not text:
+        return {}
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _metadata_value(records: list[dict[str, Any]], key: str) -> str:
+    values = sorted({str(record.get(key, "")).strip() for record in records if str(record.get(key, "")).strip()})
+    return ";".join(values)
+
+
+def _metadata_list_value(records: list[dict[str, Any]], key: str) -> str:
+    values: set[str] = set()
+    for record in records:
+        raw = record.get(key, [])
+        if isinstance(raw, list):
+            values.update(str(value).strip() for value in raw if str(value).strip())
+        elif str(raw or "").strip():
+            values.add(str(raw).strip())
+    return json.dumps(sorted(values), ensure_ascii=True) if values else ""
+
+
+def _single_value(series: pd.Series) -> str:
+    values = sorted({str(value).strip() for value in series if str(value).strip()})
+    return values[0] if len(values) == 1 else ";".join(values)
 
 
 def _count(df: pd.DataFrame, namespace: str, family: str, source_tag: str) -> int:

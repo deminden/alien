@@ -20,6 +20,19 @@ Build source and wheel distributions:
 python -m build
 ```
 
+Check package metadata before publishing:
+
+```bash
+python -m twine check dist/*
+```
+
+The GitHub Actions workflow in `.github/workflows/ci.yml` runs two checks on pushes and pull requests:
+
+- `Tests`: installs ALIEN with development extras and runs `python -m pytest -q`.
+- `Package build check`: builds the source distribution and wheel, runs `twine check`, installs the built wheel, and verifies the CLI/import smoke path.
+
+For an eventual PyPI release workflow, prefer PyPI Trusted Publishing from GitHub Actions over long-lived API tokens. Keep publish jobs separate from pull-request CI and require a tag or manual approval.
+
 ## Contributing
 
 Contributions are very welcome. If you would like to improve ALIEN, open an issue to discuss bugs, data-source behavior, target namespace needs, or design changes before large pull requests.

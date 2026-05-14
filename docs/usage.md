@@ -107,7 +107,7 @@ sources:
         aspect: disease
 ```
 
-Downloaded Enrichr metadata is cached at `data/alien_sources/enrichr/datasetStatistics.json`; GMT files are cached as `data/alien_sources/enrichr/<library>.gmt`.
+Downloaded Enrichr metadata is cached at `data/alien_sources/enrichr/datasetStatistics.json`; GMT files are cached as `data/alien_sources/enrichr/<library>.gmt`. The resolved library name, match method, and regex candidate names are written to `metadata/source_manifest.tsv`.
 
 For MSigDB remote sources, ALIEN keeps two cache layers under `project.source_dir`: the verified upstream release archive/extracted files and a derived `alien_cache/` directory with normalized Parquet memberships. The first build for a source filter performs conversion from the upstream RDS tables; later builds read the Parquet cache directly.
 
@@ -131,7 +131,17 @@ sources:
         aspect: disease
 ```
 
-This matters for regex-matched Enrichr libraries: ALIEN chooses the latest matching library from the cached `datasetStatistics` file unless the cache is refreshed.
+This matters for regex-matched Enrichr libraries: ALIEN chooses the latest matching library from the cached `datasetStatistics` file unless the cache is refreshed. For publication or protocol configs, exact Enrichr library names are preferable; when regex matching is used, keep `metadata/source_manifest.tsv` with the released outputs.
+
+Every enabled source is required. If a configured remote library cannot be resolved/downloaded, or a configured cache file is missing, the build fails rather than silently weakening the output. Use `enabled: false` to keep a source in a config file without including it in a particular build.
+
+```yaml
+sources:
+  - type: enrichr_remote
+    enabled: false
+    libraries:
+      - name: ClinVar_2019
+```
 
 NCBI rescue maps are prepared once into a JSON cache after the raw NCBI files are read. Repeated builds also reuse in-memory mapping lookups during each run, and multiple configured target namespaces can be mapped in parallel with `--workers`.
 
@@ -160,7 +170,7 @@ sources:
     aspect: pathway
 ```
 
-`canonical_tsv` reads ALIEN's normalized table format. Required columns are `term_id` and `gene_symbol`; optional metadata columns include `source`, `source_tag`, `collection`, `family`, `aspect`, `gene_id`, and `gene_id_namespace`.
+`canonical_tsv` reads ALIEN's normalized table format. Required columns are `term_id` and `gene_symbol`; additional metadata columns include `source`, `source_tag`, `collection`, `family`, `aspect`, `gene_id`, and `gene_id_namespace`.
 
 ## Term ID Collisions
 
@@ -188,7 +198,14 @@ term_id_collisions:
 
 The implemented target adapter is `ensembl_gtf`. It projects source terms into Ensembl stable gene IDs using a target annotation GTF. The GTF must contain `gene` records with `gene_id` and `gene_name` attributes.
 
-The annotation GTF has two roles: it maps source gene symbols to Ensembl IDs and supplies gene metadata for audit tables. It owns the final target ID set only when neither `gene_universe` nor `gene_filter` is configured.
+Each target has two separate roles:
+
+- output gene set: the Ensembl IDs allowed in the final GMT;
+- annotation helper: the GTF used to map source gene symbols to Ensembl IDs and supply audit metadata.
+
+By default, the annotation GTF supplies both. When `output_genes` is configured, the output gene file/list supplies the final target ID set and the GTF is only a mapping/metadata helper. The `id_column` must contain Ensembl gene IDs; `symbol_column` is optional metadata, not a symbol-only target namespace. When `gene_filter` is configured, the final target ID set is the intersection of annotation IDs and the configured filter IDs.
+
+The primary annotation is always the first mapping authority. If a dataset-specific output namespace contains Ensembl IDs absent from that primary annotation, `annotation.supplements` can add metadata from another GTF only for those missing output genes. Supplemented IDs participate in mapping/auditing, but duplicate symbols already present in the primary annotation keep the primary mapping.
 
 For human GENCODE releases, `source` and any numeric `version` are enough. ALIEN builds the official FTP URL as `release_<version>/gencode.v<version>.annotation.gtf.gz`:
 
@@ -246,12 +263,12 @@ These keys refer to attributes in the ninth GTF field, not the fixed positional 
 
 Non-Ensembl target ID systems, such as Entrez, UniProt, or RefSeq output GMTs, are not supported by this adapter yet.
 
-`gene_universe` defines the Ensembl IDs that belong to a target output namespace when the downstream dataset has its own measured-gene universe. The annotation GTF remains the symbol/metadata helper; the configured universe file supplies the target ID set. Normal whole-annotation builds can omit it.
+`output_genes` defines the Ensembl IDs that belong to a target output namespace when the downstream dataset has its own measured-gene output gene set. Normal whole-annotation builds can omit it.
 
 Target ID set rules:
 
-- no `gene_universe` and no `gene_filter`: use all IDs from the annotation GTF.
-- `gene_universe`: use IDs from the configured universe file/list.
+- no `output_genes` and no `gene_filter`: use all IDs from the annotation GTF.
+- `output_genes`: use IDs from the configured output gene file/list.
 - `gene_filter`: use IDs present in both the annotation GTF and the configured filter file/list.
 
 ```yaml
@@ -261,10 +278,10 @@ targets:
     annotation:
       source: GENCODE
       version: "47"
-    gene_universe: data/study/count_matrix.tsv
+    output_genes: data/study/count_matrix.tsv
 ```
 
-If the matrix is tabular and the gene ID column is known, use the explicit form:
+If the matrix is tabular and the output gene ID column is known, use the explicit form:
 
 ```yaml
 targets:
@@ -273,12 +290,48 @@ targets:
     annotation:
       source: GENCODE
       version: "47"
-    gene_universe:
+    output_genes:
       path: data/study/expression.tsv.gz
-      column: feature_id
+      id_column: feature_id
 ```
 
-Without `column`, ALIEN tries common gene-ID column names and then falls back to the first tabular column. For Parquet files, `column: index` reads the row index.
+Without `id_column`, ALIEN tries common gene-ID column names and then falls back to the first tabular column. For Parquet files, `id_column: index` reads the row index.
+
+If the output-gene file also contains gene symbols, provide `symbol_column`. ALIEN uses those symbols as an additional mapping helper for output genes absent from the annotation GTF, and records the metadata source in `metadata/gene_mapping_<target>.tsv.gz`:
+
+```yaml
+targets:
+  - name: study_expression_ids
+    type: ensembl_gtf
+    annotation:
+      source: GENCODE
+      version: "47"
+    output_genes:
+      path: data/study/expression.tsv.gz
+      id_column: Ensembl_gene_ID
+      symbol_column: gene_symbol
+```
+
+For dataset-specific annotations, add a supplement instead of replacing the primary annotation. This is useful when the final output IDs come from a measured matrix, but the preferred biological mapping helper is still an official release such as GENCODE:
+
+```yaml
+targets:
+  - name: tcga_recount3_gencode29
+    type: ensembl_gtf
+    annotation:
+      source: GENCODE
+      version: "29"
+      supplements:
+        - source: recount3
+          version: G029
+          path: data/recount3/human.gene_sums.G029.gtf.gz
+          mode: fill_missing_output_genes
+    output_genes:
+      path: data/tcga/normalised_counts_cancers/ACC_gencode_v29_normalised_counts.tsv.gz
+      id_column: Ensembl_gene_ID
+```
+
+`fill_missing_output_genes` is deliberately conservative. It loads the supplement GTF, selects only output IDs missing from the primary annotation, and records the selected rows as `annotation_supplement` in `metadata/gene_mapping_<target>.tsv.gz`. The audit table `metadata/target_annotation_supplements.tsv` records how many output IDs were missing before and after each supplement.
 
 `gene_filter` is the stricter alternative for true restriction behavior. It keeps only IDs present in both the annotation and the configured file/list:
 
@@ -291,10 +344,10 @@ targets:
       version: "47"
     gene_filter:
       path: data/study/allowed_genes.tsv
-      column: ensembl_gene_id
+      id_column: ensembl_gene_id
 ```
 
-Use only one of `gene_universe` or `gene_filter` for a target. ALIEN rejects configs that define both because they mean different set operations.
+Use only one of `output_genes` or `gene_filter` for a target. ALIEN rejects configs that define both because they mean different set operations.
 
 The same shape works from Python because `alien.build()` accepts a config dictionary:
 
@@ -308,7 +361,7 @@ cfg = {
             "name": "human_gencode47_study_only",
             "type": "ensembl_gtf",
             "annotation": {"source": "GENCODE", "version": "47"},
-            "gene_universe": {"path": "data/study/expression.tsv.gz", "column": "feature_id"},
+            "output_genes": {"path": "data/study/expression.tsv.gz", "id_column": "feature_id", "symbol_column": "gene_symbol"},
         }
     ],
 }
@@ -316,10 +369,10 @@ cfg = {
 result = build(cfg, outdir="data/alien_gmt", workers=4)
 ```
 
-For code-only workflows, `gene_universe` can also carry inline Ensembl IDs:
+For code-only workflows, `output_genes` can also carry inline Ensembl IDs:
 
 ```python
-"gene_universe": {"ids": ["ENSG00000141510.18", "ENSG000002"]}
+"output_genes": {"genes": ["ENSG00000141510.18", "ENSG000002"]}
 ```
 
 ## Filtering
@@ -365,7 +418,7 @@ ALIEN maps source symbols through audited human mapping resources:
 - HGNC current symbols.
 - HGNC previous and alias symbols.
 - NCBI Gene history/info rescue, enabled by default for configured legacy source tags.
-- Ensembl archive lookup, enabled by default for source Ensembl IDs absent from the target annotation, any configured target gene universe/filter, and HGNC's current Ensembl IDs.
+- Ensembl archive lookup, enabled by default for source Ensembl IDs absent from the target annotation, any configured target output genes/filter, and HGNC's current Ensembl IDs.
 
 Ambiguous mappings are dropped rather than guessed and are written to audit tables.
 
@@ -391,8 +444,10 @@ gmt/symbols.gmt
 Main audit outputs:
 
 ```text
+metadata/source_manifest.tsv
 metadata/term_manifest.tsv.gz
-metadata/target_gene_universe.tsv.gz
+metadata/target_annotation_supplements.tsv
+metadata/target_output_genes.tsv.gz
 metadata/target_gene_filter.tsv.gz
 metadata/gene_mapping_<target>.tsv.gz
 metadata/removed_terms_size_filter.tsv.gz
@@ -406,3 +461,7 @@ qc/mapping_summary.tsv
 qc/target_namespace_summary.tsv
 qc/warnings.txt
 ```
+
+`metadata/source_manifest.tsv` is the source-level reproducibility table. It has one row per resolved source collection with source tag, collection/subcollection, source URL/license note, term/member counts, and Enrichr resolution fields when relevant. `metadata/term_manifest.tsv.gz` stays term-level: it records filtering/redundancy status and final per-namespace term sizes.
+
+`metadata/target_output_genes.tsv.gz` audits configured `output_genes`, including the input ID, stripped Ensembl ID, optional dataset-provided symbol, ID type, and whether the ID had annotation-helper metadata after primary and supplemental annotations were applied. `metadata/target_annotation_supplements.tsv` audits supplement use per target. `qc/target_namespace_summary.tsv` summarizes `output_gene_source`, primary/supplement annotation helper sizes, annotation metadata coverage, and the number of target IDs missing annotation metadata.

@@ -5,6 +5,7 @@ import pytest
 
 from alien import build
 from alien import sources
+from alien.reports import build_source_manifest
 from alien.sources import read_enrichr_remote, resolve_enrichr_library
 
 
@@ -78,15 +79,47 @@ def test_enrichr_remote_regex_match_chooses_latest_year_then_shortest_name():
     assert method == "regex"
 
 
-def test_enrichr_remote_unresolved_library_errors_or_optional_skips(tmp_path, monkeypatch):
+def test_source_manifest_records_enrichr_regex_resolution(tmp_path, monkeypatch):
+    monkeypatch.setattr(sources.requests, "get", _fake_enrichr_get([]))
+    frame = read_enrichr_remote(
+        _enrichr_spec(
+            tmp_path,
+            libraries=[
+                {
+                    "name": "ClinVar",
+                    "match": r"^ClinVar_[0-9]{4}$",
+                    "source_tag": "CLINVAR",
+                    "family": "disease_phenotype",
+                    "aspect": "disease",
+                }
+            ],
+        ),
+        tmp_path,
+    )
+
+    manifest = build_source_manifest(frame)
+
+    assert manifest.loc[0, "collection"] == "ClinVar_2022"
+    assert manifest.loc[0, "selected_library"] == "ClinVar_2022"
+    assert manifest.loc[0, "configured_name"] == "ClinVar"
+    assert manifest.loc[0, "match"] == r"^ClinVar_[0-9]{4}$"
+    assert manifest.loc[0, "match_method"] == "regex"
+    assert manifest.loc[0, "candidate_libraries"] == '["ClinVar_2019", "ClinVar_2022"]'
+
+
+def test_enrichr_remote_unresolved_library_errors(tmp_path, monkeypatch):
     monkeypatch.setattr(sources.requests, "get", _fake_enrichr_get([]))
 
     with pytest.raises(ValueError, match="was not found"):
         read_enrichr_remote(_enrichr_spec(tmp_path, libraries=[{"name": "Missing"}]), tmp_path)
 
-    optional = read_enrichr_remote(_enrichr_spec(tmp_path, libraries=[{"name": "Missing"}], optional=True), tmp_path)
 
-    assert optional.empty
+def test_optional_source_key_is_not_supported(tmp_path):
+    with pytest.raises(ValueError, match="optional.*not supported"):
+        read_enrichr_remote(_enrichr_spec(tmp_path, optional=True), tmp_path)
+
+    with pytest.raises(ValueError, match="optional.*not supported"):
+        read_enrichr_remote(_enrichr_spec(tmp_path, libraries=[{"name": "KEGG_2021_Human", "optional": True}]), tmp_path)
 
 
 def test_enrichr_remote_build_smoke(tmp_path, monkeypatch):
@@ -152,6 +185,12 @@ def test_enrichr_remote_build_smoke(tmp_path, monkeypatch):
     assert result.namespaces == ("symbols", "human_test")
     assert "ENRICHR_KEGG_2021_Human__TERM_A" in (outdir / "gmt" / "symbols.gmt").read_text(encoding="utf-8")
     assert "ENSG00000141510" in (outdir / "gmt" / "human_test.gmt").read_text(encoding="utf-8")
+    source_manifest = pd.read_csv(outdir / "metadata" / "source_manifest.tsv", sep="\t", dtype=str).fillna("")
+    assert source_manifest.loc[0, "source"] == "Enrichr"
+    assert source_manifest.loc[0, "collection"] == "KEGG_2021_Human"
+    assert source_manifest.loc[0, "selected_library"] == "KEGG_2021_Human"
+    assert source_manifest.loc[0, "match_method"] == "exact"
+    assert source_manifest.loc[0, "candidate_libraries"] == '["KEGG_2021_Human"]'
 
 
 def _enrichr_spec(tmp_path, **overrides):
@@ -188,6 +227,8 @@ def _fake_enrichr_get(calls, term_name="TERM_A"):
                 )
             )
         if url == "https://example.test/enrichr/geneSetLibrary?mode=text&libraryName=KEGG_2021_Human":
+            return FakeResponse(f"{term_name}\tdesc\tTP53\tGENE2\n")
+        if url == "https://example.test/enrichr/geneSetLibrary?mode=text&libraryName=ClinVar_2022":
             return FakeResponse(f"{term_name}\tdesc\tTP53\tGENE2\n")
         raise AssertionError(f"Unexpected URL: {url}")
 

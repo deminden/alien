@@ -12,12 +12,12 @@ def test_small_build_is_deterministic_and_writes_combined_gmts(tmp_path):
     source_tsv = tmp_path / "source.tsv"
     symbol_gmt = tmp_path / "symbolic.gmt"
     gtf = tmp_path / "genes.gtf"
-    universe = tmp_path / "universe.tsv"
+    output_genes = tmp_path / "output_genes.tsv"
     _write_hgnc(source)
     _write_source_table(source_tsv)
     symbol_gmt.write_text("SYMBOL_TERM\tdesc\tTP53\tGENE3\n", encoding="utf-8")
     _write_gtf(gtf)
-    universe.write_text("feature\nENSG00000141510.18\nENSG000002.1\nENSG000003.1\n", encoding="utf-8")
+    output_genes.write_text("feature\nENSG00000141510.18\nENSG000002.1\nENSG000003.1\n", encoding="utf-8")
 
     cfg = {
         "project": {"source_dir": str(source)},
@@ -48,7 +48,7 @@ def test_small_build_is_deterministic_and_writes_combined_gmts(tmp_path):
                     "version": "test",
                     "path": str(gtf),
                 },
-                "gene_universe": {"path": str(universe), "column": "feature"},
+                "output_genes": {"path": str(output_genes), "id_column": "feature"},
             }
         ],
         "filtering": {
@@ -68,9 +68,13 @@ def test_small_build_is_deterministic_and_writes_combined_gmts(tmp_path):
     assert result1.namespaces == ("symbols", "human_test")
     assert (out1 / "gmt" / "symbols.gmt").exists()
     assert (out1 / "gmt" / "human_test.gmt").exists()
+    assert (out1 / "metadata" / "source_manifest.tsv").exists()
     assert (out1 / "metadata" / "term_manifest.tsv.gz").exists()
-    assert (out1 / "metadata" / "target_gene_universe.tsv.gz").exists()
+    assert (out1 / "metadata" / "target_output_genes.tsv.gz").exists()
     assert (out1 / "qc" / "warnings.txt").exists()
+    source_manifest = pd.read_csv(out1 / "metadata" / "source_manifest.tsv", sep="\t", dtype=str).fillna("")
+    assert set(source_manifest["source_tag"]) == {"LOCAL", "REACTOME"}
+    assert source_manifest.set_index("source_tag").loc["REACTOME", "n_terms"] == "1"
     mapping = pd.read_csv(out1 / "metadata" / "gene_mapping_human_test.tsv.gz", sep="\t", dtype=str)
     assert mapping["source_gtf"].unique().tolist() == [str(gtf)]
     assert (out1 / "gmt" / "symbols.gmt").read_text(encoding="utf-8") == (out2 / "gmt" / "symbols.gmt").read_text(encoding="utf-8")
@@ -124,7 +128,63 @@ def test_restrict_to_key_is_not_supported(tmp_path):
         "ensembl_archive": {"enabled": False},
     }
 
-    with pytest.raises(ValueError, match="use 'gene_universe' or 'gene_filter' instead"):
+    with pytest.raises(ValueError, match="use 'output_genes' or 'gene_filter' instead"):
+        build(config=cfg, outdir=tmp_path / "out", workers=1)
+
+
+def test_gene_universe_key_is_not_supported(tmp_path):
+    source = tmp_path / "sources"
+    source_tsv = tmp_path / "source.tsv"
+    gtf = tmp_path / "genes.gtf"
+    _write_hgnc(source)
+    _write_source_table(source_tsv)
+    _write_gtf(gtf)
+
+    cfg = {
+        "project": {"source_dir": str(source)},
+        "outputs": {"include_symbols": False},
+        "sources": [{"type": "msigdb_tsv", "path": str(source_tsv), "source_tag": "REACTOME"}],
+        "targets": [
+            {
+                "name": "bad_target",
+                "type": "ensembl_gtf",
+                "annotation": {"source": "TestAnnotation", "version": "test", "path": str(gtf)},
+                "gene_universe": {"ids": ["ENSG00000141510"]},
+            }
+        ],
+        "ncbi_gene": {"enabled": False},
+        "ensembl_archive": {"enabled": False},
+    }
+
+    with pytest.raises(ValueError, match="use 'output_genes' instead"):
+        build(config=cfg, outdir=tmp_path / "out", workers=1)
+
+
+def test_output_ids_key_is_not_supported(tmp_path):
+    source = tmp_path / "sources"
+    source_tsv = tmp_path / "source.tsv"
+    gtf = tmp_path / "genes.gtf"
+    _write_hgnc(source)
+    _write_source_table(source_tsv)
+    _write_gtf(gtf)
+
+    cfg = {
+        "project": {"source_dir": str(source)},
+        "outputs": {"include_symbols": False},
+        "sources": [{"type": "msigdb_tsv", "path": str(source_tsv), "source_tag": "REACTOME"}],
+        "targets": [
+            {
+                "name": "bad_target",
+                "type": "ensembl_gtf",
+                "annotation": {"source": "TestAnnotation", "version": "test", "path": str(gtf)},
+                "output_ids": {"ids": ["ENSG00000141510"]},
+            }
+        ],
+        "ncbi_gene": {"enabled": False},
+        "ensembl_archive": {"enabled": False},
+    }
+
+    with pytest.raises(ValueError, match="use 'output_genes' instead"):
         build(config=cfg, outdir=tmp_path / "out", workers=1)
 
 
@@ -157,7 +217,7 @@ def test_gene_filter_intersects_annotation_namespace(tmp_path):
                 "name": "filtered_annotation",
                 "type": "ensembl_gtf",
                 "annotation": {"source": "TestAnnotation", "version": "test", "path": str(gtf)},
-                "gene_filter": {"path": str(gene_filter), "column": "feature"},
+                "gene_filter": {"path": str(gene_filter), "id_column": "feature"},
             }
         ],
         "filtering": {"min_size_default": 1, "max_size_default": 10},
@@ -177,7 +237,127 @@ def test_gene_filter_intersects_annotation_namespace(tmp_path):
     assert summary.loc[0, "effective_target_size"] == 1
 
 
-def test_gene_universe_and_gene_filter_are_mutually_exclusive(tmp_path):
+def test_output_genes_symbol_column_augments_annotation_helper(tmp_path):
+    source = tmp_path / "sources"
+    outdir = tmp_path / "out"
+    source_tsv = tmp_path / "source.tsv"
+    gtf = tmp_path / "genes.gtf"
+    output_genes = tmp_path / "output_genes.tsv"
+    _write_hgnc(source)
+    pd.DataFrame(
+        {
+            "gs_name": ["MATRIX_TERM"],
+            "gs_description": ["desc"],
+            "gene_symbol": ["MATRIXONLY"],
+            "ensembl_gene": [""],
+        }
+    ).to_csv(source_tsv, sep="\t", index=False)
+    _write_gtf(gtf)
+    output_genes.write_text("feature_id\tgene_symbol\nENSG00000999999.1\tMATRIXONLY\n", encoding="utf-8")
+
+    cfg = {
+        "project": {"source_dir": str(source)},
+        "outputs": {"include_symbols": False},
+        "sources": [{"type": "msigdb_tsv", "path": str(source_tsv), "source_tag": "LOCAL"}],
+        "targets": [
+            {
+                "name": "study_ids",
+                "type": "ensembl_gtf",
+                "annotation": {"source": "TestAnnotation", "version": "test", "path": str(gtf)},
+                "output_genes": {"path": str(output_genes), "id_column": "feature_id", "symbol_column": "gene_symbol"},
+            }
+        ],
+        "filtering": {"min_size_default": 1, "max_size_default": 10},
+        "ncbi_gene": {"enabled": False},
+        "ensembl_archive": {"enabled": False},
+    }
+
+    build(config=cfg, outdir=outdir, workers=1)
+
+    assert "ENSG00000999999" in (outdir / "gmt" / "study_ids.gmt").read_text(encoding="utf-8")
+    mapping = pd.read_csv(outdir / "metadata" / "gene_mapping_study_ids.tsv.gz", sep="\t", dtype=str).fillna("")
+    assert mapping.set_index("ensembl_gene_id").loc["ENSG00000999999", "target_id_metadata_source"] == "output_genes"
+    audit = pd.read_csv(outdir / "metadata" / "target_output_genes.tsv.gz", sep="\t", dtype=str).fillna("")
+    assert audit.loc[0, "gene_symbol"] == "MATRIXONLY"
+    assert audit.loc[0, "has_annotation_metadata"] == "False"
+    warnings = (outdir / "qc" / "warnings.txt").read_text(encoding="utf-8")
+    assert "1 output_genes lack annotation-helper metadata" in warnings
+
+
+def test_annotation_supplement_fills_missing_output_genes_without_overriding_primary(tmp_path):
+    source = tmp_path / "sources"
+    outdir = tmp_path / "out"
+    source_tsv = tmp_path / "source.tsv"
+    primary_gtf = tmp_path / "primary.gtf"
+    supplement_gtf = tmp_path / "supplement.gtf"
+    output_genes = tmp_path / "output_genes.tsv"
+    _write_hgnc(source)
+    pd.DataFrame(
+        {
+            "gs_name": ["SUPP_TERM", "SUPP_TERM"],
+            "gs_description": ["desc", "desc"],
+            "gene_symbol": ["DUP", "FILL"],
+            "ensembl_gene": ["", ""],
+        }
+    ).to_csv(source_tsv, sep="\t", index=False)
+    primary_gtf.write_text(
+        'chr1\tALIEN\tgene\t1\t10\t.\t+\t.\tgene_id "ENSG000001.1"; gene_name "DUP"; gene_type "protein_coding";\n',
+        encoding="utf-8",
+    )
+    supplement_gtf.write_text(
+        'chr1\tALIEN\tgene\t20\t30\t.\t+\t.\tgene_id "ENSG000009.1"; gene_name "DUP"; gene_type "protein_coding";\n'
+        'chr1\tALIEN\tgene\t40\t50\t.\t+\t.\tgene_id "ENSG000008.1"; gene_name "FILL"; gene_type "protein_coding";\n',
+        encoding="utf-8",
+    )
+    output_genes.write_text("feature_id\nENSG000001.1\nENSG000009.1\nENSG000008.1\n", encoding="utf-8")
+
+    cfg = {
+        "project": {"source_dir": str(source)},
+        "outputs": {"include_symbols": False},
+        "sources": [{"type": "msigdb_tsv", "path": str(source_tsv), "source_tag": "LOCAL"}],
+        "targets": [
+            {
+                "name": "supplemented",
+                "type": "ensembl_gtf",
+                "annotation": {
+                    "source": "Primary",
+                    "version": "test",
+                    "path": str(primary_gtf),
+                    "supplements": [
+                        {
+                            "source": "Supplement",
+                            "version": "test",
+                            "path": str(supplement_gtf),
+                            "mode": "fill_missing_output_genes",
+                        }
+                    ],
+                },
+                "output_genes": {"path": str(output_genes), "id_column": "feature_id"},
+            }
+        ],
+        "filtering": {"min_size_default": 1, "max_size_default": 10},
+        "ncbi_gene": {"enabled": False},
+        "ensembl_archive": {"enabled": False},
+    }
+
+    build(config=cfg, outdir=outdir, workers=1)
+
+    gmt_line = (outdir / "gmt" / "supplemented.gmt").read_text(encoding="utf-8").strip().split("\t")
+    assert gmt_line[2:] == ["ENSG000001", "ENSG000008"]
+    mapping = pd.read_csv(outdir / "metadata" / "gene_mapping_supplemented.tsv.gz", sep="\t", dtype=str).fillna("")
+    sources = mapping.set_index("ensembl_gene_id")["target_id_metadata_source"].to_dict()
+    assert sources["ENSG000001"] == "annotation_gtf"
+    assert sources["ENSG000008"] == "annotation_supplement"
+    assert sources["ENSG000009"] == "annotation_supplement"
+    supplement_audit = pd.read_csv(outdir / "metadata" / "target_annotation_supplements.tsv", sep="\t")
+    assert supplement_audit.loc[0, "n_rows_added"] == 2
+    assert supplement_audit.loc[0, "n_missing_after"] == 0
+    summary = pd.read_csv(outdir / "qc" / "target_namespace_summary.tsv", sep="\t")
+    assert summary.loc[0, "annotation_metadata_coverage"] == 1.0
+    assert summary.loc[0, "annotation_supplement_helper_size"] == 2
+
+
+def test_output_genes_and_gene_filter_are_mutually_exclusive(tmp_path):
     source = tmp_path / "sources"
     source_tsv = tmp_path / "source.tsv"
     gtf = tmp_path / "genes.gtf"
@@ -194,7 +374,7 @@ def test_gene_universe_and_gene_filter_are_mutually_exclusive(tmp_path):
                 "name": "bad_target",
                 "type": "ensembl_gtf",
                 "annotation": {"source": "TestAnnotation", "version": "test", "path": str(gtf)},
-                "gene_universe": {"ids": ["ENSG00000141510"]},
+                "output_genes": {"ids": ["ENSG00000141510"]},
                 "gene_filter": {"ids": ["ENSG00000141510"]},
             }
         ],
@@ -202,7 +382,7 @@ def test_gene_universe_and_gene_filter_are_mutually_exclusive(tmp_path):
         "ensembl_archive": {"enabled": False},
     }
 
-    with pytest.raises(ValueError, match="only one of gene_universe or gene_filter"):
+    with pytest.raises(ValueError, match="only one of output_genes or gene_filter"):
         build(config=cfg, outdir=tmp_path / "out", workers=1)
 
 
@@ -239,10 +419,10 @@ def _write_hgnc(source):
     hgnc.mkdir(parents=True)
     pd.DataFrame(
         {
-            "symbol": ["TP53", "GENE2", "GENE3"],
-            "prev_symbol": ["", "", ""],
-            "alias_symbol": ["", "", ""],
-            "ensembl_gene_id": ["ENSG00000141510", "ENSG000002", "ENSG000003"],
+            "symbol": ["TP53", "GENE2", "GENE3", "MATRIXONLY", "DUP", "FILL"],
+            "prev_symbol": ["", "", "", "", "", ""],
+            "alias_symbol": ["", "", "", "", "", ""],
+            "ensembl_gene_id": ["ENSG00000141510", "ENSG000002", "ENSG000003", "ENSG00000999999", "", ""],
         }
     ).to_csv(hgnc / "hgnc_complete_set.txt", sep="\t", index=False)
 

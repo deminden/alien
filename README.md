@@ -22,10 +22,18 @@ Prepare a config with sources and a target annotation, then run:
 alien build --config examples/cancer_dependency.yml --workers 16
 ```
 
+Ready-made example configs are available for GTEx v11 / GENCODE v47 and TCGA recount3 / GENCODE v29 targets. The first three examples write both GTEx and TCGA GMTs; the cancer dependency example is TCGA-only. TCGA configs use GENCODE v29 as the primary annotation helper and recount3 G029 as a supplement for measured IDs missing from GENCODE.
+
+- [examples/pathways.yml](examples/pathways.yml): Reactome, WikiPathways, KEGG MEDICUS, and GO biological process terms.
+- [examples/function_location.yml](examples/function_location.yml): GO molecular function and cellular component terms.
+- [examples/disease_phenotype.yml](examples/disease_phenotype.yml): HPO, DisGeNET, ClinVar, GWAS Catalog, and Jensen disease libraries.
+- [examples/cancer_dependency.yml](examples/cancer_dependency.yml): cancer and dependency signatures for TCGA recount3.
+
 The primary outputs are:
 
-- `gmt/<target_namespace>.gmt`: combined GMT for each namespace, including `symbols.gmt` when enabled.
-- `metadata/`: term manifest, gene mapping tables, removed terms, unmapped genes, ambiguity logs, and provenance.
+- `gmt/<target_namespace>.gmt`: combined GMT for each configured target namespace.
+- `gmt/symbols.gmt`: optional current-symbol GMT for review/display when `outputs.include_symbols` is enabled; it is independent of target namespaces.
+- `metadata/`: source manifest, term manifest, gene mapping tables, removed terms, unmapped genes, ambiguity logs, and provenance.
 - `qc/`: collection, mapping, redundancy, target coverage, and warning summaries.
 
 The two filesystem roots are configured in YAML: `project.source_dir` is for downloaded/cached source and mapping resources, while `project.outdir` is the output root containing `gmt/`, `metadata/`, and `qc/`.
@@ -54,9 +62,9 @@ For human GENCODE releases, any numeric `version` is enough; ALIEN builds the of
 
 `source: GENCODE` is not special to the config shape; other Ensembl-style GTF origins can use the same adapter by providing a local path or URL. Fully different target ID systems, such as Entrez or UniProt GMT output, are planned as future target adapters.
 
-Targets can also define `gene_universe` when a dataset file supplies the output ID namespace, or `gene_filter` when the annotation namespace should be intersected with a file/list of allowed Ensembl IDs. In those cases the GTF still acts as the symbol/metadata helper, not necessarily as the owner of the final namespace.
+Targets separate the output gene set from the annotation helper. By default the GTF supplies both. Use `output_genes` when a dataset file supplies the final Ensembl ID namespace, or `gene_filter` when the annotation namespace should be intersected with a file/list of allowed IDs. In `output_genes` builds, `id_column` contains Ensembl IDs and the optional `symbol_column` adds dataset-provided symbol metadata for IDs absent from the GTF. `annotation.supplements` can add a secondary GTF only for output genes missing from the primary annotation; primary annotation mappings keep priority.
 
-The build keeps audit outputs beside the GMTs so each namespace projection can be traced back to source terms, symbol repairs, unmapped genes, filters, redundancy decisions, and provenance.
+The build keeps audit outputs beside the GMTs so each namespace projection can be traced back to source terms, symbol repairs, unmapped genes, filters, redundancy decisions, and provenance. The compact `metadata/source_manifest.tsv` table is the main record of the exact source collections used in a build; for regex-matched Enrichr libraries it records the resolved library, match method, and candidate names.
 
 `term_id` values must identify one source term unambiguously. If two source libraries reuse the same `term_id` for different term metadata, ALIEN fails by default and writes `metadata/term_id_collisions.tsv` so the IDs can be renamed or prefixed before rebuilding.
 
@@ -80,7 +88,7 @@ See [docs/usage.md](docs/usage.md) for the full configuration reference.
 
 ## Source Inputs
 
-ALIEN 0.1.3 supports managed MSigDB and Enrichr download/cache sources and local file sources:
+ALIEN 0.1.4 supports managed MSigDB and Enrichr download/cache sources and local file sources:
 
 - `msigdb_remote`: a Python downloader/reader for the current `msigdbr` Zenodo release cache, with normalized Parquet caches for repeated builds.
 - `enrichr_remote`: a Python downloader/reader for Enrichr libraries by public library name.
@@ -97,7 +105,7 @@ result = build("examples/pathways.yml", workers=16)
 print(result.namespaces)
 ```
 
-You can also pass the same configuration as a Python dictionary, including target gene universes such as `gene_universe: {"path": "expression.tsv.gz", "column": "feature_id"}` for a known Ensembl ID field.
+You can also pass the same configuration as a Python dictionary, including target output genes such as `output_genes: {"path": "expression.tsv.gz", "id_column": "feature_id", "symbol_column": "gene_symbol"}` for a known Ensembl ID field.
 
 ## MSigDB
 
@@ -111,11 +119,11 @@ sources:
 
 This downloads and caches the configured `msigdbr` release archive under `data/alien_sources/msigdb_remote/`, verifies it by MD5, and converts matching RDS files into ALIEN's normalized Parquet cache for later builds.
 
-Remote caches are reused by default. ALIEN also caches normalized MSigDB memberships and prepared NCBI rescue maps, so repeated large builds avoid expensive source-format conversion. Use `alien build --force-download` or per-source `force: true` to refresh managed downloads such as MSigDB, Enrichr, GENCODE, HGNC, and NCBI resources.
+Remote caches are reused by default. ALIEN also caches normalized MSigDB memberships and prepared NCBI rescue maps, so repeated large builds avoid expensive source-format conversion. Use `alien build --force-download` or per-source `force: true` to refresh managed downloads such as MSigDB, Enrichr, GENCODE, HGNC, and NCBI resources. For publication configs, prefer exact Enrichr library names and keep `metadata/source_manifest.tsv` with the released GMTs. Enabled sources are always required; use `enabled: false` to exclude a source deliberately.
 
 ## Scope
 
-The 0.1.3 release officially supports human gene sets using HGNC symbols, Python MSigDB and Enrichr cache integration, optimized repeated-build caches, and Ensembl-style target namespaces. The code is organized so broader namespace integrations can be added later without tying the package to any single downstream analysis project.
+The 0.1.4 release officially supports human gene sets using HGNC symbols, Python MSigDB and Enrichr cache integration, optimized repeated-build caches, and Ensembl-style target namespaces. The code is organized so broader namespace integrations can be added later without tying the package to any single downstream analysis project.
 
 ## Contributing
 

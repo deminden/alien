@@ -40,7 +40,7 @@ def map_namespaces(
     if targets and archive_resolver is not None:
         for target in targets:
             namespace = str(target["name"])
-            _, _, known_target_ids = _target_id_sets(target["annotation"], target.get("universe"), target.get("gene_filter"), hgnc_maps)
+            _, _, known_target_ids = _target_id_sets(target["annotation"], target.get("output_genes"), target.get("gene_filter"), hgnc_maps)
             archive_resolver.prefetch(_problematic_source_ids(term_records, known_target_ids), namespace)
         archive_resolver.save()
 
@@ -63,7 +63,7 @@ def map_namespaces(
                 hgnc_maps,
                 ncbi_maps,
                 target["annotation"],
-                target.get("universe"),
+                target.get("output_genes"),
                 namespace,
                 cfg,
                 unmapped,
@@ -130,7 +130,7 @@ def _map_target_task(
         hgnc_maps,
         ncbi_maps,
         target["annotation"],
-        target.get("universe"),
+        target.get("output_genes"),
         namespace,
         cfg,
         unmapped,
@@ -200,7 +200,7 @@ def map_ensembl(
     hgnc_maps: dict[str, object],
     ncbi_maps: dict[str, object] | None,
     gencode: pd.DataFrame,
-    universe: set[str] | None,
+    output_genes: set[str] | None,
     namespace: str,
     cfg: dict,
     unmapped: list[dict[str, object]],
@@ -221,7 +221,7 @@ def map_ensembl(
     mapping_status = mapping_status if mapping_status is not None else {}
     term_records = _term_records(term_df)
     symbol_index = _gencode_symbol_index(gencode)
-    target_ids, _, known_target_ids = _target_id_sets(gencode, universe, gene_filter, hgnc_maps)
+    target_ids, _, known_target_ids = _target_id_sets(gencode, output_genes, gene_filter, hgnc_maps)
     manual_repairs = cfg.get("gene_mapping", {}).get("manual_symbol_repairs", {}) or {}
     is_non_gene = _non_gene_matcher(cfg)
     resolve_cache: dict[str, tuple[str, str, list[str]]] = {}
@@ -229,7 +229,7 @@ def map_ensembl(
     ncbi_rescue_cache: dict[tuple[str, str], dict[str, object]] = {}
 
     # Query archive only for source Ensembl IDs absent from known annotation/config/current HGNC IDs.
-    # Target gene universes or older target annotations can exclude current genes; that alone should not trigger archive calls.
+    # Target output gene sets or older target annotations can exclude current genes; that alone should not trigger archive calls.
     problematic_source_ids = _problematic_source_ids(term_records, known_target_ids)
     if archive_resolver is not None and prefetch_archive:
         archive_resolver.prefetch(problematic_source_ids, namespace)
@@ -240,7 +240,7 @@ def map_ensembl(
             _count_status(mapping_status, namespace, row, "non_gene_token_drop")
             non_gene.append(_non_gene_row(namespace, row, row["gene_symbol"], "configured_non_gene_token"))
             continue
-        # Keep source Ensembl IDs that already match the target universe
+        # Keep source Ensembl IDs that already match the output gene set
         source_ensembl = strip_ensembl_version(row.get("gene_ensembl_from_source", ""))
         if source_ensembl and source_ensembl in target_ids:
             _add_gene(output, row, source_ensembl)
@@ -310,12 +310,12 @@ def map_ensembl(
                 if archive_checked:
                     archive_audit.append(_archive_audit_row(namespace, row, source_ensembl, archive_info, rescued, str(ncbi_rescue["status"])))
                 continue
-            _count_status(mapping_status, namespace, row, "not_in_target_universe")
-            unmapped.append(_unmapped_row(namespace, row, row["gene_symbol"], current_symbol, "not_in_target_universe", []))
+            _count_status(mapping_status, namespace, row, "not_in_output_genes")
+            unmapped.append(_unmapped_row(namespace, row, row["gene_symbol"], current_symbol, "not_in_output_genes", []))
             if ncbi_rescue["status"] != "ncbi_not_checked":
-                ncbi_audit.append(_ncbi_audit_row(namespace, row, ncbi_rescue, "", "not_in_target_universe"))
+                ncbi_audit.append(_ncbi_audit_row(namespace, row, ncbi_rescue, "", "not_in_output_genes"))
             if archive_checked:
-                archive_audit.append(_archive_audit_row(namespace, row, source_ensembl, archive_info, "", _archive_unresolved_status(archive_info, archive_matches, "not_in_target_universe")))
+                archive_audit.append(_archive_audit_row(namespace, row, source_ensembl, archive_info, "", _archive_unresolved_status(archive_info, archive_matches, "not_in_output_genes")))
             continue
         chosen = _choose_gencode_candidate(candidates)
         if chosen is None:
@@ -360,15 +360,15 @@ def map_ensembl(
 
 def _target_id_sets(
     gencode: pd.DataFrame,
-    universe: set[str] | None,
+    output_genes: set[str] | None,
     gene_filter: set[str] | None,
     hgnc_maps: dict[str, object],
 ) -> tuple[set[str], set[str], set[str]]:
     annotation_ids = {str(gene) for gene in gencode["ensembl_gene_id"]}
-    universe_ids = {strip_ensembl_version(gene) for gene in universe} if universe else set()
+    output_gene_set = {strip_ensembl_version(gene) for gene in output_genes} if output_genes else set()
     filter_ids = {strip_ensembl_version(gene) for gene in gene_filter} if gene_filter else set()
-    if universe_ids:
-        target_ids = universe_ids
+    if output_gene_set:
+        target_ids = output_gene_set
     elif filter_ids:
         target_ids = annotation_ids & filter_ids
     else:
@@ -376,7 +376,7 @@ def _target_id_sets(
     current_hgnc_ensembl_ids = {
         strip_ensembl_version(value) for value in hgnc_maps.get("current_to_ensembl", {}).values() if strip_ensembl_version(value)
     }
-    return target_ids, annotation_ids, annotation_ids | target_ids | universe_ids | filter_ids | current_hgnc_ensembl_ids
+    return target_ids, annotation_ids, annotation_ids | target_ids | output_gene_set | filter_ids | current_hgnc_ensembl_ids
 
 
 def _problematic_source_ids(term_records: list[dict[str, Any]], known_target_ids: set[str]) -> list[str]:
@@ -441,25 +441,39 @@ def _gencode_symbol_index(gencode: pd.DataFrame) -> dict[str, list[dict[str, str
             {
                 "ensembl_gene_id": str(row_dict["ensembl_gene_id"]),
                 "gene_biotype": str(row_dict.get("gene_biotype", "")),
-                "is_in_expression_universe": str(row_dict.get("is_in_expression_universe", "")) == "True"
-                or bool(row_dict.get("is_in_expression_universe", False)),
-                "annotation_source": "GENCODE",
+                "is_in_output_genes": str(row_dict.get("is_in_output_genes", "")) == "True"
+                or bool(row_dict.get("is_in_output_genes", False)),
+                "annotation_source": str(row_dict.get("target_id_metadata_source", "annotation_gtf") or "annotation_gtf"),
             }
         )
     return index
 
 
 def _choose_gencode_candidate(candidates: list[dict[str, Any]]) -> dict[str, Any] | None:
+    if not candidates:
+        return None
     if len(candidates) == 1:
         return candidates[0]
-    in_universe = [candidate for candidate in candidates if candidate.get("is_in_expression_universe")]
-    if len(in_universe) == 1:
-        return in_universe[0]
-    pool = in_universe or candidates
+    in_output_genes = [candidate for candidate in candidates if candidate.get("is_in_output_genes")]
+    pool = in_output_genes or candidates
+    best_priority = min(_annotation_candidate_priority(candidate) for candidate in pool)
+    pool = [candidate for candidate in pool if _annotation_candidate_priority(candidate) == best_priority]
+    if len(pool) == 1:
+        return pool[0]
     coding = [candidate for candidate in pool if candidate.get("gene_biotype") == "protein_coding"]
     if len(coding) == 1:
         return coding[0]
     return None
+
+
+def _annotation_candidate_priority(candidate: dict[str, Any]) -> int:
+    source = str(candidate.get("annotation_source", ""))
+    return {
+        "annotation_gtf": 0,
+        "annotation_supplement": 1,
+        "output_genes": 2,
+        "HGNC": 3,
+    }.get(source, 4)
 
 
 def _choose_hgnc_ensembl_tiebreak(
@@ -487,7 +501,7 @@ def _symbol_candidates(current_symbol: str, symbol_index: dict[str, list[dict[st
             {
                 "ensembl_gene_id": hgnc_ensembl,
                 "gene_biotype": "",
-                "is_in_expression_universe": True,
+                "is_in_output_genes": True,
                 "annotation_source": "HGNC",
             }
         )
@@ -533,7 +547,7 @@ def _try_ncbi_rescue(
             return {**base, "ensembl_gene_id": chosen["ensembl_gene_id"]}
         if candidates:
             return {**base, "status": f"ambiguous_{stage}"}
-        return {**base, "status": f"{stage}_not_in_target_universe"}
+        return {**base, "status": f"{stage}_not_in_output_genes"}
     return _empty_ncbi_rescue("ncbi_not_checked")
 
 
@@ -555,7 +569,7 @@ def _ncbi_target_candidate(
         {
             "ensembl_gene_id": ensembl_id,
             "gene_biotype": "",
-            "is_in_expression_universe": True,
+            "is_in_output_genes": True,
             "annotation_source": "NCBI",
         }
         for ensembl_id in record.get("ensembl_gene_ids", [])
@@ -894,7 +908,7 @@ def _normalize_archive_record(stable_id: str, item: dict[str, Any]) -> dict[str,
 
 
 def _archive_target_matches(archive_info: dict[str, Any], target_ids: set[str]) -> list[str]:
-    # Intersect archive candidates with the target matrix universe
+    # Intersect archive candidates with the output gene set
     if not archive_info or not archive_info.get("found"):
         return []
     candidates = set(archive_info.get("possible_replacement") or [])

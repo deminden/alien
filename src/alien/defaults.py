@@ -19,10 +19,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
     },
     "sources": [
         {
-            "type": "msigdb_cache",
-            "name": "msigdb",
-            "path": "data/alien_sources/msigdb",
-            "include_c4_cm": False,
+            "type": "msigdb_remote",
+            "version": "2026.1",
+            "db_species": "HS",
+            "collection": "C2",
         },
         {
             "type": "symbol_gmt",
@@ -48,7 +48,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "max_size_default": 500,
         "max_size_disease": 500,
         "max_size_cancer": 500,
-        "remove_empty_after_universe_projection": True,
+        "remove_empty_after_output_gene_projection": True,
         "drop_broad_disease_terms": True,
         "broad_disease_regex": [
             "^disease$",
@@ -68,7 +68,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "redundancy": {
         "exact_duplicate_removal": True,
         "jaccard_cutoff": 0.85,
-        "apply_after_universe_projection": True,
+        "apply_after_output_gene_projection": True,
         "apply_per_family": True,
         "nested_overlap_filter": {
             "enabled": False,

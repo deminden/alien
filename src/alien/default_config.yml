@@ -10,10 +10,10 @@ term_id_collisions:
   action: error
 
 sources:
-  - type: msigdb_cache
-    name: msigdb
-    path: data/alien_sources/msigdb
-    include_c4_cm: false
+  - type: msigdb_remote
+    version: "2026.1"
+    db_species: HS
+    collection: C2
 
 targets:
   - name: human_gencode49

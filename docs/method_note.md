@@ -1,4 +1,4 @@
-# ALIEN 0.1.3 Method Note
+# ALIEN 0.1.4 Method Note
 
 ALIEN builds gene-set GMT files when source libraries and analysis namespaces do not line up cleanly. Source collections often mix current symbols, retired symbols, aliases, source Ensembl IDs, and occasional non-gene tokens. Downstream workflows, meanwhile, may require a specific target annotation release.
 
@@ -6,18 +6,20 @@ ALIEN treats integration as an audited projection problem. Every input source is
 
 ## Design
 
-ALIEN 0.1.3 accepts these source styles:
+ALIEN 0.1.4 accepts these source styles:
 
 - Managed MSigDB release archives through the Python `msigdb_remote` reader.
 - Managed Enrichr libraries through the Python `enrichr_remote` reader.
-- Local MSigDB-like tables with symbols and optional source identifiers.
+- Local MSigDB-like tables with symbols and additional source identifiers.
 - Symbol-only GMT libraries, including local Enrichr-style exports.
 
-The builder creates a current-symbol namespace for display/review and any number of configured target namespaces. In 0.1.3 the implemented target adapter is `ensembl_gtf`: each target is defined by one Ensembl-style annotation GTF plus, when needed, either a `gene_universe` file/list that defines the output ID namespace or a `gene_filter` file/list that restricts the annotation namespace by intersection. The GTF can come from GENCODE by version or from another annotation origin via a local path or URL, as long as gene ID and symbol attributes are present or mapped in config. When `gene_universe` is present, the GTF is primarily a symbol and metadata helper; the configured universe owns the output ID set.
+The builder creates a current-symbol namespace for display/review and any number of configured target namespaces. In 0.1.4 the implemented target adapter is `ensembl_gtf`: each target separates the output gene set from the annotation helper. By default, one Ensembl-style annotation GTF provides both; with `output_genes`, a dataset file/list defines the final output gene namespace and the GTF is primarily a symbol/metadata helper; with `gene_filter`, the final namespace is the intersection of annotation IDs and configured filter IDs. The GTF can come from GENCODE by version or from another annotation origin via a local path or URL, as long as gene ID and symbol attributes are present or mapped in config. In `output_genes`, `id_column` must contain Ensembl IDs; `symbol_column` is optional helper metadata for output genes absent from the GTF.
+
+For dataset-specific output namespaces, the primary annotation can be supplemented without being replaced. `annotation.supplements` currently supports the conservative `fill_missing_output_genes` mode: ALIEN loads a secondary GTF, adds only output IDs missing from the primary annotation, and records those rows as supplement metadata. When the same symbol is present in both primary and supplement annotations, the primary annotation remains the preferred mapping candidate. This keeps official releases such as GENCODE as the mapping authority while allowing resources such as recount3 to explain measured IDs absent from the official release file.
 
 ## Auditing
 
-Mapping uses HGNC current, previous, and alias symbols first. By default, source Ensembl IDs that are absent from the target annotation, any configured target gene universe/filter, and HGNC's current Ensembl IDs are checked against the Ensembl archive cache. NCBI Gene history/info rescue is also enabled by default, but restricted to configured legacy source tags. Both fallback layers can be disabled in config. Ambiguous mappings are not guessed; they are written to audit tables.
+Mapping uses HGNC current, previous, and alias symbols first. By default, source Ensembl IDs that are absent from the target annotation, any configured target output genes/filter, and HGNC's current Ensembl IDs are checked against the Ensembl archive cache. NCBI Gene history/info rescue is also enabled by default, but restricted to configured legacy source tags. Both fallback layers can be disabled in config. Ambiguous mappings are not guessed; they are written to audit tables.
 
 Before mapping, ALIEN checks that each `term_id` refers to one source-term identity. Conflicting reuse of the same identifier across libraries is treated as an input error by default, because otherwise memberships would be merged while one term's metadata silently wins. When this happens, `metadata/term_id_collisions.tsv` records the conflicting identities for repair.
 
@@ -29,7 +31,7 @@ The primary GMT output is intentionally simple: one combined GMT per namespace. 
 
 ## Reproducibility
 
-ALIEN writes source provenance, package versions, target coverage summaries, mapping summaries, and warning logs. The source cache remains outside the package so license-sensitive resources can be managed by each user.
+ALIEN writes a compact source manifest, source provenance, package versions, target coverage summaries, mapping summaries, and warning logs. `metadata/source_manifest.tsv` is the main article/protocol record for exact source collections: it lists each resolved source collection once, with term/member counts and Enrichr exact/regex resolution details when relevant. `metadata/target_annotation_supplements.tsv` records any secondary annotation files used to fill missing output IDs. Enabled sources are required; missing source libraries stop the build rather than silently weakening the output. The source cache remains outside the package so license-sensitive resources can be managed by each user.
 
 ## Cache And Performance
 
@@ -39,4 +41,4 @@ Large builds reuse those derived caches unless `--force-download` or source-leve
 
 ## Limitations
 
-ALIEN 0.1.3 is scoped to human gene-set integration with HGNC symbols, MSigDB and Enrichr local/remote caches, optimized repeated-build caches, and Ensembl-style target namespaces. Non-Ensembl target ID systems, such as Entrez or UniProt GMT output, are future target adapters.
+ALIEN 0.1.4 is scoped to human gene-set integration with HGNC symbols, MSigDB and Enrichr local/remote caches, optimized repeated-build caches, and Ensembl-style target namespaces. Non-Ensembl target ID systems, such as Entrez or UniProt GMT output, are future target adapters.

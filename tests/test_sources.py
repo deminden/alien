@@ -223,3 +223,11 @@ targets: []
 
     assert "signature" in cfg["gene_mapping"]["non_gene_tokens"]
     assert "^syndrome$" in cfg["filtering"]["broad_disease_regex"]
+
+
+def test_default_config_uses_remote_msigdb():
+    cfg = load_config()
+
+    assert cfg["sources"][0]["type"] == "msigdb_remote"
+    assert cfg["sources"][0]["version"] == "2026.1"
+    assert cfg["sources"][0]["collection"] == "C2"
