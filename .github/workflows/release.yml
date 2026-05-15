@@ -91,6 +91,9 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install build twine
 
+      - name: Generate PyPI README
+        run: python scripts/generate_pypi_readme.py --ref "v${{ needs.verify.outputs.version }}"
+
       - name: Build source distribution and wheel
         run: python -m build --sdist --wheel
 

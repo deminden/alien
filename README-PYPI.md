@@ -1,3 +1,5 @@
+<!-- Generated from README.md by scripts/generate_pypi_readme.py. Do not edit directly. -->
+
 # ALIEN
 
 **ALIEN: Audited Library Integration for External Namespaces** is a fully Python-based tool for building namespace-specific GMT libraries for human gene-set workflows.
@@ -24,10 +26,10 @@ alien build --config examples/cancer_dependency.yml --workers 16
 
 Ready-made configs are available for GTEx v11 / GENCODE v47 and TCGA recount3 / GENCODE v29 targets. The first three configs write both GTEx and TCGA GMTs; the cancer dependency config is TCGA-only. TCGA configs use GENCODE v29 as the primary annotation helper and recount3 G029 as a metadata fallback for measured IDs missing from GENCODE.
 
-- [examples/pathways.yml](examples/pathways.yml): Reactome, WikiPathways, KEGG MEDICUS, and GO biological process terms.
-- [examples/function_location.yml](examples/function_location.yml): GO molecular function and cellular component terms.
-- [examples/disease_phenotype.yml](examples/disease_phenotype.yml): HPO, DisGeNET, ClinVar, GWAS Catalog, and Jensen disease libraries.
-- [examples/cancer_dependency.yml](examples/cancer_dependency.yml): cancer and dependency signatures for TCGA recount3.
+- [examples/pathways.yml](https://github.com/deminden/alien/blob/v0.1.5/examples/pathways.yml): Reactome, WikiPathways, KEGG MEDICUS, and GO biological process terms.
+- [examples/function_location.yml](https://github.com/deminden/alien/blob/v0.1.5/examples/function_location.yml): GO molecular function and cellular component terms.
+- [examples/disease_phenotype.yml](https://github.com/deminden/alien/blob/v0.1.5/examples/disease_phenotype.yml): HPO, DisGeNET, ClinVar, GWAS Catalog, and Jensen disease libraries.
+- [examples/cancer_dependency.yml](https://github.com/deminden/alien/blob/v0.1.5/examples/cancer_dependency.yml): cancer and dependency signatures for TCGA recount3.
 
 The primary outputs are:
 
@@ -37,7 +39,7 @@ The primary outputs are:
 
 The two filesystem roots are configured in YAML: `project.source_dir` is for downloaded/cached source and mapping resources, while `project.outdir` is the output root containing `gmt/`, `metadata/`, and `qc/`.
 
-Downstream enrichment reports using these GMTs are included in [docs/sex_contrast/gtex_thyroid/analysis.md](docs/sex_contrast/gtex_thyroid/analysis.md) and [docs/sex_contrast/tcga_lung/analysis.md](docs/sex_contrast/tcga_lung/analysis.md). Scripts to regenerate the report data, text, and figures are available in [scripts/](scripts/).
+Downstream enrichment reports using these GMTs are included in [docs/sex_contrast/gtex_thyroid/analysis.md](https://github.com/deminden/alien/blob/v0.1.5/docs/sex_contrast/gtex_thyroid/analysis.md) and [docs/sex_contrast/tcga_lung/analysis.md](https://github.com/deminden/alien/blob/v0.1.5/docs/sex_contrast/tcga_lung/analysis.md). Scripts to regenerate the report data, text, and figures are available in [scripts/](https://github.com/deminden/alien/tree/v0.1.5/scripts/).
 
 ## How It Works
 
@@ -82,7 +84,7 @@ source_priority:
   biology_process_pathway: [REACTOME, WIKIPATHWAYS, KEGG_MEDICUS, GOBP]
 ```
 
-See [docs/usage.md](docs/usage.md) for the full configuration reference.
+See [docs/usage.md](https://github.com/deminden/alien/blob/v0.1.5/docs/usage.md) for the full configuration reference.
 
 ## Source Inputs
 
@@ -92,7 +94,7 @@ ALIEN 0.1.5 supports managed MSigDB and Enrichr download/cache sources and local
 - `enrichr_remote`: a Python downloader/reader for Enrichr libraries by public library name.
 - `symbol_gmt`: a GMT file whose members are gene symbols.
 
-Additional source metadata fields are documented in [docs/usage.md](docs/usage.md).
+Additional source metadata fields are documented in [docs/usage.md](https://github.com/deminden/alien/blob/v0.1.5/docs/usage.md).
 
 ## Python API
 
@@ -125,4 +127,4 @@ The 0.1.5 release officially supports human gene sets using HGNC symbols, Python
 
 ## Contributing
 
-Contributions are welcome. Useful areas include additional tests, documentation, source adapters, target namespace adapters, mapping-audit improvements, curated filtering/source-priority defaults, and validation against established gene-set resources. See [docs/development.md](docs/development.md) for development setup and current future plans.
+Contributions are welcome. Useful areas include additional tests, documentation, source adapters, target namespace adapters, mapping-audit improvements, curated filtering/source-priority defaults, and validation against established gene-set resources. See [docs/development.md](https://github.com/deminden/alien/blob/v0.1.5/docs/development.md) for development setup and current future plans.

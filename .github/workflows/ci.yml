@@ -48,6 +48,9 @@ jobs:
           python-version: "3.12"
           cache: pip
 
+      - name: Check PyPI README
+        run: python scripts/generate_pypi_readme.py --check
+
       - name: Install build tools
         run: |
           python -m pip install --upgrade pip
