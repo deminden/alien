@@ -205,7 +205,7 @@ Each target has two separate roles:
 
 By default, the annotation GTF supplies both. When `output_genes` is configured, the output gene file/list supplies the final target ID set and the GTF is only a mapping/metadata helper. The `id_column` must contain Ensembl gene IDs; `symbol_column` is optional metadata, not a symbol-only target namespace. When `gene_filter` is configured, the final target ID set is the intersection of annotation IDs and the configured filter IDs.
 
-The primary annotation is always the first mapping authority. If a dataset-specific output namespace contains Ensembl IDs absent from that primary annotation, `annotation.supplements` can add metadata from another GTF only for those missing output genes. Supplemented IDs participate in mapping/auditing, but duplicate symbols already present in the primary annotation keep the primary mapping.
+The primary annotation is always the first mapping authority. If a dataset-specific output namespace contains Ensembl IDs absent from that primary annotation, `annotation.metadata_fallbacks` can add metadata from another GTF only for those missing output genes. Fallback IDs participate in mapping/auditing, but duplicate symbols already present in the primary annotation keep the primary mapping.
 
 For human GENCODE releases, `source` and any numeric `version` are enough. ALIEN builds the official FTP URL as `release_<version>/gencode.v<version>.annotation.gtf.gz`:
 
@@ -312,7 +312,7 @@ targets:
       symbol_column: gene_symbol
 ```
 
-For dataset-specific annotations, add a supplement instead of replacing the primary annotation. This is useful when the final output IDs come from a measured matrix, but the preferred biological mapping helper is still an official release such as GENCODE:
+For dataset-specific annotations, add a metadata fallback instead of replacing the primary annotation. This is useful when the final output IDs come from a measured matrix, but the preferred biological mapping helper is still an official release such as GENCODE:
 
 ```yaml
 targets:
@@ -321,17 +321,16 @@ targets:
     annotation:
       source: GENCODE
       version: "29"
-      supplements:
+      metadata_fallbacks:
         - source: recount3
           version: G029
           path: data/recount3/human.gene_sums.G029.gtf.gz
-          mode: fill_missing_output_genes
     output_genes:
-      path: data/tcga/normalised_counts_cancers/ACC_gencode_v29_normalised_counts.tsv.gz
+      path: data/recount3/tcga_gencode_v29_output_genes.tsv.gz
       id_column: Ensembl_gene_ID
 ```
 
-`fill_missing_output_genes` is deliberately conservative. It loads the supplement GTF, selects only output IDs missing from the primary annotation, and records the selected rows as `annotation_supplement` in `metadata/gene_mapping_<target>.tsv.gz`. The audit table `metadata/target_annotation_supplements.tsv` records how many output IDs were missing before and after each supplement.
+The default fallback mode is deliberately conservative: ALIEN loads the fallback GTF, selects only output IDs missing from the primary annotation, and records the selected rows as `metadata_fallback` in `metadata/gene_mapping_<target>.tsv.gz`. The audit table `metadata/target_metadata_fallbacks.tsv` records how many output IDs were missing before and after each fallback.
 
 `gene_filter` is the stricter alternative for true restriction behavior. It keeps only IDs present in both the annotation and the configured file/list:
 
@@ -446,7 +445,7 @@ Main audit outputs:
 ```text
 metadata/source_manifest.tsv
 metadata/term_manifest.tsv.gz
-metadata/target_annotation_supplements.tsv
+metadata/target_metadata_fallbacks.tsv
 metadata/target_output_genes.tsv.gz
 metadata/target_gene_filter.tsv.gz
 metadata/gene_mapping_<target>.tsv.gz
@@ -464,4 +463,4 @@ qc/warnings.txt
 
 `metadata/source_manifest.tsv` is the source-level reproducibility table. It has one row per resolved source collection with source tag, collection/subcollection, source URL/license note, term/member counts, and Enrichr resolution fields when relevant. `metadata/term_manifest.tsv.gz` stays term-level: it records filtering/redundancy status and final per-namespace term sizes.
 
-`metadata/target_output_genes.tsv.gz` audits configured `output_genes`, including the input ID, stripped Ensembl ID, optional dataset-provided symbol, ID type, and whether the ID had annotation-helper metadata after primary and supplemental annotations were applied. `metadata/target_annotation_supplements.tsv` audits supplement use per target. `qc/target_namespace_summary.tsv` summarizes `output_gene_source`, primary/supplement annotation helper sizes, annotation metadata coverage, and the number of target IDs missing annotation metadata.
+`metadata/target_output_genes.tsv.gz` audits configured `output_genes`, including the input ID, stripped Ensembl ID, optional dataset-provided symbol, ID type, and whether the ID had annotation-helper metadata after primary annotation and metadata fallback rows were applied. `metadata/target_metadata_fallbacks.tsv` audits fallback use per target. `qc/target_namespace_summary.tsv` summarizes `output_gene_source`, primary/fallback annotation helper sizes, annotation metadata coverage, and the number of target IDs missing annotation metadata.

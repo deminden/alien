@@ -1,18 +1,18 @@
 # ALIEN
 
-**ALIEN: Audited Library Integration for External Namespaces** builds namespace-specific GMT libraries for human gene-set workflows.
+**ALIEN: Audited Library Integration for External Namespaces** is a fully Python-based tool for building namespace-specific GMT libraries for human gene-set workflows.
 
 ALIEN is centered on one job: take configured source libraries, normalize their gene memberships into a canonical table, project them into configured target namespaces, and write combined GMT files with audit metadata.
 
 ## Install
 
-ALIEN is not on PyPI yet. Install it from the repository:
+Install ALIEN from PyPI:
 
 ```bash
-git clone https://github.com/deminden/alien.git
-cd alien
-python -m pip install -e .
+pip install bioalien
 ```
+
+The PyPI distribution name is `bioalien`; the Python import and command-line tool are `alien`.
 
 ## Quick Start
 
@@ -22,7 +22,7 @@ Prepare a config with sources and a target annotation, then run:
 alien build --config examples/cancer_dependency.yml --workers 16
 ```
 
-Ready-made example configs are available for GTEx v11 / GENCODE v47 and TCGA recount3 / GENCODE v29 targets. The first three examples write both GTEx and TCGA GMTs; the cancer dependency example is TCGA-only. TCGA configs use GENCODE v29 as the primary annotation helper and recount3 G029 as a supplement for measured IDs missing from GENCODE.
+Ready-made configs are available for GTEx v11 / GENCODE v47 and TCGA recount3 / GENCODE v29 targets. The first three configs write both GTEx and TCGA GMTs; the cancer dependency config is TCGA-only. TCGA configs use GENCODE v29 as the primary annotation helper and recount3 G029 as a metadata fallback for measured IDs missing from GENCODE.
 
 - [examples/pathways.yml](examples/pathways.yml): Reactome, WikiPathways, KEGG MEDICUS, and GO biological process terms.
 - [examples/function_location.yml](examples/function_location.yml): GO molecular function and cellular component terms.
@@ -32,11 +32,12 @@ Ready-made example configs are available for GTEx v11 / GENCODE v47 and TCGA rec
 The primary outputs are:
 
 - `gmt/<target_namespace>.gmt`: combined GMT for each configured target namespace.
-- `gmt/symbols.gmt`: optional current-symbol GMT for review/display when `outputs.include_symbols` is enabled; it is independent of target namespaces.
 - `metadata/`: source manifest, term manifest, gene mapping tables, removed terms, unmapped genes, ambiguity logs, and provenance.
 - `qc/`: collection, mapping, redundancy, target coverage, and warning summaries.
 
 The two filesystem roots are configured in YAML: `project.source_dir` is for downloaded/cached source and mapping resources, while `project.outdir` is the output root containing `gmt/`, `metadata/`, and `qc/`.
+
+Downstream enrichment reports using these GMTs are included in [docs/sex_contrast/gtex_thyroid/analysis.md](docs/sex_contrast/gtex_thyroid/analysis.md) and [docs/sex_contrast/tcga_lung/analysis.md](docs/sex_contrast/tcga_lung/analysis.md). Scripts to regenerate the report data, text, and figures are available in [scripts/](scripts/).
 
 ## How It Works
 
@@ -45,9 +46,6 @@ ALIEN builds one canonical membership table from configured sources, audits sour
 The target namespace is defined in the config. For an Ensembl-style namespace, provide a target name and a GTF annotation:
 
 ```yaml
-outputs:
-  include_symbols: true
-
 targets:
   - name: human_gencode49
     type: ensembl_gtf
@@ -56,13 +54,13 @@ targets:
       version: "49"
 ```
 
-This writes `gmt/human_gencode49.gmt`. When `include_symbols` is enabled, ALIEN also writes `gmt/symbols.gmt`.
+This writes `gmt/human_gencode49.gmt`.
 
 For human GENCODE releases, any numeric `version` is enough; ALIEN builds the official FTP URL and caches the GTF under `data/alien_sources/gencode/` if it is missing. You can still provide `annotation.path` to pin a local file explicitly.
 
 `source: GENCODE` is not special to the config shape; other Ensembl-style GTF origins can use the same adapter by providing a local path or URL. Fully different target ID systems, such as Entrez or UniProt GMT output, are planned as future target adapters.
 
-Targets separate the output gene set from the annotation helper. By default the GTF supplies both. Use `output_genes` when a dataset file supplies the final Ensembl ID namespace, or `gene_filter` when the annotation namespace should be intersected with a file/list of allowed IDs. In `output_genes` builds, `id_column` contains Ensembl IDs and the optional `symbol_column` adds dataset-provided symbol metadata for IDs absent from the GTF. `annotation.supplements` can add a secondary GTF only for output genes missing from the primary annotation; primary annotation mappings keep priority.
+Targets separate the output gene set from the annotation helper. By default the GTF supplies both. Use `output_genes` when a dataset file supplies the final Ensembl ID namespace, or `gene_filter` when the annotation namespace should be intersected with a file/list of allowed IDs. In `output_genes` builds, `id_column` contains Ensembl IDs and the optional `symbol_column` adds dataset-provided symbol metadata for IDs absent from the GTF. `annotation.metadata_fallbacks` can add secondary GTF metadata only for output genes missing from the primary annotation; primary annotation mappings keep priority.
 
 The build keeps audit outputs beside the GMTs so each namespace projection can be traced back to source terms, symbol repairs, unmapped genes, filters, redundancy decisions, and provenance. The compact `metadata/source_manifest.tsv` table is the main record of the exact source collections used in a build; for regex-matched Enrichr libraries it records the resolved library, match method, and candidate names.
 

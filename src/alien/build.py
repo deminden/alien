@@ -21,9 +21,9 @@ from .reports import (
 )
 from .sources import (
     augment_annotation_with_output_gene_symbols,
-    load_annotation_supplements,
     load_ensembl_gtf_target,
     load_hgnc,
+    load_metadata_fallbacks,
     load_ncbi_gene_maps,
     load_source_memberships,
     mark_output_genes,
@@ -122,7 +122,7 @@ def build(
     LOGGER.info("Writing metadata and QC reports")
     build_source_manifest(source_terms).to_csv(metadata_dir / "source_manifest.tsv", sep="\t", index=False)
     write_tsv_gz(build_term_manifest(source_terms, filtered, removed_size, removed_redundancy), metadata_dir / "term_manifest.tsv.gz")
-    _target_annotation_supplements(targets).to_csv(metadata_dir / "target_annotation_supplements.tsv", sep="\t", index=False)
+    _target_metadata_fallbacks(targets).to_csv(metadata_dir / "target_metadata_fallbacks.tsv", sep="\t", index=False)
     write_tsv_gz(_target_output_genes(targets), metadata_dir / "target_output_genes.tsv.gz")
     write_tsv_gz(_target_gene_filter(targets), metadata_dir / "target_gene_filter.tsv.gz")
     write_tsv_gz(removed_size, metadata_dir / "removed_terms_size_filter.tsv.gz")
@@ -354,11 +354,11 @@ def _prepare_targets(
         LOGGER.info("%s gene_filter ID type: %s", name, filter_id_type)
         annotation, annotation_label, annotation_path = load_ensembl_gtf_target(source_dir, target, force_download)
         primary_annotation_ids_from_gtf = {strip_ensembl_version(gene) for gene in annotation.get("ensembl_gene_id", pd.Series(dtype=str))}
-        supplement_annotation, supplement_records = load_annotation_supplements(
+        fallback_annotation, fallback_records = load_metadata_fallbacks(
             source_dir, target, output_genes, primary_annotation_ids_from_gtf, force_download
         )
-        if not supplement_annotation.empty:
-            annotation = pd.concat([annotation, supplement_annotation], ignore_index=True).drop_duplicates()
+        if not fallback_annotation.empty:
+            annotation = pd.concat([annotation, fallback_annotation], ignore_index=True).drop_duplicates()
         annotation_ids_from_gtf = {strip_ensembl_version(gene) for gene in annotation.get("ensembl_gene_id", pd.Series(dtype=str))}
         if output_genes:
             missing_annotation = output_genes - annotation_ids_from_gtf
@@ -394,7 +394,7 @@ def _prepare_targets(
                 "annotation_ids_from_gtf": annotation_ids_from_gtf,
                 "annotation_path": annotation_path,
                 "annotation_label": annotation_label,
-                "annotation_supplements": supplement_records,
+                "metadata_fallbacks": fallback_records,
             }
         )
     return prepared
@@ -566,21 +566,21 @@ def _target_output_genes(targets: list[dict[str, Any]]) -> pd.DataFrame:
     )
 
 
-def _target_annotation_supplements(targets: list[dict[str, Any]]) -> pd.DataFrame:
+def _target_metadata_fallbacks(targets: list[dict[str, Any]]) -> pd.DataFrame:
     columns = [
         "target_namespace",
-        "supplement_index",
+        "fallback_index",
         "mode",
         "annotation",
         "annotation_path",
-        "n_supplement_genes",
+        "n_fallback_genes",
         "n_missing_before",
         "n_rows_added",
         "n_missing_after",
     ]
     rows: list[dict[str, object]] = []
     for target in targets:
-        rows.extend(target.get("annotation_supplements", []))
+        rows.extend(target.get("metadata_fallbacks", []))
     if not rows:
         return pd.DataFrame(columns=columns)
     return pd.DataFrame(rows, columns=columns)
@@ -690,7 +690,7 @@ def _target_namespace_summary(targets: list[dict[str, Any]], source_terms: pd.Da
                 "effective_target_size": len(target_ids),
                 "annotation_helper_size": len(annotation_ids),
                 "primary_annotation_helper_size": len(primary_annotation_ids),
-                "annotation_supplement_helper_size": max(0, len(annotation_ids) - len(primary_annotation_ids)),
+                "metadata_fallback_helper_size": max(0, len(annotation_ids) - len(primary_annotation_ids)),
                 "output_genes_with_annotation_metadata": len(annotated_ids),
                 "annotation_metadata_coverage": round(len(annotated_ids) / len(target_ids), 6) if target_ids else 0,
                 "target_ids_missing_annotation_metadata": len(missing_annotation),

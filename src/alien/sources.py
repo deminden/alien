@@ -861,7 +861,7 @@ def _load_ensembl_gtf_annotation(
     return parse_gtf_genes(path, version, _gtf_attribute_names(annotation.get("attributes", {}))), label, path
 
 
-def load_annotation_supplements(
+def load_metadata_fallbacks(
     source_dir: Path,
     target: dict[str, Any],
     output_genes: set[str] | None,
@@ -870,65 +870,64 @@ def load_annotation_supplements(
 ) -> tuple[pd.DataFrame, list[dict[str, object]]]:
     # Fill measured output IDs missing from the primary annotation helper.
     annotation = target.get("annotation", {}) if isinstance(target.get("annotation", {}), dict) else {}
-    supplements = annotation.get("supplements", target.get("annotation_supplements", []))
-    if supplements is None:
-        supplements = []
-    if isinstance(supplements, dict):
-        supplements = [supplements]
-    if not isinstance(supplements, list):
-        raise TypeError(f"Target {target.get('name', '<unnamed>')} annotation.supplements must be a list.")
+    if "supplements" in annotation:
+        raise ValueError(
+            f"Target {target.get('name', '<unnamed>')} uses unsupported key annotation.supplements; "
+            "use annotation.metadata_fallbacks instead."
+        )
+    if "annotation_supplements" in target:
+        raise ValueError(
+            f"Target {target.get('name', '<unnamed>')} uses unsupported key annotation_supplements; "
+            "use annotation.metadata_fallbacks instead."
+        )
+    fallbacks = annotation.get("metadata_fallbacks", [])
+    if fallbacks is None:
+        fallbacks = []
+    if isinstance(fallbacks, dict):
+        fallbacks = [fallbacks]
+    if not isinstance(fallbacks, list):
+        raise TypeError(f"Target {target.get('name', '<unnamed>')} annotation.metadata_fallbacks must be a list.")
 
-    columns = [
-        "target_namespace",
-        "supplement_index",
-        "mode",
-        "annotation",
-        "annotation_path",
-        "n_supplement_genes",
-        "n_missing_before",
-        "n_rows_added",
-        "n_missing_after",
-    ]
-    if not supplements:
+    if not fallbacks:
         return pd.DataFrame(), []
 
     records: list[dict[str, object]] = []
     frames: list[pd.DataFrame] = []
     output_gene_ids = {strip_ensembl_version(gene) for gene in output_genes} if output_genes else set()
     covered_ids = set(primary_annotation_ids)
-    for index, spec in enumerate(supplements, start=1):
+    for index, spec in enumerate(fallbacks, start=1):
         if not isinstance(spec, dict):
-            raise TypeError(f"Target {target.get('name', '<unnamed>')} annotation supplement {index} must be a mapping.")
-        mode = str(spec.get("mode", "fill_missing_output_genes"))
-        if mode != "fill_missing_output_genes":
-            raise ValueError(f"Unsupported annotation supplement mode {mode!r}; use 'fill_missing_output_genes'.")
-        frame, label, path = _load_ensembl_gtf_annotation(source_dir, target, spec, force, role=f"supplement_{index}")
-        supplement_ids = {strip_ensembl_version(gene) for gene in frame.get("ensembl_gene_id", pd.Series(dtype=str))}
+            raise TypeError(f"Target {target.get('name', '<unnamed>')} annotation metadata fallback {index} must be a mapping.")
+        mode = str(spec.get("mode", "fill_missing_output_metadata"))
+        if mode != "fill_missing_output_metadata":
+            raise ValueError(f"Unsupported annotation metadata fallback mode {mode!r}; use 'fill_missing_output_metadata'.")
+        frame, label, path = _load_ensembl_gtf_annotation(source_dir, target, spec, force, role=f"metadata_fallback_{index}")
+        fallback_ids = {strip_ensembl_version(gene) for gene in frame.get("ensembl_gene_id", pd.Series(dtype=str))}
         missing_before = output_gene_ids - covered_ids if output_gene_ids else set()
-        add_ids = missing_before & supplement_ids
+        add_ids = missing_before & fallback_ids
         selected = frame[frame["ensembl_gene_id"].isin(add_ids)].copy() if add_ids else frame.iloc[0:0].copy()
         if not selected.empty:
-            selected["target_id_metadata_source"] = "annotation_supplement"
+            selected["target_id_metadata_source"] = "metadata_fallback"
             frames.append(selected)
             covered_ids.update(add_ids)
         records.append(
             {
                 "target_namespace": str(target.get("name", "")),
-                "supplement_index": index,
+                "fallback_index": index,
                 "mode": mode,
                 "annotation": label,
                 "annotation_path": str(path),
-                "n_supplement_genes": len(supplement_ids),
+                "n_fallback_genes": len(fallback_ids),
                 "n_missing_before": len(missing_before),
                 "n_rows_added": len(selected),
                 "n_missing_after": len(output_gene_ids - covered_ids) if output_gene_ids else 0,
             }
         )
     if frames:
-        supplement_frame = pd.concat(frames, ignore_index=True).drop_duplicates()
+        fallback_frame = pd.concat(frames, ignore_index=True).drop_duplicates()
     else:
-        supplement_frame = pd.DataFrame()
-    return supplement_frame, records
+        fallback_frame = pd.DataFrame()
+    return fallback_frame, records
 
 
 def normalize_gencode_version(version: object) -> str:

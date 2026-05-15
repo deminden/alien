@@ -470,7 +470,7 @@ def _annotation_candidate_priority(candidate: dict[str, Any]) -> int:
     source = str(candidate.get("annotation_source", ""))
     return {
         "annotation_gtf": 0,
-        "annotation_supplement": 1,
+        "metadata_fallback": 1,
         "output_genes": 2,
         "HGNC": 3,
     }.get(source, 4)

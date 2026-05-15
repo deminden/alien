@@ -33,13 +33,12 @@ targets:
     annotation:
       source: GENCODE
       version: "29"
-      supplements:
+      metadata_fallbacks:
         - source: recount3
           version: G029
           path: data/recount3/human.gene_sums.G029.gtf.gz
-          mode: fill_missing_output_genes
     output_genes:
-      path: data/tcga/normalised_counts_cancers/ACC_gencode_v29_normalised_counts.tsv.gz
+      path: data/recount3/tcga_gencode_v29_output_genes.tsv.gz
       id_column: Ensembl_gene_ID
 
 filtering:

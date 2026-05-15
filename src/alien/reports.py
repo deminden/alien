@@ -27,7 +27,7 @@ def build_source_provenance(
             "type": target.get("type", ""),
             "annotation": target.get("annotation_label", ""),
             "annotation_path": str(target.get("annotation_path") or target.get("annotation_gtf", "")),
-            "annotation_supplements": target.get("annotation_supplements", []),
+            "metadata_fallbacks": target.get("metadata_fallbacks", []),
             "output_genes_path": str(target.get("output_source_path") or ""),
             "output_genes_id_column": str(target.get("output_id_column") or ""),
             "output_genes_symbol_column": str(target.get("output_symbol_column") or ""),
@@ -98,17 +98,17 @@ def _target_annotation_sources(targets: list[dict[str, Any]]) -> dict[str, dict[
             except ValueError:
                 pass
         records[key] = record
-        for supplement in target.get("annotation_supplements", []):
-            supplement_label = str(supplement.get("annotation", "")).strip()
-            supplement_path = str(supplement.get("annotation_path", "")).strip()
-            supplement_index = supplement.get("supplement_index", "")
-            supplement_key = f"Target_annotation_supplement__{target.get('name', 'unnamed')}__{supplement_index}"
-            records[supplement_key] = {
-                "annotation": supplement_label,
-                "local_cache_file": supplement_path,
-                "mode": str(supplement.get("mode", "")),
-                "n_rows_added": str(supplement.get("n_rows_added", "")),
-                "license_note": "Supplemental target annotation GTF; used only to fill output IDs missing from the primary annotation.",
+        for fallback in target.get("metadata_fallbacks", []):
+            fallback_label = str(fallback.get("annotation", "")).strip()
+            fallback_path = str(fallback.get("annotation_path", "")).strip()
+            fallback_index = fallback.get("fallback_index", "")
+            fallback_key = f"Target_metadata_fallback__{target.get('name', 'unnamed')}__{fallback_index}"
+            records[fallback_key] = {
+                "annotation": fallback_label,
+                "local_cache_file": fallback_path,
+                "mode": str(fallback.get("mode", "")),
+                "n_rows_added": str(fallback.get("n_rows_added", "")),
+                "license_note": "Target metadata fallback GTF; used only to annotate output IDs missing from the primary annotation.",
             }
     return records
 

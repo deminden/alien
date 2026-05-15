@@ -284,12 +284,12 @@ def test_output_genes_symbol_column_augments_annotation_helper(tmp_path):
     assert "1 output_genes lack annotation-helper metadata" in warnings
 
 
-def test_annotation_supplement_fills_missing_output_genes_without_overriding_primary(tmp_path):
+def test_metadata_fallback_fills_missing_output_metadata_without_overriding_primary(tmp_path):
     source = tmp_path / "sources"
     outdir = tmp_path / "out"
     source_tsv = tmp_path / "source.tsv"
     primary_gtf = tmp_path / "primary.gtf"
-    supplement_gtf = tmp_path / "supplement.gtf"
+    fallback_gtf = tmp_path / "fallback.gtf"
     output_genes = tmp_path / "output_genes.tsv"
     _write_hgnc(source)
     pd.DataFrame(
@@ -304,7 +304,7 @@ def test_annotation_supplement_fills_missing_output_genes_without_overriding_pri
         'chr1\tALIEN\tgene\t1\t10\t.\t+\t.\tgene_id "ENSG000001.1"; gene_name "DUP"; gene_type "protein_coding";\n',
         encoding="utf-8",
     )
-    supplement_gtf.write_text(
+    fallback_gtf.write_text(
         'chr1\tALIEN\tgene\t20\t30\t.\t+\t.\tgene_id "ENSG000009.1"; gene_name "DUP"; gene_type "protein_coding";\n'
         'chr1\tALIEN\tgene\t40\t50\t.\t+\t.\tgene_id "ENSG000008.1"; gene_name "FILL"; gene_type "protein_coding";\n',
         encoding="utf-8",
@@ -317,18 +317,17 @@ def test_annotation_supplement_fills_missing_output_genes_without_overriding_pri
         "sources": [{"type": "msigdb_tsv", "path": str(source_tsv), "source_tag": "LOCAL"}],
         "targets": [
             {
-                "name": "supplemented",
+                "name": "fallback_target",
                 "type": "ensembl_gtf",
                 "annotation": {
                     "source": "Primary",
                     "version": "test",
                     "path": str(primary_gtf),
-                    "supplements": [
+                    "metadata_fallbacks": [
                         {
-                            "source": "Supplement",
+                            "source": "Fallback",
                             "version": "test",
-                            "path": str(supplement_gtf),
-                            "mode": "fill_missing_output_genes",
+                            "path": str(fallback_gtf),
                         }
                     ],
                 },
@@ -342,19 +341,19 @@ def test_annotation_supplement_fills_missing_output_genes_without_overriding_pri
 
     build(config=cfg, outdir=outdir, workers=1)
 
-    gmt_line = (outdir / "gmt" / "supplemented.gmt").read_text(encoding="utf-8").strip().split("\t")
+    gmt_line = (outdir / "gmt" / "fallback_target.gmt").read_text(encoding="utf-8").strip().split("\t")
     assert gmt_line[2:] == ["ENSG000001", "ENSG000008"]
-    mapping = pd.read_csv(outdir / "metadata" / "gene_mapping_supplemented.tsv.gz", sep="\t", dtype=str).fillna("")
+    mapping = pd.read_csv(outdir / "metadata" / "gene_mapping_fallback_target.tsv.gz", sep="\t", dtype=str).fillna("")
     sources = mapping.set_index("ensembl_gene_id")["target_id_metadata_source"].to_dict()
     assert sources["ENSG000001"] == "annotation_gtf"
-    assert sources["ENSG000008"] == "annotation_supplement"
-    assert sources["ENSG000009"] == "annotation_supplement"
-    supplement_audit = pd.read_csv(outdir / "metadata" / "target_annotation_supplements.tsv", sep="\t")
-    assert supplement_audit.loc[0, "n_rows_added"] == 2
-    assert supplement_audit.loc[0, "n_missing_after"] == 0
+    assert sources["ENSG000008"] == "metadata_fallback"
+    assert sources["ENSG000009"] == "metadata_fallback"
+    fallback_audit = pd.read_csv(outdir / "metadata" / "target_metadata_fallbacks.tsv", sep="\t")
+    assert fallback_audit.loc[0, "n_rows_added"] == 2
+    assert fallback_audit.loc[0, "n_missing_after"] == 0
     summary = pd.read_csv(outdir / "qc" / "target_namespace_summary.tsv", sep="\t")
     assert summary.loc[0, "annotation_metadata_coverage"] == 1.0
-    assert summary.loc[0, "annotation_supplement_helper_size"] == 2
+    assert summary.loc[0, "metadata_fallback_helper_size"] == 2
 
 
 def test_output_genes_and_gene_filter_are_mutually_exclusive(tmp_path):
