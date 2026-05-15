@@ -88,7 +88,7 @@ See [docs/usage.md](docs/usage.md) for the full configuration reference.
 
 ALIEN 0.1.4 supports managed MSigDB and Enrichr download/cache sources and local file sources:
 
-- `msigdb_remote`: a Python downloader/reader for the current `msigdbr` Zenodo release cache, with normalized Parquet caches for repeated builds.
+- `msigdb_remote`: a Python downloader/reader for configured MSigDB release archives, with normalized Parquet caches for repeated builds.
 - `enrichr_remote`: a Python downloader/reader for Enrichr libraries by public library name.
 - `symbol_gmt`: a GMT file whose members are gene symbols.
 
@@ -115,7 +115,7 @@ sources:
     collection: C2
 ```
 
-This downloads and caches the configured `msigdbr` release archive under `data/alien_sources/msigdb_remote/`, verifies it by MD5, and converts matching RDS files into ALIEN's normalized Parquet cache for later builds.
+This stores the configured MSigDB release archive under `project.source_dir/msigdb_remote/` by default, or a source-level `cache_dir` override when provided. ALIEN verifies the archive by MD5, extracts the matching RDS files, and writes normalized Parquet memberships for later builds.
 
 Remote caches are reused by default. ALIEN also caches normalized MSigDB memberships and prepared NCBI rescue maps, so repeated large builds avoid expensive source-format conversion. Use `alien build --force-download` or per-source `force: true` to refresh managed downloads such as MSigDB, Enrichr, GENCODE, HGNC, and NCBI resources. For publication configs, prefer exact Enrichr library names and keep `metadata/source_manifest.tsv` with the released GMTs. Enabled sources are always required; use `enabled: false` to exclude a source deliberately.
 
