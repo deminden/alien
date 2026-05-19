@@ -1,4 +1,4 @@
-# ALIEN 0.1.5 Method Note
+# ALIEN 0.1.6 Method Note
 
 ALIEN builds gene-set GMT files when source libraries and analysis namespaces do not line up cleanly. Source collections often mix current symbols, retired symbols, aliases, source Ensembl IDs, and occasional non-gene tokens. Downstream workflows, meanwhile, may require a specific target annotation release.
 
@@ -6,14 +6,14 @@ ALIEN treats integration as an audited projection problem. Every input source is
 
 ## Design
 
-ALIEN 0.1.5 accepts these source styles:
+ALIEN 0.1.6 accepts these source styles:
 
 - Managed MSigDB release archives through the Python `msigdb_remote` reader.
 - Managed Enrichr libraries through the Python `enrichr_remote` reader.
 - Local MSigDB-like tables with symbols and additional source identifiers.
 - Symbol-only GMT libraries, including local Enrichr-style exports.
 
-The builder creates a current-symbol namespace for display/review and any number of configured target namespaces. In 0.1.5 the implemented target adapter is `ensembl_gtf`: each target separates the output gene set from the annotation helper. By default, one Ensembl-style annotation GTF provides both; with `output_genes`, a dataset file/list defines the final output gene namespace and the GTF is primarily a symbol/metadata helper; with `gene_filter`, the final namespace is the intersection of annotation IDs and configured filter IDs. The GTF can come from GENCODE by version or from another annotation origin via a local path or URL, as long as gene ID and symbol attributes are present or mapped in config. In `output_genes`, `id_column` must contain Ensembl IDs; `symbol_column` is optional helper metadata for output genes absent from the GTF.
+The builder creates a current-symbol namespace for display/review and any number of configured target namespaces. In 0.1.6 the implemented target adapter is `ensembl_gtf`: each target separates the output gene set from the annotation helper. By default, one Ensembl-style annotation GTF provides both; with `output_genes`, a dataset file/list defines the final output gene namespace and the GTF is primarily a symbol/metadata helper; with `gene_filter`, the final namespace is the intersection of annotation IDs and configured filter IDs. The GTF can come from GENCODE by version or from another annotation origin via a local path or URL, as long as gene ID and symbol attributes are present or mapped in config. In `output_genes`, `id_column` must contain Ensembl IDs; `symbol_column` is optional helper metadata for output genes absent from the GTF.
 
 For dataset-specific output namespaces, the primary annotation can receive metadata fallbacks without being replaced. `annotation.metadata_fallbacks` loads a secondary GTF, adds only output IDs missing from the primary annotation, and records those rows as fallback metadata. When the same symbol is present in both primary and fallback annotations, the primary annotation remains the preferred mapping candidate. This keeps official releases such as GENCODE as the mapping authority while allowing resources such as recount3 to explain measured IDs absent from the official release file.
 
@@ -41,4 +41,4 @@ Large builds reuse those derived caches unless `--force-download` or source-leve
 
 ## Limitations
 
-ALIEN 0.1.5 is scoped to human gene-set integration with HGNC symbols, MSigDB and Enrichr local/remote caches, optimized repeated-build caches, and Ensembl-style target namespaces. Non-Ensembl target ID systems, such as Entrez or UniProt GMT output, are future target adapters.
+ALIEN 0.1.6 is scoped to human gene-set integration with HGNC symbols, MSigDB and Enrichr local/remote caches, optimized repeated-build caches, and Ensembl-style target namespaces. Non-Ensembl target ID systems, such as Entrez or UniProt GMT output, are future target adapters.

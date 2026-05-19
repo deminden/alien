@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
@@ -20,12 +21,25 @@ REQUIRED_SECTIONS = [
 ]
 
 
-def load_config(path: str | Path | None = None) -> dict[str, Any]:
+def load_config(path: str | Path | None = None, overrides: Sequence[str | Path | dict[str, Any]] | None = None) -> dict[str, Any]:
     cfg = default_config()
     if path is not None:
-        with Path(path).open("r", encoding="utf-8") as handle:
-            override = yaml.safe_load(handle) or {}
-        cfg = merge_config(cfg, override)
+        cfg = merge_config(cfg, read_config_file(path))
+    for override in overrides or []:
+        cfg = merge_config(cfg, _coerce_override(override))
+    return finalize_config(cfg)
+
+
+def read_config_file(path: str | Path) -> dict[str, Any]:
+    with Path(path).open("r", encoding="utf-8") as handle:
+        data = yaml.safe_load(handle) or {}
+    if not isinstance(data, dict):
+        raise ValueError(f"Config file {path} must contain a YAML mapping.")
+    return data
+
+
+def finalize_config(cfg: dict[str, Any]) -> dict[str, Any]:
+    cfg = deepcopy(cfg)
     _apply_list_extensions(cfg)
     _validate_config(cfg)
     return cfg
@@ -35,6 +49,12 @@ def merge_config(base: dict[str, Any], override: dict[str, Any]) -> dict[str, An
     merged = deepcopy(base)
     _deep_update(merged, override)
     return merged
+
+
+def _coerce_override(override: str | Path | dict[str, Any]) -> dict[str, Any]:
+    if isinstance(override, dict):
+        return override
+    return read_config_file(override)
 
 
 def _deep_update(target: dict[str, Any], override: dict[str, Any]) -> None:

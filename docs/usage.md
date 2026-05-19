@@ -1,20 +1,93 @@
 # Usage
 
-ALIEN builds combined GMT files from configured source libraries and projects them into configured target namespaces. A build is controlled by one YAML file.
+ALIEN builds combined GMT files from configured source libraries and projects them into configured target namespaces. A build can start from a bundled preset or from one YAML file.
 
 ## Run
 
 ```bash
+alien build examples/pathways.yml --workers 4
 alien build --config examples/pathways.yml --workers 4
 ```
 
 The Python API is equivalent:
 
 ```python
-from alien import build
+from alien import build, load_preset_config
 
 result = build("examples/pathways.yml", workers=4)
 print(result.namespaces)
+cfg = load_preset_config("cancer")
+```
+
+Use a bundled preset when you want ALIEN's packaged default for a common library family:
+
+```bash
+alien build pathways
+alien build function
+alien build disease
+alien build cancer
+```
+
+The bundled preset names are `pathways`, `function_location`, `disease_phenotype`, and `cancer_dependency`. Short aliases are `function`, `disease`, and `cancer`. `alien presets` lists the installed presets and their package paths. Presets are packaged with ALIEN for offline config resolution and are GTEx/Gencode47-only by default.
+
+Use [examples/](../examples/) when you want the editable, study-specific YAMLs used by the included report scripts:
+
+```bash
+alien build examples/cancer_dependency.yml
+alien build --config examples/cancer_dependency.yml
+```
+
+`--config` always treats its value as a filesystem path. Positional build input is resolved as a preset name/alias first and otherwise as a YAML path.
+
+The bundled targets use full GENCODE v47 annotations, so they do not require a local GTEx expression/count matrix just to build the GMT. The example YAMLs intentionally keep hardcoded `data/gtex/...` output-gene paths for reproducing the included analyses.
+
+TCGA-restricted targets need an output-gene list. The recount3 GTF is optional unless you configure it as a metadata fallback for measured IDs missing from the primary GENCODE annotation. Put these under `data/recount3/` or override their paths:
+
+```text
+data/recount3/tcga_gencode_v29_output_genes.tsv.gz
+data/recount3/human.gene_sums.G029.gtf.gz
+```
+
+Overlay YAMLs are applied after the preset/config and before CLI overrides:
+
+```bash
+alien build pathways --override my-study.yml --source-dir scratch/alien_sources --outdir results/my_gmt
+```
+
+Mappings merge recursively. Lists replace, so overriding one target means supplying the full `targets` list you want to use:
+
+```yaml
+project:
+  source_dir: scratch/alien_sources
+  outdir: results/my_gmt
+
+targets:
+  - name: my_study_gencode47
+    type: ensembl_gtf
+    annotation:
+      source: GENCODE
+      version: "47"
+    output_genes:
+      path: data/my_study/expression.tsv.gz
+      id_column: feature_id
+```
+
+For TCGA/recount3 cancer output, save this as `tcga-recount3.yml` and run `alien build cancer --override tcga-recount3.yml`:
+
+```yaml
+targets:
+  - name: tcga_recount3_gencode29
+    type: ensembl_gtf
+    annotation:
+      source: GENCODE
+      version: "29"
+      metadata_fallbacks:
+        - source: recount3
+          version: G029
+          path: data/recount3/human.gene_sums.G029.gtf.gz
+    output_genes:
+      path: data/recount3/tcga_gencode_v29_output_genes.tsv.gz
+      id_column: Ensembl_gene_ID
 ```
 
 ## Minimal Config
@@ -55,6 +128,33 @@ data/alien_gmt/
 ```
 
 Those are the two normal filesystem locations in an ALIEN config. `project.source_dir` stores downloaded source GMTs, MSigDB/Enrichr caches, annotation files, HGNC/NCBI mapping resources, and other conversion inputs. `project.outdir` is the result root; ALIEN creates `gmt/`, `metadata/`, and `qc/` inside it. The CLI `--outdir` option is only an override for `project.outdir`.
+
+`--source-dir` is a convenience override for `project.source_dir`. Use it to redirect managed downloads and caches to a scratch or shared cache location without editing the YAML.
+
+## Output Modes
+
+By default, `alien build` uses `--output-mode full`, which writes the complete `gmt/`, `metadata/`, and `qc/` tree to `project.outdir`.
+
+For production handoff runs, `--output-mode gmt` builds in temporary space and copies only `gmt/*.gmt` files back to the requested output directory. This leaves audit tables behind, so use it only when you already have a preserved reproducibility record elsewhere.
+
+For compact but reproducible releases, `--output-mode minimal` also builds in temporary space and keeps:
+
+```text
+gmt/*.gmt
+metadata/effective_config.yml
+metadata/source_manifest.tsv
+metadata/source_provenance.json
+metadata/term_manifest.tsv.gz
+metadata/target_metadata_fallbacks.tsv
+metadata/target_output_genes.tsv.gz
+metadata/target_gene_filter.tsv.gz
+qc/target_namespace_summary.tsv
+qc/mapping_summary.tsv
+qc/redundancy_summary.tsv
+qc/warnings.txt
+```
+
+Temporary output modes only stage `project.outdir`. `project.source_dir` still points at the configured cache/input-resource location. If you also want managed downloads and derived source caches to be temporary, point `project.source_dir` to scratch with an overlay or `--source-dir`.
 
 ## Source Types
 
@@ -443,6 +543,7 @@ gmt/symbols.gmt
 Main audit outputs:
 
 ```text
+metadata/effective_config.yml
 metadata/source_manifest.tsv
 metadata/term_manifest.tsv.gz
 metadata/target_metadata_fallbacks.tsv

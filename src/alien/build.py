@@ -1,15 +1,20 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass
+import shutil
+import tempfile
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import yaml
 
-from .config import load_config, merge_config
+from .config import finalize_config, load_config, merge_config, read_config_file
 from .filtering import apply_size_and_broad_filters, remove_redundancy
 from .mapping import map_namespaces
+from .presets import is_preset_name, load_preset_config
 from .reports import (
     build_source_manifest,
     build_source_provenance,
@@ -64,17 +69,68 @@ class BuildResult:
 def build(
     config: str | Path | dict[str, Any] | None = None,
     outdir: str | Path | None = None,
+    source_dir: str | Path | None = None,
     workers: int | None = None,
     dry_run: bool = False,
     force_download: bool = False,
+    output_mode: str = "full",
+    overrides: Sequence[str | Path | dict[str, Any]] | None = None,
 ) -> BuildResult:
     setup_logging()
-    cfg = _coerce_config(config)
+    cfg = _coerce_config(config, overrides=overrides)
+    cli_override: dict[str, Any] = {}
+    if source_dir is not None:
+        cli_override.setdefault("project", {})["source_dir"] = str(source_dir)
+    if outdir is not None:
+        cli_override.setdefault("project", {})["outdir"] = str(outdir)
     if workers is not None:
-        cfg = merge_config(cfg, {"runtime": {"workers": workers}})
+        cli_override.setdefault("runtime", {})["workers"] = workers
+    if cli_override:
+        cfg = finalize_config(merge_config(cfg, cli_override))
+
+    mode = _normalize_output_mode(output_mode)
     worker_count = _worker_count(cfg)
-    output_dir = Path(outdir or cfg.get("project", {}).get("outdir", DEFAULT_OUTDIR))
+    output_dir = Path(cfg.get("project", {}).get("outdir", DEFAULT_OUTDIR))
     source_dir = Path(cfg.get("project", {}).get("source_dir", "data/alien_sources"))
+
+    if dry_run or mode == "full":
+        return _build_to_output_dir(
+            cfg,
+            output_dir=output_dir,
+            source_dir=source_dir,
+            worker_count=worker_count,
+            dry_run=dry_run,
+            force_download=force_download,
+        )
+
+    with tempfile.TemporaryDirectory(prefix="alien-build-") as temp_dir:
+        staged_output_dir = Path(temp_dir) / "out"
+        staged_result = _build_to_output_dir(
+            cfg,
+            output_dir=staged_output_dir,
+            source_dir=source_dir,
+            worker_count=worker_count,
+            dry_run=False,
+            force_download=force_download,
+        )
+        _copy_staged_outputs(staged_output_dir, output_dir, mode)
+        return BuildResult(
+            outdir=output_dir,
+            namespaces=staged_result.namespaces,
+            n_source_memberships=staged_result.n_source_memberships,
+            n_source_terms=staged_result.n_source_terms,
+            warnings=staged_result.warnings,
+        )
+
+
+def _build_to_output_dir(
+    cfg: dict[str, Any],
+    output_dir: Path,
+    source_dir: Path,
+    worker_count: int,
+    dry_run: bool,
+    force_download: bool,
+) -> BuildResult:
     metadata_dir = output_dir / "metadata"
     qc_dir = output_dir / "qc"
     gmt_dir = output_dir / "gmt"
@@ -84,6 +140,7 @@ def build(
         return BuildResult(output_dir, tuple(_configured_namespace_names(cfg)), 0, 0, tuple())
 
     ensure_dirs(metadata_dir, qc_dir, gmt_dir)
+    _write_effective_config(cfg, metadata_dir / "effective_config.yml")
     warnings: list[str] = []
     LOGGER.info("Starting ALIEN GMT build")
     LOGGER.info("Output directory: %s", output_dir)
@@ -208,10 +265,79 @@ def build(
     )
 
 
-def _coerce_config(config: str | Path | dict[str, Any] | None) -> dict[str, Any]:
-    if config is None or isinstance(config, (str, Path)):
-        return load_config(config)
-    return merge_config(load_config(None), config)
+def _coerce_config(
+    config: str | Path | dict[str, Any] | None,
+    overrides: Sequence[str | Path | dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    if config is None or isinstance(config, Path):
+        return load_config(config, overrides=overrides)
+    if isinstance(config, str):
+        if is_preset_name(config):
+            return load_preset_config(config, overrides=overrides)
+        return load_config(config, overrides=overrides)
+    cfg = merge_config(load_config(None), config)
+    for override in overrides or []:
+        cfg = merge_config(cfg, override if isinstance(override, dict) else read_config_file(override))
+    return finalize_config(cfg)
+
+
+def _normalize_output_mode(output_mode: str) -> str:
+    mode = str(output_mode).strip().lower()
+    if mode not in {"full", "minimal", "gmt"}:
+        raise ValueError("output_mode must be one of: full, minimal, gmt")
+    return mode
+
+
+def _write_effective_config(cfg: dict[str, Any], path: Path) -> None:
+    ensure_dirs(path.parent)
+    with path.open("w", encoding="utf-8") as handle:
+        yaml.safe_dump(_yaml_safe_config(cfg), handle, sort_keys=False)
+
+
+def _yaml_safe_config(value: Any) -> Any:
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, dict):
+        return {key: _yaml_safe_config(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_yaml_safe_config(item) for item in value]
+    if isinstance(value, tuple):
+        return [_yaml_safe_config(item) for item in value]
+    return value
+
+
+def _copy_staged_outputs(staged_output_dir: Path, final_output_dir: Path, mode: str) -> None:
+    relative_paths = _selected_output_paths(staged_output_dir, mode)
+    for relative_path in relative_paths:
+        source = staged_output_dir / relative_path
+        if not source.exists():
+            continue
+        destination = final_output_dir / relative_path
+        ensure_dirs(destination.parent)
+        shutil.copy2(source, destination)
+
+
+def _selected_output_paths(staged_output_dir: Path, mode: str) -> list[Path]:
+    paths = [path.relative_to(staged_output_dir) for path in sorted((staged_output_dir / "gmt").glob("*.gmt"))]
+    if mode == "gmt":
+        return paths
+    paths.extend(
+        Path(path)
+        for path in [
+            "metadata/effective_config.yml",
+            "metadata/source_manifest.tsv",
+            "metadata/source_provenance.json",
+            "metadata/term_manifest.tsv.gz",
+            "metadata/target_metadata_fallbacks.tsv",
+            "metadata/target_output_genes.tsv.gz",
+            "metadata/target_gene_filter.tsv.gz",
+            "qc/target_namespace_summary.tsv",
+            "qc/mapping_summary.tsv",
+            "qc/redundancy_summary.tsv",
+            "qc/warnings.txt",
+        ]
+    )
+    return paths
 
 
 def _configured_namespace_names(cfg: dict[str, Any]) -> list[str]:

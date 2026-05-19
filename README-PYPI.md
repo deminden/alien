@@ -18,28 +18,47 @@ The PyPI distribution name is `bioalien`; the Python import and command-line too
 
 ## Quick Start
 
-Prepare a config with sources and a target annotation, then run:
+Run ALIEN with a YAML config:
 
 ```bash
-alien build --config examples/cancer_dependency.yml --workers 16
+alien build config.yml --workers 16
 ```
 
-Ready-made configs are available for GTEx v11 / GENCODE v47 and TCGA recount3 / GENCODE v29 targets. The first three configs write both GTEx and TCGA GMTs; the cancer dependency config is TCGA-only. TCGA configs use GENCODE v29 as the primary annotation helper and recount3 G029 as a metadata fallback for measured IDs missing from GENCODE.
-
-- [examples/pathways.yml](https://github.com/deminden/alien/blob/v0.1.5/examples/pathways.yml): Reactome, WikiPathways, KEGG MEDICUS, and GO biological process terms.
-- [examples/function_location.yml](https://github.com/deminden/alien/blob/v0.1.5/examples/function_location.yml): GO molecular function and cellular component terms.
-- [examples/disease_phenotype.yml](https://github.com/deminden/alien/blob/v0.1.5/examples/disease_phenotype.yml): HPO, DisGeNET, ClinVar, GWAS Catalog, and Jensen disease libraries.
-- [examples/cancer_dependency.yml](https://github.com/deminden/alien/blob/v0.1.5/examples/cancer_dependency.yml): cancer and dependency signatures for TCGA recount3.
-
-The primary outputs are:
+The config controls which source libraries are used, which target namespace is written, where downloaded resources are cached (`project.source_dir`), and where outputs are written (`project.outdir`). The main outputs are:
 
 - `gmt/<target_namespace>.gmt`: combined GMT for each configured target namespace.
-- `metadata/`: source manifest, term manifest, gene mapping tables, removed terms, unmapped genes, ambiguity logs, and provenance.
+- `metadata/`: source manifests, term manifests, gene mapping audits, filtering logs, and provenance.
 - `qc/`: collection, mapping, redundancy, target coverage, and warning summaries.
 
-The two filesystem roots are configured in YAML: `project.source_dir` is for downloaded/cached source and mapping resources, while `project.outdir` is the output root containing `gmt/`, `metadata/`, and `qc/`.
+## Presets
 
-Downstream enrichment reports using these GMTs are included in [docs/sex_contrast/gtex_thyroid/analysis.md](https://github.com/deminden/alien/blob/v0.1.5/docs/sex_contrast/gtex_thyroid/analysis.md) and [docs/sex_contrast/tcga_lung/analysis.md](https://github.com/deminden/alien/blob/v0.1.5/docs/sex_contrast/tcga_lung/analysis.md). Scripts to regenerate the report data, text, and figures are available in [scripts/](https://github.com/deminden/alien/tree/v0.1.5/scripts/).
+For a quick GENCODE v47 build without writing a YAML first, use a bundled preset:
+
+```bash
+alien build pathways --workers 16
+alien build cancer --output-mode minimal  # keep only GMTs plus minimal reproducibility metadata
+```
+
+Available preset aliases:
+
+- `pathways`: Reactome, WikiPathways, KEGG MEDICUS, and GO biological process terms.
+- `function`: GO molecular function and cellular component terms.
+- `disease`: HPO, DisGeNET, ClinVar, GWAS Catalog, and Jensen disease libraries.
+- `cancer`: cancer and dependency signatures.
+
+By default they write against the full GENCODE v47 (matching GTEx).
+
+Override any part of a preset with an overlay YAML:
+
+```bash
+alien build cancer --override tcga-recount3.yml
+```
+
+Overlay mappings deep-merge; lists such as `targets` and `sources` replace the previous list. For TCGA-restricted output, the key input is an output-gene list such as `data/recount3/tcga_gencode_v29_output_genes.tsv.gz` and `data/recount3/human.gene_sums.G029.gtf.gz` as a metadata fallback.
+
+Examples with hardcoded study paths are in [examples/](https://github.com/deminden/alien/tree/v0.1.6/examples/). Report walkthroughs are in [docs/sex_contrast/gtex_thyroid/analysis.md](https://github.com/deminden/alien/blob/v0.1.6/docs/sex_contrast/gtex_thyroid/analysis.md) and [docs/sex_contrast/tcga_lung/analysis.md](https://github.com/deminden/alien/blob/v0.1.6/docs/sex_contrast/tcga_lung/analysis.md).
+
+See [docs/usage.md](https://github.com/deminden/alien/blob/v0.1.6/docs/usage.md) for overlay examples, output modes, and the full configuration reference.
 
 ## How It Works
 
@@ -84,28 +103,32 @@ source_priority:
   biology_process_pathway: [REACTOME, WIKIPATHWAYS, KEGG_MEDICUS, GOBP]
 ```
 
-See [docs/usage.md](https://github.com/deminden/alien/blob/v0.1.5/docs/usage.md) for the full configuration reference.
+See [docs/usage.md](https://github.com/deminden/alien/blob/v0.1.6/docs/usage.md) for the full configuration reference.
 
 ## Source Inputs
 
-ALIEN 0.1.5 supports managed MSigDB and Enrichr download/cache sources and local file sources:
+ALIEN 0.1.6 supports managed MSigDB and Enrichr download/cache sources and local file sources:
 
 - `msigdb_remote`: a Python downloader/reader for configured MSigDB release archives, with normalized Parquet caches for repeated builds.
 - `enrichr_remote`: a Python downloader/reader for Enrichr libraries by public library name.
 - `symbol_gmt`: a GMT file whose members are gene symbols.
 
-Additional source metadata fields are documented in [docs/usage.md](https://github.com/deminden/alien/blob/v0.1.5/docs/usage.md).
+Additional source metadata fields are documented in [docs/usage.md](https://github.com/deminden/alien/blob/v0.1.6/docs/usage.md).
 
-## Python API
+## Python usage
 
 ```python
 from alien import build
 
-result = build("examples/pathways.yml", workers=16)
+result = build("config.yml", workers=16)
 print(result.namespaces)
 ```
 
-You can also pass the same configuration as a Python dictionary, including target output genes such as `output_genes: {"path": "expression.tsv.gz", "id_column": "feature_id", "symbol_column": "gene_symbol"}` for a known Ensembl ID field.
+Preset names and config dictionaries work too:
+
+```python
+result = build("pathways", outdir="results/pathways", output_mode="minimal")
+```
 
 ## MSigDB
 
@@ -123,8 +146,8 @@ Remote caches are reused by default. ALIEN also caches normalized MSigDB members
 
 ## Scope
 
-The 0.1.5 release officially supports human gene sets using HGNC symbols, Python MSigDB and Enrichr cache integration, optimized repeated-build caches, and Ensembl-style target namespaces. The code is organized so broader namespace integrations can be added later without tying the package to any single downstream analysis project.
+The 0.1.6 release officially supports human gene sets using HGNC symbols, Python MSigDB and Enrichr cache integration, optimized repeated-build caches, and Ensembl-style target namespaces. The code is organized so broader namespace integrations can be added later without tying the package to any single downstream analysis project.
 
 ## Contributing
 
-Contributions are welcome. Useful areas include additional tests, documentation, source adapters, target namespace adapters, mapping-audit improvements, curated filtering/source-priority defaults, and validation against established gene-set resources. See [docs/development.md](https://github.com/deminden/alien/blob/v0.1.5/docs/development.md) for development setup and current future plans.
+Contributions are welcome. Useful areas include additional tests, documentation, source adapters, target namespace adapters, mapping-audit improvements, curated filtering/source-priority defaults, and validation against established gene-set resources. See [docs/development.md](https://github.com/deminden/alien/blob/v0.1.6/docs/development.md) for development setup and current future plans.
