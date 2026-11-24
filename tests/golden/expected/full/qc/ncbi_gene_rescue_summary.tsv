@@ -1,0 +1,7 @@
+target_namespace	ncbi_stage	ncbi_status	action	n
+fixture_annotation	ncbi_gene_history	ambiguous_ncbi_gene_history	ambiguous_drop	1
+fixture_annotation	ncbi_gene_history	ncbi_gene_history	rescued	2
+fixture_annotation	ncbi_gene_info_synonym	ncbi_gene_info_synonym	rescued	1
+fixture_measured	ncbi_gene_history	ambiguous_ncbi_gene_history	ambiguous_drop	1
+fixture_measured	ncbi_gene_history	ncbi_gene_history	rescued	2
+fixture_measured	ncbi_gene_info_synonym	ncbi_gene_info_synonym	rescued	1

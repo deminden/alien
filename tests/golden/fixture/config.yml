@@ -1,0 +1,63 @@
+# Offline golden fixture covering every mapping status. Paths are relative to this file.
+project:
+  source_dir: sources
+  outdir: out
+outputs:
+  include_symbols: true
+sources:
+  - type: msigdb_tsv
+    path: inputs/msigdb_like.tsv
+    source_tag: REACTOME
+    collection: C2
+    family: biology_process_pathway
+    aspect: pathway
+  - type: canonical_tsv
+    path: inputs/canonical.tsv
+  - type: symbol_gmt
+    path: inputs/local_pathways.gmt
+    source: Local pathways
+    source_tag: LOCAL
+    family: biology_process_pathway
+    aspect: pathway
+  - type: symbol_gmt
+    path: inputs/local_disease.gmt
+    source: Local disease
+    source_tag: LOCALDIS
+    family: disease_phenotype
+    aspect: phenotype
+targets:
+  - name: fixture_annotation
+    type: ensembl_gtf
+    annotation:
+      source: Fixture
+      version: "1"
+      path: inputs/genes.gtf
+  - name: fixture_measured
+    type: ensembl_gtf
+    annotation:
+      source: Fixture
+      version: "1"
+      path: inputs/genes.gtf
+    output_genes:
+      path: inputs/output_genes.tsv
+      id_column: feature
+      symbol_column: symbol
+filtering:
+  min_size_default: 2
+  max_size_default: 8
+  max_size_disease: 8
+  max_size_cancer: 8
+redundancy:
+  jaccard_cutoff: 0.7
+source_priority:
+  biology_process_pathway: [REACTOME, LOCAL]
+  disease_phenotype: [LOCALDIS]
+  cancer_dependency_state: [DEPMAP]
+gene_mapping:
+  manual_symbol_repairs:
+    E5-BROKEN: EEE5
+ncbi_gene:
+  enabled: true
+  allowed_source_tags: [DEPMAP]
+ensembl_archive:
+  enabled: true

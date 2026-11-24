@@ -1,0 +1,7 @@
+target_namespace	family	source_tag	reason	n
+fixture_annotation	biology_process_pathway	LOCAL	configured_non_gene_token	1
+fixture_annotation	biology_process_pathway	REACTOME	configured_non_gene_token	1
+fixture_measured	biology_process_pathway	LOCAL	configured_non_gene_token	1
+fixture_measured	biology_process_pathway	REACTOME	configured_non_gene_token	1
+symbols	biology_process_pathway	LOCAL	configured_non_gene_token	1
+symbols	biology_process_pathway	REACTOME	configured_non_gene_token	1

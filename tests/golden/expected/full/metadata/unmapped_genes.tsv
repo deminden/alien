@@ -1,0 +1,20 @@
+target_namespace	family	term_id	source_tag	input_gene	attempted_current_symbol	reason	possible_matches
+symbols	biology_process_pathway	MSIGDB_REACTOME__PATH_BETA	REACTOME	E5-BROKEN		unmapped_symbol	
+symbols	biology_process_pathway	MSIGDB_REACTOME__PATH_GAMMA	REACTOME	NOTAGENE		unmapped_symbol	
+symbols	biology_process_pathway	MSIGDB_REACTOME__PATH_PREV	REACTOME	PREVDUP		unmapped_symbol	
+symbols	cancer_dependency_state	DEP_ONE	DEPMAP	RETIREDX		unmapped_symbol	
+symbols	cancer_dependency_state	DEP_ONE	DEPMAP	NCBIOLD		unmapped_symbol	
+symbols	cancer_dependency_state	DEP_ONE	DEPMAP	NSYN7		unmapped_symbol	
+symbols	cancer_dependency_state	DEP_TWO	DEPMAP	NCBIOLD		unmapped_symbol	
+symbols	cancer_dependency_state	DEP_TWO	DEPMAP	NCBIAMB		unmapped_symbol	
+symbols	cancer_dependency_state	DEP_TWO	DEPMAP	UNKNOWNDEP		unmapped_symbol	
+fixture_annotation	biology_process_pathway	MSIGDB_REACTOME__PATH_GAMMA	REACTOME	NOTAGENE		unmapped_symbol	
+fixture_annotation	biology_process_pathway	MSIGDB_REACTOME__PATH_PREV	REACTOME	PREVDUP		unmapped_symbol	
+fixture_annotation	cancer_dependency_state	DEP_TWO	DEPMAP	UNKNOWNDEP		unmapped_symbol	
+fixture_measured	biology_process_pathway	MSIGDB_REACTOME__PATH_BETA	REACTOME	HHH8	HHH8	not_in_output_genes	
+fixture_measured	biology_process_pathway	MSIGDB_REACTOME__PATH_GAMMA	REACTOME	NOTAGENE		unmapped_symbol	
+fixture_measured	biology_process_pathway	MSIGDB_REACTOME__PATH_HUGE	REACTOME	HHH8	HHH8	not_in_output_genes	
+fixture_measured	biology_process_pathway	MSIGDB_REACTOME__PATH_PREV	REACTOME	PREVDUP		unmapped_symbol	
+fixture_measured	cancer_dependency_state	DEP_ONE	DEPMAP	HHH8	HHH8	not_in_output_genes	
+fixture_measured	cancer_dependency_state	DEP_TWO	DEPMAP	UNKNOWNDEP		unmapped_symbol	
+fixture_measured	biology_process_pathway	LOCAL__LOCAL_SET_C	LOCAL	HHH8	HHH8	not_in_output_genes	

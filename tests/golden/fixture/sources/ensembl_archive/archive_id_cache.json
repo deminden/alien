@@ -1,0 +1,14 @@
+{
+  "ENSG00000000099": {
+    "archive_id": "ENSG00000000099",
+    "assembly": "GRCh38",
+    "found": true,
+    "is_current": "0",
+    "latest": "ENSG00000000099",
+    "possible_replacement": [
+      "ENSG00000000009"
+    ],
+    "query_id": "ENSG00000000099",
+    "release": "110"
+  }
+}

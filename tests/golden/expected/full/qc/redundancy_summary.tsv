@@ -1,0 +1,10 @@
+target_namespace	family	n_input	n_after_exact	n_after_jaccard	n_removed_exact	n_removed_jaccard	jaccard_cutoff
+symbols	biology_process_pathway	8	7	5	1	2	0.7
+symbols	cancer_dependency_state	2	2	2	0	0	0.7
+symbols	disease_phenotype	2	1	1	1	0	0.7
+fixture_annotation	biology_process_pathway	8	7	5	1	2	0.7
+fixture_annotation	cancer_dependency_state	2	2	2	0	0	0.7
+fixture_annotation	disease_phenotype	2	1	1	1	0	0.7
+fixture_measured	biology_process_pathway	8	7	5	1	2	0.7
+fixture_measured	cancer_dependency_state	2	2	2	0	0	0.7
+fixture_measured	disease_phenotype	2	1	1	1	0	0.7

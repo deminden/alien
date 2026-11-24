@@ -1,0 +1,6 @@
+target_namespace	family	term_id	source_tag	input_gene	mapping_stage	possible_symbols	possible_ensembl_ids	action
+symbols	biology_process_pathway	MSIGDB_REACTOME__PATH_BETA	REACTOME	SHARED	hgnc_alias_symbol	BBB2,CCC3		drop_alias
+fixture_annotation	biology_process_pathway	MSIGDB_REACTOME__PATH_BETA	REACTOME	SHARED	hgnc_alias_symbol	BBB2,CCC3		drop
+fixture_annotation	cancer_dependency_state	DEP_TWO	DEPMAP	NCBIAMB	ambiguous_ncbi_gene_history	JJJ10,KKK11		drop
+fixture_measured	biology_process_pathway	MSIGDB_REACTOME__PATH_BETA	REACTOME	SHARED	hgnc_alias_symbol	BBB2,CCC3		drop
+fixture_measured	cancer_dependency_state	DEP_TWO	DEPMAP	NCBIAMB	ambiguous_ncbi_gene_history	JJJ10,KKK11		drop

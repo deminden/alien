@@ -1,0 +1,1 @@
+Target fixture_measured: 1 output_genes lack annotation-helper metadata; 1 have output_genes symbol metadata.

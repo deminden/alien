@@ -1,0 +1,3 @@
+target_namespace	rescue_status	n
+fixture_annotation	archive_ensembl_rescue	1
+fixture_measured	archive_ensembl_rescue	1

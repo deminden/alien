@@ -1,0 +1,123 @@
+project:
+  name: alien
+  source_dir: sources
+  outdir: <ROOT>/out
+outputs:
+  include_symbols: true
+term_id_collisions:
+  action: error
+sources:
+- type: msigdb_tsv
+  path: inputs/msigdb_like.tsv
+  source_tag: REACTOME
+  collection: C2
+  family: biology_process_pathway
+  aspect: pathway
+- type: canonical_tsv
+  path: inputs/canonical.tsv
+- type: symbol_gmt
+  path: inputs/local_pathways.gmt
+  source: Local pathways
+  source_tag: LOCAL
+  family: biology_process_pathway
+  aspect: pathway
+- type: symbol_gmt
+  path: inputs/local_disease.gmt
+  source: Local disease
+  source_tag: LOCALDIS
+  family: disease_phenotype
+  aspect: phenotype
+targets:
+- name: fixture_annotation
+  type: ensembl_gtf
+  annotation:
+    source: Fixture
+    version: '1'
+    path: inputs/genes.gtf
+- name: fixture_measured
+  type: ensembl_gtf
+  annotation:
+    source: Fixture
+    version: '1'
+    path: inputs/genes.gtf
+  output_genes:
+    path: inputs/output_genes.tsv
+    id_column: feature
+    symbol_column: symbol
+filtering:
+  min_size_default: 2
+  max_size_default: 8
+  max_size_disease: 8
+  max_size_cancer: 8
+  remove_empty_after_output_gene_projection: true
+  drop_broad_disease_terms: true
+  broad_disease_regex:
+  - ^disease$
+  - ^diseases$
+  - ^cancer$
+  - ^neoplasm$
+  - ^neoplasms$
+  - ^malignant neoplasm$
+  - ^malignant neoplasms$
+  - ^carcinoma$
+  - ^tumor$
+  - ^tumour$
+  - ^genetic disease$
+  - ^genetic disorder$
+redundancy:
+  exact_duplicate_removal: true
+  jaccard_cutoff: 0.7
+  apply_after_output_gene_projection: true
+  apply_per_family: true
+  nested_overlap_filter:
+    enabled: false
+    overlap_coefficient_cutoff: 0.95
+    same_source_only: true
+source_priority:
+  biology_process_pathway:
+  - REACTOME
+  - LOCAL
+  biology_function_location:
+  - GOMF
+  - GOCC
+  disease_phenotype:
+  - LOCALDIS
+  cancer_dependency_state:
+  - DEPMAP
+gene_mapping:
+  strip_ensembl_version: true
+  use_hgnc_alias_mapping: true
+  allow_ambiguous_alias_mapping: false
+  prefer_gencode_exact_gene_name: true
+  prefer_current_hgnc_symbol: true
+  preserve_unmapped_symbols_in_symbol_gmt: true
+  drop_unmapped_from_ensg_gmt: true
+  non_gene_tokens:
+  - disease
+  - diseases
+  - phenotype
+  - phenotypes
+  - group
+  - groups
+  non_gene_token_regex: []
+  manual_symbol_repairs:
+    E5-BROKEN: EEE5
+ncbi_gene:
+  enabled: true
+  allowed_source_tags:
+  - DEPMAP
+  gene_info_url: https://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz
+  gene_history_url: https://ftp.ncbi.nlm.nih.gov/gene/DATA/gene_history.gz
+  use_gene_info_synonyms: true
+ensembl_archive:
+  enabled: true
+  endpoint: https://rest.ensembl.org/archive/id
+  batch_size: 50
+  connect_timeout_seconds: 30
+  timeout_seconds: 120
+  retry_attempts: 3
+  retry_backoff_seconds: 5
+  unresolved_print_limit: 20
+  unresolved_example_threshold: 100
+runtime:
+  workers: <N>

@@ -1,0 +1,8 @@
+DEP_ONE	source=DEPMAP;collection=canonical;aspect=dependency;original_name=DEP_ONE	BBB2	HHH8	NCBIOLD	NSYN7	RETIREDX
+DEP_TWO	source=DEPMAP;collection=canonical;aspect=dependency;original_name=DEP_TWO	KKK11	LLL12	NCBIAMB	NCBIOLD	UNKNOWNDEP
+LOCALDIS__Other_syndrome	source=LOCALDIS;collection=local_disease;aspect=phenotype;original_name=Other_syndrome	DDD4	EEE5	FFF6	GGG7
+LOCAL__LOCAL_SET_C	source=LOCAL;collection=local_pathways;aspect=pathway;original_name=LOCAL_SET_C	GGG7	HHH8	III9
+MSIGDB_REACTOME__PATH_ALPHA	source=REACTOME;collection=C2;aspect=pathway;original_name=PATH_ALPHA	AAA1	BBB2	CCC3	DDD4
+MSIGDB_REACTOME__PATH_BETA	source=REACTOME;collection=C2;aspect=pathway;original_name=PATH_BETA	BBB2	E5-BROKEN	EEE5	FFF6	GGG7	HHH8	SHARED
+MSIGDB_REACTOME__PATH_GAMMA	source=REACTOME;collection=C2;aspect=pathway;original_name=PATH_GAMMA	III9	JJJ10	KKK11	LLL12	NOTAGENE
+MSIGDB_REACTOME__PATH_PREV	source=REACTOME;collection=C2;aspect=pathway;original_name=PATH_PREV	JJJ10	KKK11	PREVDUP

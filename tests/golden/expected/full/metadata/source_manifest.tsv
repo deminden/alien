@@ -1,0 +1,5 @@
+source	source_tag	collection	subcollection	family	aspect	db_version	selected_library	configured_name	match	match_method	candidate_libraries	n_terms	n_memberships	n_unique_symbols	source_url	source_license_note
+DepMapFixture	DEPMAP	canonical		cancer_dependency_state	dependency							2	10	9		
+Local disease	LOCALDIS	local_disease		disease_phenotype	phenotype							3	11	7		
+Local pathways	LOCAL	local_pathways		biology_process_pathway	pathway							3	15	10		
+MSigDB	REACTOME	C2		biology_process_pathway	pathway							7	37	19	https://www.gsea-msigdb.org/gsea/msigdb	MSigDB license and attribution terms apply.

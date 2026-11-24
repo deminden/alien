@@ -1,0 +1,15 @@
+gencode_version	ensembl_gene_id_versioned	ensembl_gene_id	gene_symbol	gene_biotype	seqname	start	end	strand	source_gtf	target_id_metadata_source	is_in_output_genes
+v1	ENSG00000000001.1	ENSG00000000001	AAA1	protein_coding	chr1	1	50	+	inputs/genes.gtf	annotation_gtf	True
+v1	ENSG00000000002.1	ENSG00000000002	BBB2	protein_coding	chr1	101	150	+	inputs/genes.gtf	annotation_gtf	True
+v1	ENSG00000000003.1	ENSG00000000003	CCC3	protein_coding	chr1	201	250	+	inputs/genes.gtf	annotation_gtf	True
+v1	ENSG00000000004.1	ENSG00000000004	DDD4	protein_coding	chr1	301	350	+	inputs/genes.gtf	annotation_gtf	True
+v1	ENSG00000000005.1	ENSG00000000005	EEE5	protein_coding	chr1	401	450	+	inputs/genes.gtf	annotation_gtf	True
+v1	ENSG00000000006.1	ENSG00000000006	FFF6	protein_coding	chr1	501	550	+	inputs/genes.gtf	annotation_gtf	True
+v1	ENSG00000000007.1	ENSG00000000007	GGG7	protein_coding	chr1	601	650	+	inputs/genes.gtf	annotation_gtf	True
+v1	ENSG00000000008.1	ENSG00000000008	HHH8	protein_coding	chr1	701	750	+	inputs/genes.gtf	annotation_gtf	False
+v1	ENSG00000000009.1	ENSG00000000009	III9	protein_coding	chr1	801	850	+	inputs/genes.gtf	annotation_gtf	True
+v1	ENSG00000000010.1	ENSG00000000010	JJJ10	protein_coding	chr1	901	950	+	inputs/genes.gtf	annotation_gtf	True
+v1	ENSG00000000011.1	ENSG00000000011	KKK11	protein_coding	chr1	1001	1050	+	inputs/genes.gtf	annotation_gtf	True
+v1	ENSG00000000012.1	ENSG00000000012	LLL12	protein_coding	chr1	1101	1150	+	inputs/genes.gtf	annotation_gtf	True
+v1	ENSG00000000044.1	ENSG00000000044	DDD4	protein_coding	chr1	1201	1250	+	inputs/genes.gtf	annotation_gtf	False
+	ENSG00000000077.1	ENSG00000000077	ZZZ77						output_genes:inputs/output_genes.tsv	output_genes	True

@@ -1,0 +1,11 @@
+term_id	gene_symbol	gene_id	gene_id_namespace	source	source_tag	family	aspect
+DEP_ONE	RETIREDX	ENSG00000000099.2	ensembl	DepMapFixture	DEPMAP	cancer_dependency_state	dependency
+DEP_ONE	NCBIOLD			DepMapFixture	DEPMAP	cancer_dependency_state	dependency
+DEP_ONE	NSYN7			DepMapFixture	DEPMAP	cancer_dependency_state	dependency
+DEP_ONE	BBB2	ENSG00000000002	ensembl	DepMapFixture	DEPMAP	cancer_dependency_state	dependency
+DEP_ONE	HHH8			DepMapFixture	DEPMAP	cancer_dependency_state	dependency
+DEP_TWO	KKK11	ENSG00000000011	ensembl	DepMapFixture	DEPMAP	cancer_dependency_state	dependency
+DEP_TWO	LLL12			DepMapFixture	DEPMAP	cancer_dependency_state	dependency
+DEP_TWO	NCBIOLD			DepMapFixture	DEPMAP	cancer_dependency_state	dependency
+DEP_TWO	NCBIAMB			DepMapFixture	DEPMAP	cancer_dependency_state	dependency
+DEP_TWO	UNKNOWNDEP			DepMapFixture	DEPMAP	cancer_dependency_state	dependency

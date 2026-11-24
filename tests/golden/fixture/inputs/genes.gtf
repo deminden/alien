@@ -1,0 +1,27 @@
+#fixture
+chr1	FIX	gene	1	50	.	+	.	gene_id "ENSG00000000001.1"; gene_type "protein_coding"; gene_name "AAA1";
+chr1	FIX	transcript	1	50	.	+	.	gene_id "ENSG00000000001.1"; transcript_id "T0";
+chr1	FIX	gene	101	150	.	+	.	gene_id "ENSG00000000002.1"; gene_type "protein_coding"; gene_name "BBB2";
+chr1	FIX	transcript	101	150	.	+	.	gene_id "ENSG00000000002.1"; transcript_id "T1";
+chr1	FIX	gene	201	250	.	+	.	gene_id "ENSG00000000003.1"; gene_type "protein_coding"; gene_name "CCC3";
+chr1	FIX	transcript	201	250	.	+	.	gene_id "ENSG00000000003.1"; transcript_id "T2";
+chr1	FIX	gene	301	350	.	+	.	gene_id "ENSG00000000004.1"; gene_type "protein_coding"; gene_name "DDD4";
+chr1	FIX	transcript	301	350	.	+	.	gene_id "ENSG00000000004.1"; transcript_id "T3";
+chr1	FIX	gene	401	450	.	+	.	gene_id "ENSG00000000005.1"; gene_type "protein_coding"; gene_name "EEE5";
+chr1	FIX	transcript	401	450	.	+	.	gene_id "ENSG00000000005.1"; transcript_id "T4";
+chr1	FIX	gene	501	550	.	+	.	gene_id "ENSG00000000006.1"; gene_type "protein_coding"; gene_name "FFF6";
+chr1	FIX	transcript	501	550	.	+	.	gene_id "ENSG00000000006.1"; transcript_id "T5";
+chr1	FIX	gene	601	650	.	+	.	gene_id "ENSG00000000007.1"; gene_type "protein_coding"; gene_name "GGG7";
+chr1	FIX	transcript	601	650	.	+	.	gene_id "ENSG00000000007.1"; transcript_id "T6";
+chr1	FIX	gene	701	750	.	+	.	gene_id "ENSG00000000008.1"; gene_type "protein_coding"; gene_name "HHH8";
+chr1	FIX	transcript	701	750	.	+	.	gene_id "ENSG00000000008.1"; transcript_id "T7";
+chr1	FIX	gene	801	850	.	+	.	gene_id "ENSG00000000009.1"; gene_type "protein_coding"; gene_name "III9";
+chr1	FIX	transcript	801	850	.	+	.	gene_id "ENSG00000000009.1"; transcript_id "T8";
+chr1	FIX	gene	901	950	.	+	.	gene_id "ENSG00000000010.1"; gene_type "protein_coding"; gene_name "JJJ10";
+chr1	FIX	transcript	901	950	.	+	.	gene_id "ENSG00000000010.1"; transcript_id "T9";
+chr1	FIX	gene	1001	1050	.	+	.	gene_id "ENSG00000000011.1"; gene_type "protein_coding"; gene_name "KKK11";
+chr1	FIX	transcript	1001	1050	.	+	.	gene_id "ENSG00000000011.1"; transcript_id "T10";
+chr1	FIX	gene	1101	1150	.	+	.	gene_id "ENSG00000000012.1"; gene_type "protein_coding"; gene_name "LLL12";
+chr1	FIX	transcript	1101	1150	.	+	.	gene_id "ENSG00000000012.1"; transcript_id "T11";
+chr1	FIX	gene	1201	1250	.	+	.	gene_id "ENSG00000000044.1"; gene_type "protein_coding"; gene_name "DDD4";
+chr1	FIX	transcript	1201	1250	.	+	.	gene_id "ENSG00000000044.1"; transcript_id "T12";

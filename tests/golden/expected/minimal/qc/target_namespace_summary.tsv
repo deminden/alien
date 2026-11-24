@@ -1,0 +1,3 @@
+target_namespace	output_gene_source	output_genes_size	gene_filter_size	effective_target_size	annotation_helper_size	primary_annotation_helper_size	metadata_fallback_helper_size	output_genes_with_annotation_metadata	annotation_metadata_coverage	target_ids_missing_annotation_metadata	annotation_ids_absent_from_target	source_ensembl_ids_kept_without_annotation
+fixture_annotation	annotation	0	0	13	13	13	0	13	1.0	0	0	0
+fixture_measured	output_genes	12	0	12	13	13	0	11	0.916667	1	2	0
