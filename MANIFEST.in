@@ -1,0 +1,8 @@
+# The sdist carries the package, tests and docs; the R analysis code behind the docs figures is excluded.
+graft src
+graft tests
+graft docs
+graft examples
+prune examples/analysis
+include LICENSE README.md README-PYPI.md CHANGELOG.md CITATION.cff CONTRIBUTING.md pyproject.toml
+global-exclude __pycache__ *.py[cod]

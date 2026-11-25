@@ -15,8 +15,8 @@ FDR-significant enrichment was present in 3 of 3 collections. The broadest signa
 
 ## Data Products
 
-- DESeq2 table: [gtex_thyroid_female_vs_male_deseq2.tsv](../../../results/sex_contrast/gtex_thyroid/tables/gtex_thyroid_female_vs_male_deseq2.tsv)
-- Rank file: [gtex_thyroid_female_vs_male.ranks.tsv](../../../results/sex_contrast/gtex_thyroid/ranks/gtex_thyroid_female_vs_male.ranks.tsv)
+- DESeq2 table: [gtex_thyroid_female_vs_male_deseq2.tsv](../../../../results/sex_contrast/gtex_thyroid/tables/gtex_thyroid_female_vs_male_deseq2.tsv)
+- Rank file: [gtex_thyroid_female_vs_male.ranks.tsv](../../../../results/sex_contrast/gtex_thyroid/ranks/gtex_thyroid_female_vs_male.ranks.tsv)
 
 ## Collection Summary
 
@@ -35,7 +35,7 @@ Function/location | 1825 | 71 | GOCC: Tertiary granule (NES 1.75, FDR 0.0127) | 
 ### Pathways
 
 - GMT: `results/alien_outputs/pathways/gmt/gtex_v11_gencode47.gmt`.
-- rsfgsea table: [gtex_thyroid_pathways_female_vs_male_rsfgsea.tsv](../../../results/sex_contrast/gtex_thyroid/tables/gtex_thyroid_pathways_female_vs_male_rsfgsea.tsv)
+- rsfgsea table: [gtex_thyroid_pathways_female_vs_male_rsfgsea.tsv](../../../../results/sex_contrast/gtex_thyroid/tables/gtex_thyroid_pathways_female_vs_male_rsfgsea.tsv)
 - Tested 7716 terms; 673 had FDR <= 0.05.
 - Strongest Female > Male signal: GOBP: T cell receptor signaling pathway (NES 2.33, FDR 0.0318).
 - Strongest Male > Female signal: GOBP: Regulation of androgen receptor signaling pathway (NES -2.33, FDR 0.0318).
@@ -60,7 +60,7 @@ Selected figure:
 ### Disease/phenotype
 
 - GMT: `results/alien_outputs/disease_phenotype/gmt/gtex_v11_gencode47.gmt`.
-- rsfgsea table: [gtex_thyroid_disease_phenotype_female_vs_male_rsfgsea.tsv](../../../results/sex_contrast/gtex_thyroid/tables/gtex_thyroid_disease_phenotype_female_vs_male_rsfgsea.tsv)
+- rsfgsea table: [gtex_thyroid_disease_phenotype_female_vs_male_rsfgsea.tsv](../../../../results/sex_contrast/gtex_thyroid/tables/gtex_thyroid_disease_phenotype_female_vs_male_rsfgsea.tsv)
 - Tested 11886 terms; 675 had FDR <= 0.05.
 - Strongest Female > Male signal: HPO: Abnormal T cell morphology (NES 2.28, FDR 0.0338).
 - Strongest Male > Female signal: HPO: Decreased testicular size (NES -2.02, FDR 0.0338).
@@ -85,7 +85,7 @@ Selected figure:
 ### Function/location
 
 - GMT: `results/alien_outputs/function_location/gmt/gtex_v11_gencode47.gmt`.
-- rsfgsea table: [gtex_thyroid_function_location_female_vs_male_rsfgsea.tsv](../../../results/sex_contrast/gtex_thyroid/tables/gtex_thyroid_function_location_female_vs_male_rsfgsea.tsv)
+- rsfgsea table: [gtex_thyroid_function_location_female_vs_male_rsfgsea.tsv](../../../../results/sex_contrast/gtex_thyroid/tables/gtex_thyroid_function_location_female_vs_male_rsfgsea.tsv)
 - Tested 1825 terms; 71 had FDR <= 0.05.
 - Strongest Female > Male signal: GOCC: Tertiary granule (NES 1.75, FDR 0.0127).
 - Strongest Male > Female signal: GOMF: Dynein heavy chain binding (NES -2.01, FDR 0.0226).

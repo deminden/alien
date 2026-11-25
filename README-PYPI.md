@@ -56,7 +56,7 @@ alien build cancer --override tcga-recount3.yml
 
 Overlay mappings deep-merge; lists such as `targets` and `sources` replace the previous list. For TCGA-restricted output, the key input is an output-gene list such as `data/recount3/tcga_gencode_v29_output_genes.tsv.gz` and `data/recount3/human.gene_sums.G029.gtf.gz` as a metadata fallback.
 
-Examples with hardcoded study paths are in [examples/](https://github.com/deminden/alien/tree/v0.1.6/examples/). Report walkthroughs are in [docs/sex_contrast/gtex_thyroid/analysis.md](https://github.com/deminden/alien/blob/v0.1.6/docs/sex_contrast/gtex_thyroid/analysis.md) and [docs/sex_contrast/tcga_lung/analysis.md](https://github.com/deminden/alien/blob/v0.1.6/docs/sex_contrast/tcga_lung/analysis.md).
+Examples with hardcoded study paths are in [examples/](https://github.com/deminden/alien/tree/v0.1.6/examples/). Report walkthroughs are in [examples/analysis/sex_contrast/gtex_thyroid/analysis.md](https://github.com/deminden/alien/blob/v0.1.6/examples/analysis/sex_contrast/gtex_thyroid/analysis.md) and [examples/analysis/sex_contrast/tcga_lung/analysis.md](https://github.com/deminden/alien/blob/v0.1.6/examples/analysis/sex_contrast/tcga_lung/analysis.md).
 
 See [docs/usage.md](https://github.com/deminden/alien/blob/v0.1.6/docs/usage.md) for overlay examples, output modes, and the full configuration reference.
 

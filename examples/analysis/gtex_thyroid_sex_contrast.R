@@ -37,7 +37,7 @@ default_build_gmt_configs <- paste(
 )
 args <- parse_args(list(
   "data-dir" = "data/gtex",
-  "outdir" = "docs/sex_contrast/gtex_thyroid",
+  "outdir" = "examples/analysis/sex_contrast/gtex_thyroid",
   "results-dir" = "results/sex_contrast/gtex_thyroid",
   "gmt" = default_gmt,
   "build-gmt-configs" = default_build_gmt_configs,
@@ -61,10 +61,10 @@ args <- parse_args(list(
 
 if (isTRUE(args[["help"]])) {
   cat(
-    "Usage: Rscript scripts/gtex_thyroid_sex_contrast.R [options]\n\n",
+    "Usage: Rscript examples/analysis/gtex_thyroid_sex_contrast.R [options]\n\n",
     "Main options:\n",
     "  --data-dir PATH        GTEx cache directory [data/gtex]\n",
-    "  --outdir PATH          Report and plot directory [docs/sex_contrast/gtex_thyroid]\n",
+    "  --outdir PATH          Report and plot directory [examples/analysis/sex_contrast/gtex_thyroid]\n",
     "  --results-dir PATH     TSV/rank output directory [results/sex_contrast/gtex_thyroid]\n",
     "  --gmt PATHS            Comma-separated ALIEN GMT files for GTEx target namespace\n",
     "  --build-gmt-configs PATHS  Comma-separated ALIEN configs used when default GMTs are missing\n",

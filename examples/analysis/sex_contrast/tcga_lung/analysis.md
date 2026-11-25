@@ -17,8 +17,8 @@ FDR-significant enrichment was present in 4 of 4 collections. The broadest signa
 
 ## Data Products
 
-- DESeq2 table: [tcga_lung_female_vs_male_deseq2.tsv](../../../results/sex_contrast/tcga_lung/tables/tcga_lung_female_vs_male_deseq2.tsv)
-- Rank file: [tcga_lung_female_vs_male.ranks.tsv](../../../results/sex_contrast/tcga_lung/ranks/tcga_lung_female_vs_male.ranks.tsv)
+- DESeq2 table: [tcga_lung_female_vs_male_deseq2.tsv](../../../../results/sex_contrast/tcga_lung/tables/tcga_lung_female_vs_male_deseq2.tsv)
+- Rank file: [tcga_lung_female_vs_male.ranks.tsv](../../../../results/sex_contrast/tcga_lung/ranks/tcga_lung_female_vs_male.ranks.tsv)
 
 ## Collection Summary
 
@@ -38,7 +38,7 @@ Cancer dependency | 2702 | 1942 | Cancer Cell Line Encyclopedia: HS611T haematop
 ### Pathways
 
 - GMT: `results/alien_outputs/pathways/gmt/tcga_recount3_gencode29.gmt`.
-- rsfgsea table: [tcga_lung_pathways_female_vs_male_rsfgsea.tsv](../../../results/sex_contrast/tcga_lung/tables/tcga_lung_pathways_female_vs_male_rsfgsea.tsv)
+- rsfgsea table: [tcga_lung_pathways_female_vs_male_rsfgsea.tsv](../../../../results/sex_contrast/tcga_lung/tables/tcga_lung_pathways_female_vs_male_rsfgsea.tsv)
 - Tested 7771 terms; 2168 had FDR <= 0.05.
 - Strongest Female > Male signal: GOBP: Negative regulation of interleukin 10 production (NES 1.91, FDR 0.0071).
 - Strongest Male > Female signal: GOBP: Farnesyl diphosphate biosynthetic process (NES -2.03, FDR 0.00305).
@@ -65,7 +65,7 @@ Selected figures:
 ### Disease/phenotype
 
 - GMT: `results/alien_outputs/disease_phenotype/gmt/tcga_recount3_gencode29.gmt`.
-- rsfgsea table: [tcga_lung_disease_phenotype_female_vs_male_rsfgsea.tsv](../../../results/sex_contrast/tcga_lung/tables/tcga_lung_disease_phenotype_female_vs_male_rsfgsea.tsv)
+- rsfgsea table: [tcga_lung_disease_phenotype_female_vs_male_rsfgsea.tsv](../../../../results/sex_contrast/tcga_lung/tables/tcga_lung_disease_phenotype_female_vs_male_rsfgsea.tsv)
 - Tested 11902 terms; 1440 had FDR <= 0.05.
 - Strongest Female > Male signal: DisGeNET: Autoimmune primary adrenal insufficiency (NES 2.35, FDR 0.024).
 - Strongest Male > Female signal: Clinvar 2025: Leigh syndrome (NES -1.97, FDR 0.024).
@@ -86,7 +86,7 @@ MSigDB | HPO | Abnormal atrial arrangement | 2.197 | 0.001686 | 0.02401 | 59
 ### Function/location
 
 - GMT: `results/alien_outputs/function_location/gmt/tcga_recount3_gencode29.gmt`.
-- rsfgsea table: [tcga_lung_function_location_female_vs_male_rsfgsea.tsv](../../../results/sex_contrast/tcga_lung/tables/tcga_lung_function_location_female_vs_male_rsfgsea.tsv)
+- rsfgsea table: [tcga_lung_function_location_female_vs_male_rsfgsea.tsv](../../../../results/sex_contrast/tcga_lung/tables/tcga_lung_function_location_female_vs_male_rsfgsea.tsv)
 - Tested 1835 terms; 377 had FDR <= 0.05.
 - Strongest Female > Male signal: GOCC: T cell receptor complex (NES 2.6, FDR 0.0226).
 - Strongest Male > Female signal: GOMF: Nucleic acid conformation isomerase activity (NES -2.4, FDR 0.0226).
@@ -107,7 +107,7 @@ MSigDB | GOCC | External side of plasma membrane | 2.336 | 0.001585 | 0.02255 | 
 ### Cancer dependency
 
 - GMT: `results/alien_outputs/cancer_dependency/gmt/tcga_recount3_gencode29.gmt`.
-- rsfgsea table: [tcga_lung_cancer_dependency_female_vs_male_rsfgsea.tsv](../../../results/sex_contrast/tcga_lung/tables/tcga_lung_cancer_dependency_female_vs_male_rsfgsea.tsv)
+- rsfgsea table: [tcga_lung_cancer_dependency_female_vs_male_rsfgsea.tsv](../../../../results/sex_contrast/tcga_lung/tables/tcga_lung_cancer_dependency_female_vs_male_rsfgsea.tsv)
 - Tested 2702 terms; 1942 had FDR <= 0.05.
 - Strongest Female > Male signal: Cancer Cell Line Encyclopedia: HS611T haematopoietic and lymphoid tissue (NES 2.74, FDR 0.00454).
 - Strongest Male > Female signal: CGN: GNF2 CCNA2 (NES -2.7, FDR 0.00454).

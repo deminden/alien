@@ -42,7 +42,7 @@ default_build_gmt_configs <- paste(
 )
 args <- parse_args(list(
   "cache-dir" = "data/tcga/recount3_cache_lung_sex",
-  "outdir" = "docs/sex_contrast/tcga_lung",
+  "outdir" = "examples/analysis/sex_contrast/tcga_lung",
   "results-dir" = "results/sex_contrast/tcga_lung",
   "gmt" = default_gmt,
   "build-gmt-configs" = default_build_gmt_configs,
@@ -66,10 +66,10 @@ args <- parse_args(list(
 
 if (isTRUE(args[["help"]])) {
   cat(
-    "Usage: Rscript scripts/tcga_lung_sex_contrast.R [options]\n\n",
+    "Usage: Rscript examples/analysis/tcga_lung_sex_contrast.R [options]\n\n",
     "Main options:\n",
     "  --cache-dir PATH       recount3 cache directory [data/tcga/recount3_cache_lung_sex]\n",
-    "  --outdir PATH          Report and plot directory [docs/sex_contrast/tcga_lung]\n",
+    "  --outdir PATH          Report and plot directory [examples/analysis/sex_contrast/tcga_lung]\n",
     "  --results-dir PATH     TSV/rank output directory [results/sex_contrast/tcga_lung]\n",
     "  --gmt PATHS            Comma-separated ALIEN GMT files for TCGA target namespace\n",
     "  --build-gmt-configs PATHS  Comma-separated ALIEN configs used when default GMTs are missing\n",
