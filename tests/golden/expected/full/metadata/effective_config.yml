@@ -49,7 +49,6 @@ filtering:
   max_size_default: 8
   max_size_disease: 8
   max_size_cancer: 8
-  remove_empty_after_output_gene_projection: true
   drop_broad_disease_terms: true
   broad_disease_regex:
   - ^disease$
@@ -67,12 +66,7 @@ filtering:
 redundancy:
   exact_duplicate_removal: true
   jaccard_cutoff: 0.7
-  apply_after_output_gene_projection: true
   apply_per_family: true
-  nested_overlap_filter:
-    enabled: false
-    overlap_coefficient_cutoff: 0.95
-    same_source_only: true
 source_priority:
   biology_process_pathway:
   - REACTOME
@@ -85,13 +79,8 @@ source_priority:
   cancer_dependency_state:
   - DEPMAP
 gene_mapping:
-  strip_ensembl_version: true
   use_hgnc_alias_mapping: true
-  allow_ambiguous_alias_mapping: false
-  prefer_gencode_exact_gene_name: true
-  prefer_current_hgnc_symbol: true
   preserve_unmapped_symbols_in_symbol_gmt: true
-  drop_unmapped_from_ensg_gmt: true
   non_gene_tokens:
   - disease
   - diseases
@@ -118,6 +107,5 @@ ensembl_archive:
   retry_attempts: 3
   retry_backoff_seconds: 5
   unresolved_print_limit: 20
-  unresolved_example_threshold: 100
 runtime:
   workers: <N>

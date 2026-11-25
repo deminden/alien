@@ -46,7 +46,6 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "max_size_default": 500,
         "max_size_disease": 500,
         "max_size_cancer": 500,
-        "remove_empty_after_output_gene_projection": True,
         "drop_broad_disease_terms": True,
         "broad_disease_regex": [
             "^disease$",
@@ -66,13 +65,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "redundancy": {
         "exact_duplicate_removal": True,
         "jaccard_cutoff": 0.85,
-        "apply_after_output_gene_projection": True,
         "apply_per_family": True,
-        "nested_overlap_filter": {
-            "enabled": False,
-            "overlap_coefficient_cutoff": 0.95,
-            "same_source_only": True,
-        },
     },
     "source_priority": {
         "biology_process_pathway": ["REACTOME", "WIKIPATHWAYS", "KEGG_MEDICUS", "GOBP"],
@@ -98,13 +91,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
         ],
     },
     "gene_mapping": {
-        "strip_ensembl_version": True,
         "use_hgnc_alias_mapping": True,
-        "allow_ambiguous_alias_mapping": False,
-        "prefer_gencode_exact_gene_name": True,
-        "prefer_current_hgnc_symbol": True,
         "preserve_unmapped_symbols_in_symbol_gmt": True,
-        "drop_unmapped_from_ensg_gmt": True,
         "non_gene_tokens": [
             "disease",
             "diseases",
@@ -132,7 +120,6 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "retry_attempts": 3,
         "retry_backoff_seconds": 5,
         "unresolved_print_limit": 20,
-        "unresolved_example_threshold": 100,
     },
 }
 

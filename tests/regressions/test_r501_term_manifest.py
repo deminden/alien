@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from conftest import MiniWorld, read_tsv
-
 from alien import build
+
+from conftest import MiniWorld, read_tsv
 
 
 def test_term_manifest_is_long_format_per_namespace(mini_world: MiniWorld) -> None:

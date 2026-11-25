@@ -500,7 +500,7 @@ redundancy:
   apply_per_family: true
 ```
 
-Terms with Jaccard similarity greater than `jaccard_cutoff` are treated as redundant. One representative is kept using `source_priority`, mapped term size, and deterministic name tie-breaks.
+`exact_duplicate_removal: false` skips the exact-membership pass, and `apply_per_family: false` compares terms across all families in a namespace (the per-family `source_priority` lists are concatenated in family order). Terms with Jaccard similarity greater than `jaccard_cutoff` are treated as redundant. One representative is kept using `source_priority`, mapped term size, and deterministic name tie-breaks.
 
 Source priority is configured by family:
 

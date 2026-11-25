@@ -223,7 +223,7 @@ def map_symbols(
             continue
         resolved = resolve_cache.get(gene_symbol)
         if resolved is None:
-            resolved = resolve_current_symbol(gene_symbol, hgnc_maps)
+            resolved = resolve_current_symbol(gene_symbol, hgnc_maps, use_alias=_use_alias(cfg))
             resolve_cache[gene_symbol] = resolved
         symbol, status, matches = resolved
         if status == "ambiguous_alias":
@@ -313,7 +313,7 @@ def map_ensembl(
         # Fall back through HGNC symbol history and target annotation helpers
         resolved = resolve_cache.get(gene_symbol)
         if resolved is None:
-            resolved = resolve_current_symbol(gene_symbol, hgnc_maps, manual_repairs)
+            resolved = resolve_current_symbol(gene_symbol, hgnc_maps, manual_repairs, use_alias=_use_alias(cfg))
             resolve_cache[gene_symbol] = resolved
         current_symbol, status, matches = resolved
         if status == "ambiguous_alias":
@@ -545,8 +545,16 @@ def _cached_ncbi_rescue(
     return cache[key]
 
 
+def _use_alias(cfg: dict) -> bool:
+    return bool(cfg.get("gene_mapping", {}).get("use_hgnc_alias_mapping", True))
+
+
 def resolve_current_symbol(
-    symbol: str, hgnc_maps: dict[str, object], manual_repairs: dict[str, str] | None = None
+    symbol: str,
+    hgnc_maps: dict[str, object],
+    manual_repairs: dict[str, str] | None = None,
+    *,
+    use_alias: bool = True,
 ) -> tuple[str, str, list[str]]:
     symbol = str(symbol).strip()
     if not symbol:
@@ -554,8 +562,8 @@ def resolve_current_symbol(
     manual_repairs = manual_repairs or {}
     current = hgnc_maps.get("current", {})
     previous = hgnc_maps.get("previous", {})
-    alias = hgnc_maps.get("alias", {})
-    ambiguous_alias = hgnc_maps.get("ambiguous", {}).get("alias", {})
+    alias = hgnc_maps.get("alias", {}) if use_alias else {}
+    ambiguous_alias = hgnc_maps.get("ambiguous", {}).get("alias", {}) if use_alias else {}
     if symbol in current:
         return str(current[symbol]), "exact_current_symbol", [str(current[symbol])]
     if symbol in previous:

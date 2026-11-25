@@ -20,6 +20,19 @@ REQUIRED_SECTIONS = [
 ]
 
 
+REMOVED_OPTIONS: dict[tuple[str, str], str] = {
+    ("redundancy", "apply_after_output_gene_projection"): "redundancy always runs after target projection",
+    ("redundancy", "nested_overlap_filter"): "the nested-overlap filter was never implemented; remove the block",
+    ("filtering", "remove_empty_after_output_gene_projection"): "empty terms are always dropped; use min_size_default",
+    ("gene_mapping", "strip_ensembl_version"): "Ensembl versions are always stripped",
+    ("gene_mapping", "allow_ambiguous_alias_mapping"): "ambiguous aliases are always dropped and audited",
+    ("gene_mapping", "prefer_gencode_exact_gene_name"): "annotation gene names are always preferred",
+    ("gene_mapping", "prefer_current_hgnc_symbol"): "current HGNC symbols are always preferred",
+    ("gene_mapping", "drop_unmapped_from_ensg_gmt"): "unmapped genes are never written to Ensembl GMTs",
+    ("ensembl_archive", "unresolved_example_threshold"): "use ensembl_archive.unresolved_print_limit",
+}
+
+
 def load_config(
     path: str | Path | None = None, overrides: Sequence[str | Path | dict[str, Any]] | None = None
 ) -> dict[str, Any]:
@@ -92,6 +105,9 @@ def _apply_list_extensions(cfg: dict[str, Any]) -> None:
 
 
 def _validate_config(cfg: dict[str, Any]) -> None:
+    for (section, key), replacement in REMOVED_OPTIONS.items():
+        if isinstance(cfg.get(section), dict) and key in cfg[section]:
+            raise ValueError(f"Config option {section}.{key} was removed: {replacement}.")
     missing = [section for section in REQUIRED_SECTIONS if section not in cfg]
     if missing:
         raise ValueError(f"Config is missing required sections: {', '.join(missing)}")

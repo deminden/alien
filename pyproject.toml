@@ -72,6 +72,10 @@ src = ["src", "tests"]
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "C90", "PL", "RUF", "PERF", "BLE", "PTH"]
 
+[tool.ruff.lint.isort]
+known-first-party = ["alien"]
+known-local-folder = ["conftest"]
+
 [tool.ruff.lint.mccabe]
 max-complexity = 12
 

@@ -29,7 +29,6 @@ targets:
 filtering:
   min_size_default: 10
   max_size_default: 500
-  remove_empty_after_output_gene_projection: true
 
 redundancy:
   exact_duplicate_removal: true

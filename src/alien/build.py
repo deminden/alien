@@ -690,12 +690,15 @@ def _filter_namespaces_parallel(
     removed_size_frames = [size_results[namespace][1] for namespace in namespace_order]
     redundancy_tasks: list[tuple[str, str, dict[str, dict[str, Any]], dict]] = []
     for namespace in namespace_order:
+        per_family = bool(cfg["redundancy"].get("apply_per_family", True))
         families = sorted({record["meta"].get("family", "") for record in size_filtered[namespace].values()})
+        if not per_family:
+            families = ["*"] if size_filtered[namespace] else []
         for family in families:
             subset = {
                 term_id: record
                 for term_id, record in size_filtered[namespace].items()
-                if record["meta"].get("family", "") == family
+                if family == "*" or record["meta"].get("family", "") == family
             }
             redundancy_tasks.append((namespace, family, subset, cfg))
 

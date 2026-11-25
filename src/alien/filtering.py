@@ -64,24 +64,40 @@ def _removed_row(namespace: str, term_id: str, record: dict[str, Any], reason: s
 GENERIC_PREFIXES = ("regulation of", "positive regulation of", "negative regulation of", "process")
 
 
+ALL_FAMILIES = "*"
+
+
 def remove_redundancy(
     term_genes: dict[str, dict[str, Any]],
     namespace: str,
     cfg: dict,
 ) -> tuple[dict[str, dict[str, Any]], pd.DataFrame, pd.DataFrame]:
-    # Remove duplicate terms separately inside each family
-    jaccard = float(cfg["redundancy"]["jaccard_cutoff"])
+    # Remove duplicate terms inside each family (or across all families when apply_per_family is false)
+    redundancy = cfg["redundancy"]
+    jaccard = float(redundancy["jaccard_cutoff"])
+    exact_enabled = bool(redundancy.get("exact_duplicate_removal", True))
+    per_family = bool(redundancy.get("apply_per_family", True))
     priority = cfg.get("source_priority", {})
     kept: dict[str, dict[str, Any]] = {}
     removed_rows: list[dict[str, object]] = []
     summary_rows: list[dict[str, object]] = []
 
-    for family in sorted({record["meta"].get("family", "") for record in term_genes.values()}):
-        subset = {tid: rec for tid, rec in term_genes.items() if rec["meta"].get("family", "") == family}
-        after_exact, exact_removed = _remove_exact_duplicates(subset, namespace, family, priority.get(family, []))
-        after_jaccard, jaccard_removed = _remove_jaccard(
-            after_exact, namespace, family, priority.get(family, []), jaccard
-        )
+    if per_family:
+        groups = sorted({record["meta"].get("family", "") for record in term_genes.values()})
+    else:
+        groups = [ALL_FAMILIES] if term_genes else []
+    for family in groups:
+        subset = {
+            tid: rec
+            for tid, rec in term_genes.items()
+            if family == ALL_FAMILIES or rec["meta"].get("family", "") == family
+        }
+        family_priority = _group_priority(subset, priority, family)
+        if exact_enabled:
+            after_exact, exact_removed = _remove_exact_duplicates(subset, namespace, family, family_priority)
+        else:
+            after_exact, exact_removed = dict(subset), []
+        after_jaccard, jaccard_removed = _remove_jaccard(after_exact, namespace, family, family_priority, jaccard)
         kept.update(after_jaccard)
         removed_rows.extend(exact_removed + jaccard_removed)
         summary_rows.append(
@@ -97,6 +113,16 @@ def remove_redundancy(
             }
         )
     return kept, pd.DataFrame(removed_rows), pd.DataFrame(summary_rows)
+
+
+def _group_priority(subset: dict[str, dict[str, Any]], priority: dict[str, list[str]], family: str) -> list[str]:
+    if family != ALL_FAMILIES:
+        return list(priority.get(family, []))
+    # Across families: concatenate the per-family lists in family order, keeping first occurrences.
+    merged: list[str] = []
+    for name in sorted({rec["meta"].get("family", "") for rec in subset.values()}):
+        merged.extend(tag for tag in priority.get(name, []) if tag not in merged)
+    return merged
 
 
 def _remove_exact_duplicates(

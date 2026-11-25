@@ -52,7 +52,6 @@ filtering:
   min_size_default: 10
   max_size_default: 500
   max_size_disease: 500
-  remove_empty_after_output_gene_projection: true
   drop_broad_disease_terms: true
   broad_disease_regex:
     - "^disease$"
