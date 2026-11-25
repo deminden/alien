@@ -4,6 +4,8 @@ import pytest
 from alien import build
 from alien.sources import term_id_collision_audit as _term_id_collision_audit
 
+from conftest import write_hgnc, write_source_table, write_tiny_gtf
+
 
 def test_small_build_is_deterministic_and_writes_combined_gmts(tmp_path):
     source = tmp_path / "sources"
@@ -13,10 +15,10 @@ def test_small_build_is_deterministic_and_writes_combined_gmts(tmp_path):
     symbol_gmt = tmp_path / "symbolic.gmt"
     gtf = tmp_path / "genes.gtf"
     output_genes = tmp_path / "output_genes.tsv"
-    _write_hgnc(source)
-    _write_source_table(source_tsv)
+    write_hgnc(source)
+    write_source_table(source_tsv)
     symbol_gmt.write_text("SYMBOL_TERM\tdesc\tTP53\tGENE3\n", encoding="utf-8")
-    _write_gtf(gtf)
+    write_tiny_gtf(gtf)
     output_genes.write_text("feature\nENSG00000141510.18\nENSG000002.1\nENSG000003.1\n", encoding="utf-8")
 
     cfg = {
@@ -103,9 +105,9 @@ def test_restrict_to_key_is_not_supported(tmp_path):
     source = tmp_path / "sources"
     source_tsv = tmp_path / "source.tsv"
     gtf = tmp_path / "genes.gtf"
-    _write_hgnc(source)
-    _write_source_table(source_tsv)
-    _write_gtf(gtf)
+    write_hgnc(source)
+    write_source_table(source_tsv)
+    write_tiny_gtf(gtf)
 
     cfg = {
         "project": {"source_dir": str(source)},
@@ -140,9 +142,9 @@ def test_gene_universe_key_is_not_supported(tmp_path):
     source = tmp_path / "sources"
     source_tsv = tmp_path / "source.tsv"
     gtf = tmp_path / "genes.gtf"
-    _write_hgnc(source)
-    _write_source_table(source_tsv)
-    _write_gtf(gtf)
+    write_hgnc(source)
+    write_source_table(source_tsv)
+    write_tiny_gtf(gtf)
 
     cfg = {
         "project": {"source_dir": str(source)},
@@ -168,9 +170,9 @@ def test_output_ids_key_is_not_supported(tmp_path):
     source = tmp_path / "sources"
     source_tsv = tmp_path / "source.tsv"
     gtf = tmp_path / "genes.gtf"
-    _write_hgnc(source)
-    _write_source_table(source_tsv)
-    _write_gtf(gtf)
+    write_hgnc(source)
+    write_source_table(source_tsv)
+    write_tiny_gtf(gtf)
 
     cfg = {
         "project": {"source_dir": str(source)},
@@ -198,9 +200,9 @@ def test_gene_filter_intersects_annotation_namespace(tmp_path):
     source_tsv = tmp_path / "source.tsv"
     gtf = tmp_path / "genes.gtf"
     gene_filter = tmp_path / "filter.tsv"
-    _write_hgnc(source)
-    _write_source_table(source_tsv)
-    _write_gtf(gtf)
+    write_hgnc(source)
+    write_source_table(source_tsv)
+    write_tiny_gtf(gtf)
     gene_filter.write_text("feature\nENSG000002.1\nENSG00000499999.1\n", encoding="utf-8")
 
     cfg = {
@@ -247,7 +249,7 @@ def test_output_genes_symbol_column_augments_annotation_helper(tmp_path):
     source_tsv = tmp_path / "source.tsv"
     gtf = tmp_path / "genes.gtf"
     output_genes = tmp_path / "output_genes.tsv"
-    _write_hgnc(source)
+    write_hgnc(source)
     pd.DataFrame(
         {
             "gs_name": ["MATRIX_TERM"],
@@ -256,7 +258,7 @@ def test_output_genes_symbol_column_augments_annotation_helper(tmp_path):
             "ensembl_gene": [""],
         }
     ).to_csv(source_tsv, sep="\t", index=False)
-    _write_gtf(gtf)
+    write_tiny_gtf(gtf)
     output_genes.write_text("feature_id\tgene_symbol\nENSG00000999999.1\tMATRIXONLY\n", encoding="utf-8")
 
     cfg = {
@@ -295,7 +297,7 @@ def test_metadata_fallback_fills_missing_output_metadata_without_overriding_prim
     primary_gtf = tmp_path / "primary.gtf"
     fallback_gtf = tmp_path / "fallback.gtf"
     output_genes = tmp_path / "output_genes.tsv"
-    _write_hgnc(source)
+    write_hgnc(source)
     pd.DataFrame(
         {
             "gs_name": ["SUPP_TERM", "SUPP_TERM"],
@@ -364,9 +366,9 @@ def test_output_genes_and_gene_filter_are_mutually_exclusive(tmp_path):
     source = tmp_path / "sources"
     source_tsv = tmp_path / "source.tsv"
     gtf = tmp_path / "genes.gtf"
-    _write_hgnc(source)
-    _write_source_table(source_tsv)
-    _write_gtf(gtf)
+    write_hgnc(source)
+    write_source_table(source_tsv)
+    write_tiny_gtf(gtf)
 
     cfg = {
         "project": {"source_dir": str(source)},
@@ -429,34 +431,9 @@ def test_build_errors_and_writes_audit_for_conflicting_term_ids(tmp_path):
     assert audit["action"].unique().tolist() == ["error"]
 
 
-def _write_hgnc(source):
-    hgnc = source / "hgnc"
-    hgnc.mkdir(parents=True)
-    pd.DataFrame(
-        {
-            "symbol": ["TP53", "GENE2", "GENE3", "MATRIXONLY", "DUP", "FILL"],
-            "prev_symbol": ["", "", "", "", "", ""],
-            "alias_symbol": ["", "", "", "", "", ""],
-            "ensembl_gene_id": ["ENSG00000141510", "ENSG000002", "ENSG000003", "ENSG00000999999", "", ""],
-        }
-    ).to_csv(hgnc / "hgnc_complete_set.txt", sep="\t", index=False)
-
-
-def _write_source_table(path):
-    pd.DataFrame(
-        {
-            "gs_name": ["REACTOME_TERM", "REACTOME_TERM"],
-            "gs_description": ["desc", "desc"],
-            "gene_symbol": ["TP53", "GENE2"],
-            "ensembl_gene": ["ENSG00000141510.18", "ENSG000002.1"],
-        }
-    ).to_csv(path, sep="\t", index=False)
-
-
-def _write_gtf(path):
-    path.write_text(
-        'chr1\tALIEN\tgene\t1\t10\t.\t+\t.\tgene_id "ENSG00000141510.18"; gene_name "TP53"; gene_type "protein_coding";\n'
-        'chr1\tALIEN\tgene\t20\t30\t.\t+\t.\tgene_id "ENSG000002.1"; gene_name "GENE2"; gene_type "protein_coding";\n'
-        'chr1\tALIEN\tgene\t40\t50\t.\t+\t.\tgene_id "ENSG000003.1"; gene_name "GENE3"; gene_type "protein_coding";\n',
-        encoding="utf-8",
-    )
+def test_base_config_fixture_builds(base_config, tmp_path):
+    result = build(config=base_config, outdir=tmp_path / "out")
+    assert result.term_counts == {"symbols": 1, "tiny": 1}
+    assert result.gmt_paths["tiny"].read_text(encoding="utf-8").count("ENSG") == 3
+    assert result.mapping_summary is not None and not result.mapping_summary.empty
+    assert result.manifest_path is not None and result.manifest_path.exists()

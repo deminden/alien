@@ -283,3 +283,73 @@ def _reset_alien_logger() -> Any:
     handlers, level, propagate = list(logger.handlers), logger.level, logger.propagate
     yield
     logger.handlers, logger.level, logger.propagate = handlers, level, propagate
+
+
+# ----------------------------------------------------------------------------------------------- tiny fixtures
+
+
+def write_hgnc(source: Path) -> Path:
+    hgnc = source / "hgnc"
+    hgnc.mkdir(parents=True)
+    pd.DataFrame(
+        {
+            "symbol": ["TP53", "GENE2", "GENE3", "MATRIXONLY", "DUP", "FILL"],
+            "prev_symbol": ["", "", "", "", "", ""],
+            "alias_symbol": ["", "", "", "", "", ""],
+            "ensembl_gene_id": ["ENSG00000141510", "ENSG000002", "ENSG000003", "ENSG00000999999", "", ""],
+        }
+    ).to_csv(hgnc / "hgnc_complete_set.txt", sep="\t", index=False)
+    return source
+
+
+def write_source_table(path: Path) -> Path:
+    pd.DataFrame(
+        {
+            "gs_name": ["REACTOME_TERM", "REACTOME_TERM"],
+            "gs_description": ["desc", "desc"],
+            "gene_symbol": ["TP53", "GENE2"],
+            "ensembl_gene": ["ENSG00000141510.18", "ENSG000002.1"],
+        }
+    ).to_csv(path, sep="\t", index=False)
+    return path
+
+
+def write_tiny_gtf(path: Path) -> Path:
+    path.write_text(
+        'chr1\tALIEN\tgene\t1\t10\t.\t+\t.\tgene_id "ENSG00000141510.18"; gene_name "TP53"; gene_type "protein_coding";\n'
+        'chr1\tALIEN\tgene\t20\t30\t.\t+\t.\tgene_id "ENSG000002.1"; gene_name "GENE2"; gene_type "protein_coding";\n'
+        'chr1\tALIEN\tgene\t40\t50\t.\t+\t.\tgene_id "ENSG000003.1"; gene_name "GENE3"; gene_type "protein_coding";\n',
+        encoding="utf-8",
+    )
+    return path
+
+
+@pytest.fixture
+def hgnc_dir(tmp_path: Path) -> Path:
+    """A source_dir holding a tiny HGNC complete set (TP53, GENE2, GENE3, ...)."""
+    return write_hgnc(tmp_path / "sources")
+
+
+@pytest.fixture
+def tiny_gtf(tmp_path: Path) -> Path:
+    return write_tiny_gtf(tmp_path / "genes.gtf")
+
+
+@pytest.fixture
+def tiny_gmt(tmp_path: Path) -> Path:
+    path = tmp_path / "tiny.gmt"
+    path.write_text("SYMBOL_TERM\tdesc\tTP53\tGENE2\tGENE3\n", encoding="utf-8")
+    return path
+
+
+@pytest.fixture
+def base_config(hgnc_dir: Path, tiny_gtf: Path, tiny_gmt: Path) -> dict[str, Any]:
+    """An offline build config over the tiny fixtures."""
+    return {
+        "project": {"source_dir": str(hgnc_dir)},
+        "sources": [{"type": "symbol_gmt", "path": str(tiny_gmt), "source_tag": "LOCAL"}],
+        "targets": [{"name": "tiny", "annotation": {"source": "Tiny", "path": str(tiny_gtf)}}],
+        "filtering": {"min_size_default": 1},
+        "ncbi_gene": {"enabled": False},
+        "ensembl_archive": {"enabled": False},
+    }
