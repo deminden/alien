@@ -1,6 +1,12 @@
 import pandas as pd
 
-from alien.mapping import EnsemblArchiveResolver, _choose_gencode_candidate, map_ensembl, map_namespaces, resolve_current_symbol
+from alien.mapping import (
+    EnsemblArchiveResolver,
+    _choose_gencode_candidate,
+    map_ensembl,
+    map_namespaces,
+    resolve_current_symbol,
+)
 from alien.sources import build_hgnc_maps
 
 
@@ -73,9 +79,24 @@ def test_ensembl_mapping_priority_and_output_gene_projection():
     )
     gencode = pd.DataFrame(
         [
-            {"gene_symbol": "TP53", "ensembl_gene_id": "ENSG00000141510", "gene_biotype": "protein_coding", "is_in_output_genes": True},
-            {"gene_symbol": "SRC", "ensembl_gene_id": "ENSG00000999999", "gene_biotype": "protein_coding", "is_in_output_genes": True},
-            {"gene_symbol": "RESCUED", "ensembl_gene_id": "ENSG00000111111", "gene_biotype": "protein_coding", "is_in_output_genes": True},
+            {
+                "gene_symbol": "TP53",
+                "ensembl_gene_id": "ENSG00000141510",
+                "gene_biotype": "protein_coding",
+                "is_in_output_genes": True,
+            },
+            {
+                "gene_symbol": "SRC",
+                "ensembl_gene_id": "ENSG00000999999",
+                "gene_biotype": "protein_coding",
+                "is_in_output_genes": True,
+            },
+            {
+                "gene_symbol": "RESCUED",
+                "ensembl_gene_id": "ENSG00000111111",
+                "gene_biotype": "protein_coding",
+                "is_in_output_genes": True,
+            },
         ]
     )
     unmapped = []
@@ -122,12 +143,24 @@ def test_ensembl_mapping_priority_and_output_gene_projection():
 
 def test_archive_lookup_ignores_current_annotation_ids_outside_restricted_output_genes():
     hgnc = build_hgnc_maps(
-        pd.DataFrame([{"symbol": "OUTSIDE", "prev_symbol": "", "alias_symbol": "", "ensembl_gene_id": "ENSG00000000001"}])
+        pd.DataFrame(
+            [{"symbol": "OUTSIDE", "prev_symbol": "", "alias_symbol": "", "ensembl_gene_id": "ENSG00000000001"}]
+        )
     )
     gencode = pd.DataFrame(
         [
-            {"gene_symbol": "OUTSIDE", "ensembl_gene_id": "ENSG00000000001", "gene_biotype": "protein_coding", "is_in_output_genes": False},
-            {"gene_symbol": "INSIDE", "ensembl_gene_id": "ENSG00000000002", "gene_biotype": "protein_coding", "is_in_output_genes": True},
+            {
+                "gene_symbol": "OUTSIDE",
+                "ensembl_gene_id": "ENSG00000000001",
+                "gene_biotype": "protein_coding",
+                "is_in_output_genes": False,
+            },
+            {
+                "gene_symbol": "INSIDE",
+                "ensembl_gene_id": "ENSG00000000002",
+                "gene_biotype": "protein_coding",
+                "is_in_output_genes": True,
+            },
         ]
     )
     unmapped = []
@@ -158,10 +191,19 @@ def test_archive_lookup_ignores_current_annotation_ids_outside_restricted_output
 
 def test_archive_lookup_ignores_current_hgnc_ids_absent_from_old_annotation():
     hgnc = build_hgnc_maps(
-        pd.DataFrame([{"symbol": "CURRENTONLY", "prev_symbol": "", "alias_symbol": "", "ensembl_gene_id": "ENSG00000000003"}])
+        pd.DataFrame(
+            [{"symbol": "CURRENTONLY", "prev_symbol": "", "alias_symbol": "", "ensembl_gene_id": "ENSG00000000003"}]
+        )
     )
     gencode = pd.DataFrame(
-        [{"gene_symbol": "INSIDE", "ensembl_gene_id": "ENSG00000000002", "gene_biotype": "protein_coding", "is_in_output_genes": True}]
+        [
+            {
+                "gene_symbol": "INSIDE",
+                "ensembl_gene_id": "ENSG00000000002",
+                "gene_biotype": "protein_coding",
+                "is_in_output_genes": True,
+            }
+        ]
     )
     unmapped = []
     archive_audit = []
@@ -204,8 +246,18 @@ def test_map_namespaces_parallel_maps_multiple_targets():
             "name": "target_a",
             "annotation": pd.DataFrame(
                 [
-                    {"gene_symbol": "TP53", "ensembl_gene_id": "ENSG00000141510", "gene_biotype": "protein_coding", "is_in_output_genes": True},
-                    {"gene_symbol": "GENE2", "ensembl_gene_id": "ENSG000002", "gene_biotype": "protein_coding", "is_in_output_genes": True},
+                    {
+                        "gene_symbol": "TP53",
+                        "ensembl_gene_id": "ENSG00000141510",
+                        "gene_biotype": "protein_coding",
+                        "is_in_output_genes": True,
+                    },
+                    {
+                        "gene_symbol": "GENE2",
+                        "ensembl_gene_id": "ENSG000002",
+                        "gene_biotype": "protein_coding",
+                        "is_in_output_genes": True,
+                    },
                 ]
             ),
             "output_genes": {"ENSG00000141510", "ENSG000002"},
@@ -213,7 +265,14 @@ def test_map_namespaces_parallel_maps_multiple_targets():
         {
             "name": "target_b",
             "annotation": pd.DataFrame(
-                [{"gene_symbol": "TP53", "ensembl_gene_id": "ENSG00000141510", "gene_biotype": "protein_coding", "is_in_output_genes": True}]
+                [
+                    {
+                        "gene_symbol": "TP53",
+                        "ensembl_gene_id": "ENSG00000141510",
+                        "gene_biotype": "protein_coding",
+                        "is_in_output_genes": True,
+                    }
+                ]
             ),
             "output_genes": {"ENSG00000141510"},
         },
@@ -224,7 +283,11 @@ def test_map_namespaces_parallel_maps_multiple_targets():
         hgnc,
         {},
         targets,
-        {"outputs": {"include_symbols": False}, "gene_mapping": {"manual_symbol_repairs": {}}, "ensembl_archive": {"enabled": False}},
+        {
+            "outputs": {"include_symbols": False},
+            "gene_mapping": {"manual_symbol_repairs": {}},
+            "ensembl_archive": {"enabled": False},
+        },
         workers=2,
     )
 
@@ -239,7 +302,9 @@ def test_map_namespaces_parallel_maps_multiple_targets():
 
 
 def test_configured_non_gene_tokens_are_dropped_before_mapping():
-    hgnc = build_hgnc_maps(pd.DataFrame([{"symbol": "TP53", "prev_symbol": "", "alias_symbol": "", "ensembl_gene_id": "ENSG1"}]))
+    hgnc = build_hgnc_maps(
+        pd.DataFrame([{"symbol": "TP53", "prev_symbol": "", "alias_symbol": "", "ensembl_gene_id": "ENSG1"}])
+    )
     unmapped = []
     ambiguous = []
     non_gene = []
@@ -247,7 +312,16 @@ def test_configured_non_gene_tokens_are_dropped_before_mapping():
         pd.DataFrame([_row("T_DIRTY", "disease", "")]),
         hgnc,
         {},
-        pd.DataFrame([{"gene_symbol": "TP53", "ensembl_gene_id": "ENSG1", "gene_biotype": "protein_coding", "is_in_output_genes": True}]),
+        pd.DataFrame(
+            [
+                {
+                    "gene_symbol": "TP53",
+                    "ensembl_gene_id": "ENSG1",
+                    "gene_biotype": "protein_coding",
+                    "is_in_output_genes": True,
+                }
+            ]
+        ),
         {"ENSG1"},
         "human_test",
         {"gene_mapping": {"non_gene_tokens": ["disease"], "manual_symbol_repairs": {}}},
@@ -262,11 +336,23 @@ def test_configured_non_gene_tokens_are_dropped_before_mapping():
 
 
 def test_hgnc_ensembl_tiebreak_resolves_ambiguous_gencode_symbol():
-    hgnc = build_hgnc_maps(pd.DataFrame([{"symbol": "COX2", "prev_symbol": "", "alias_symbol": "", "ensembl_gene_id": "ENSG_COX2_GOOD"}]))
+    hgnc = build_hgnc_maps(
+        pd.DataFrame([{"symbol": "COX2", "prev_symbol": "", "alias_symbol": "", "ensembl_gene_id": "ENSG_COX2_GOOD"}])
+    )
     gencode = pd.DataFrame(
         [
-            {"gene_symbol": "COX2", "ensembl_gene_id": "ENSG_COX2_BAD", "gene_biotype": "protein_coding", "is_in_output_genes": True},
-            {"gene_symbol": "COX2", "ensembl_gene_id": "ENSG_COX2_GOOD", "gene_biotype": "protein_coding", "is_in_output_genes": True},
+            {
+                "gene_symbol": "COX2",
+                "ensembl_gene_id": "ENSG_COX2_BAD",
+                "gene_biotype": "protein_coding",
+                "is_in_output_genes": True,
+            },
+            {
+                "gene_symbol": "COX2",
+                "ensembl_gene_id": "ENSG_COX2_GOOD",
+                "gene_biotype": "protein_coding",
+                "is_in_output_genes": True,
+            },
         ]
     )
     mapping_status = {}
@@ -288,7 +374,9 @@ def test_hgnc_ensembl_tiebreak_resolves_ambiguous_gencode_symbol():
 
 
 def test_ncbi_history_rescues_unmapped_legacy_symbol():
-    hgnc = build_hgnc_maps(pd.DataFrame([{"symbol": "NEWGENE", "prev_symbol": "", "alias_symbol": "", "ensembl_gene_id": "ENSG_NEW"}]))
+    hgnc = build_hgnc_maps(
+        pd.DataFrame([{"symbol": "NEWGENE", "prev_symbol": "", "alias_symbol": "", "ensembl_gene_id": "ENSG_NEW"}])
+    )
     ncbi = {
         "stages": {
             "ncbi_gene_history": {
@@ -307,7 +395,16 @@ def test_ncbi_history_rescues_unmapped_legacy_symbol():
         pd.DataFrame([_row("T_NCBI", "OLDNCBI", "")]),
         hgnc,
         ncbi,
-        pd.DataFrame([{"gene_symbol": "NEWGENE", "ensembl_gene_id": "ENSG_NEW", "gene_biotype": "protein_coding", "is_in_output_genes": True}]),
+        pd.DataFrame(
+            [
+                {
+                    "gene_symbol": "NEWGENE",
+                    "ensembl_gene_id": "ENSG_NEW",
+                    "gene_biotype": "protein_coding",
+                    "is_in_output_genes": True,
+                }
+            ]
+        ),
         {"ENSG_NEW"},
         "human_test",
         {"gene_mapping": {"manual_symbol_repairs": {}}, "ncbi_gene": {"allowed_source_tags": ["REACTOME"]}},
@@ -323,7 +420,9 @@ def test_ncbi_history_rescues_unmapped_legacy_symbol():
 
 
 def test_ncbi_rescue_can_be_restricted_by_source_tag():
-    hgnc = build_hgnc_maps(pd.DataFrame([{"symbol": "NEWGENE", "prev_symbol": "", "alias_symbol": "", "ensembl_gene_id": "ENSG_NEW"}]))
+    hgnc = build_hgnc_maps(
+        pd.DataFrame([{"symbol": "NEWGENE", "prev_symbol": "", "alias_symbol": "", "ensembl_gene_id": "ENSG_NEW"}])
+    )
     ncbi = {
         "stages": {
             "ncbi_gene_history": {
@@ -341,7 +440,16 @@ def test_ncbi_rescue_can_be_restricted_by_source_tag():
         pd.DataFrame([_row("T_NCBI_BLOCKED", "OLDNCBI", "")]),
         hgnc,
         ncbi,
-        pd.DataFrame([{"gene_symbol": "NEWGENE", "ensembl_gene_id": "ENSG_NEW", "gene_biotype": "protein_coding", "is_in_output_genes": True}]),
+        pd.DataFrame(
+            [
+                {
+                    "gene_symbol": "NEWGENE",
+                    "ensembl_gene_id": "ENSG_NEW",
+                    "gene_biotype": "protein_coding",
+                    "is_in_output_genes": True,
+                }
+            ]
+        ),
         {"ENSG_NEW"},
         "human_test",
         {"gene_mapping": {"manual_symbol_repairs": {}}, "ncbi_gene": {"allowed_source_tags": ["CCLE"]}},

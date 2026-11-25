@@ -1,13 +1,20 @@
-import hashlib
 import gzip
+import hashlib
 import zipfile
 
 import pandas as pd
 import rdata
 
-from alien.config import load_config
 from alien import sources
-from alien.sources import gencode_annotation_url, load_ensembl_gtf_target, read_canonical_memberships, read_msigdb_like_table, read_msigdb_remote, read_symbol_gmt_source
+from alien.config import load_config
+from alien.sources import (
+    gencode_annotation_url,
+    load_ensembl_gtf_target,
+    read_canonical_memberships,
+    read_msigdb_like_table,
+    read_msigdb_remote,
+    read_symbol_gmt_source,
+)
 
 
 def test_canonical_table_normalization_with_source_gene_id(tmp_path):
@@ -21,7 +28,9 @@ def test_canonical_table_normalization_with_source_gene_id(tmp_path):
         }
     ).to_csv(path, sep="\t", index=False)
 
-    frame = read_canonical_memberships(path, {"source": "Example", "source_tag": "EX", "family": "biology_process_pathway"})
+    frame = read_canonical_memberships(
+        path, {"source": "Example", "source_tag": "EX", "family": "biology_process_pathway"}
+    )
 
     assert frame["term_id"].tolist() == ["Term_1", "Term_1"]
     assert frame["source_tag"].unique().tolist() == ["EX"]
@@ -39,7 +48,9 @@ def test_msigdb_like_table_normalization(tmp_path):
         }
     ).to_csv(path, sep="\t", index=False)
 
-    frame = read_msigdb_like_table(path, {"source_tag": "REACTOME", "collection": "C2", "family": "biology_process_pathway", "aspect": "pathway"})
+    frame = read_msigdb_like_table(
+        path, {"source_tag": "REACTOME", "collection": "C2", "family": "biology_process_pathway", "aspect": "pathway"}
+    )
 
     assert frame["term_id"].unique().tolist() == ["MSIGDB_REACTOME__PATHWAY_A"]
     assert frame["gene_symbol"].tolist() == ["TP53", "GENE2"]
@@ -50,7 +61,9 @@ def test_symbol_gmt_source_normalization(tmp_path):
     path = tmp_path / "library.gmt"
     path.write_text("TERM_A\tdesc\tTP53\tGENE2\n", encoding="utf-8")
 
-    frame = read_symbol_gmt_source(path, {"source": "Example", "source_tag": "EX", "family": "disease_phenotype", "aspect": "disease"})
+    frame = read_symbol_gmt_source(
+        path, {"source": "Example", "source_tag": "EX", "family": "disease_phenotype", "aspect": "disease"}
+    )
 
     assert frame["term_id"].unique().tolist() == ["EX__TERM_A"]
     assert frame["gene_symbol"].tolist() == ["TP53", "GENE2"]
@@ -104,7 +117,10 @@ def test_gencode_target_accepts_v_prefixed_version(tmp_path, monkeypatch):
         },
     )
 
-    assert seen["url"] == "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_50/gencode.v50.annotation.gtf.gz"
+    assert (
+        seen["url"]
+        == "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_50/gencode.v50.annotation.gtf.gz"
+    )
     assert label == "GENCODE v50"
     assert path == tmp_path / "gencode" / "gencode.v50.annotation.gtf.gz"
 
@@ -113,7 +129,7 @@ def test_ensembl_gtf_target_allows_custom_attribute_names(tmp_path):
     gtf = tmp_path / "custom.gtf"
     gtf.write_text(
         'chr1\tALIEN\tgene\t1\t10\t.\t+\t.\tID "ENSG00000141510.18"; Name "TP53"; biotype "protein_coding";\n'
-        'chr1\tALIEN\tgene\t20\t30\t.\t+\t.\tID=ENSG000002.1;Name=GENE2;biotype=lncRNA;\n',
+        "chr1\tALIEN\tgene\t20\t30\t.\t+\t.\tID=ENSG000002.1;Name=GENE2;biotype=lncRNA;\n",
         encoding="utf-8",
     )
 

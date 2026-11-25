@@ -1,8 +1,8 @@
 import importlib
 from pathlib import Path
 
-from alien import BuildResult, build as run_build
-
+from alien import BuildResult
+from alien import build as run_build
 
 MINIMAL_OUTPUTS = {
     "gmt/symbols.gmt",
@@ -70,7 +70,9 @@ sources:
 
     def fake_build_to_output_dir(cfg, output_dir, source_dir, worker_count, dry_run, force_download):
         captured.update({"cfg": cfg, "output_dir": output_dir, "source_dir": source_dir, "worker_count": worker_count})
-        return BuildResult(outdir=output_dir, namespaces=("symbols",), n_source_memberships=1, n_source_terms=1, warnings=())
+        return BuildResult(
+            outdir=output_dir, namespaces=("symbols",), n_source_memberships=1, n_source_terms=1, warnings=()
+        )
 
     monkeypatch.setattr(build_module, "_build_to_output_dir", fake_build_to_output_dir)
 
@@ -115,7 +117,9 @@ def _fake_staged_build(cfg, output_dir, source_dir, worker_count, dry_run, force
         path = output_dir / relative_path
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(relative_path, encoding="utf-8")
-    return BuildResult(outdir=output_dir, namespaces=("symbols",), n_source_memberships=1, n_source_terms=1, warnings=())
+    return BuildResult(
+        outdir=output_dir, namespaces=("symbols",), n_source_memberships=1, n_source_terms=1, warnings=()
+    )
 
 
 def _files_under(path: Path) -> set[str]:

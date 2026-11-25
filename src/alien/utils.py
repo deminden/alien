@@ -7,7 +7,7 @@ import multiprocessing as mp
 import re
 import shutil
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -15,7 +15,6 @@ import pandas as pd
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-
 
 LOGGER = logging.getLogger("alien")
 
@@ -40,7 +39,7 @@ def process_pool_context() -> mp.context.BaseContext:
 
 
 def utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def ensure_dirs(*paths: Path) -> None:

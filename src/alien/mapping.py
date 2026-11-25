@@ -21,7 +21,15 @@ def map_namespaces(
     cfg: dict,
     source_dir: Path | None = None,
     workers: int = 1,
-) -> tuple[dict[str, dict[str, dict[str, Any]]], pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+) -> tuple[
+    dict[str, dict[str, dict[str, Any]]],
+    pd.DataFrame,
+    pd.DataFrame,
+    pd.DataFrame,
+    pd.DataFrame,
+    pd.DataFrame,
+    pd.DataFrame,
+]:
     # Map terms to current symbols and each configured target namespace.
     workers = max(1, int(workers or 1))
     unmapped: list[dict[str, object]] = []
@@ -40,14 +48,29 @@ def map_namespaces(
     if targets and archive_resolver is not None:
         for target in targets:
             namespace = str(target["name"])
-            _, _, known_target_ids = _target_id_sets(target["annotation"], target.get("output_genes"), target.get("gene_filter"), hgnc_maps)
+            _, _, known_target_ids = _target_id_sets(
+                target["annotation"], target.get("output_genes"), target.get("gene_filter"), hgnc_maps
+            )
             archive_resolver.prefetch(_problematic_source_ids(term_records, known_target_ids), namespace)
         archive_resolver.save()
 
     if workers > 1 and len(targets) > 1:
-        LOGGER.info("Mapping %d target namespaces with %d worker process(es).", len(targets), min(workers, len(targets)))
-        target_results = _map_targets_parallel(term_records, hgnc_maps, ncbi_maps, targets, cfg, archive_resolver, workers)
-        for namespace, target_mapped, target_unmapped, target_ambiguous, target_non_gene, target_archive_audit, target_ncbi_audit, target_mapping_status in target_results:
+        LOGGER.info(
+            "Mapping %d target namespaces with %d worker process(es).", len(targets), min(workers, len(targets))
+        )
+        target_results = _map_targets_parallel(
+            term_records, hgnc_maps, ncbi_maps, targets, cfg, archive_resolver, workers
+        )
+        for (
+            namespace,
+            target_mapped,
+            target_unmapped,
+            target_ambiguous,
+            target_non_gene,
+            target_archive_audit,
+            target_ncbi_audit,
+            target_mapping_status,
+        ) in target_results:
             mapped[namespace] = target_mapped
             unmapped.extend(target_unmapped)
             ambiguous.extend(target_ambiguous)
@@ -96,9 +119,20 @@ def _map_targets_parallel(
     ncbi_maps: dict[str, object],
     targets: list[dict[str, Any]],
     cfg: dict,
-    archive_resolver: "EnsemblArchiveResolver | None",
+    archive_resolver: EnsemblArchiveResolver | None,
     workers: int,
-) -> list[tuple[str, dict[str, dict[str, Any]], list[dict[str, object]], list[dict[str, object]], list[dict[str, object]], list[dict[str, object]], list[dict[str, object]], dict[tuple[str, str, str, str], int]]]:
+) -> list[
+    tuple[
+        str,
+        dict[str, dict[str, Any]],
+        list[dict[str, object]],
+        list[dict[str, object]],
+        list[dict[str, object]],
+        list[dict[str, object]],
+        list[dict[str, object]],
+        dict[tuple[str, str, str, str], int],
+    ]
+]:
     target_order = [str(target["name"]) for target in targets]
     with ProcessPoolExecutor(max_workers=min(workers, len(targets)), mp_context=process_pool_context()) as executor:
         futures = [
@@ -116,8 +150,17 @@ def _map_target_task(
     ncbi_maps: dict[str, object],
     target: dict[str, Any],
     cfg: dict,
-    archive_resolver: "EnsemblArchiveResolver | None",
-) -> tuple[str, dict[str, dict[str, Any]], list[dict[str, object]], list[dict[str, object]], list[dict[str, object]], list[dict[str, object]], list[dict[str, object]], dict[tuple[str, str, str, str], int]]:
+    archive_resolver: EnsemblArchiveResolver | None,
+) -> tuple[
+    str,
+    dict[str, dict[str, Any]],
+    list[dict[str, object]],
+    list[dict[str, object]],
+    list[dict[str, object]],
+    list[dict[str, object]],
+    list[dict[str, object]],
+    dict[tuple[str, str, str, str], int],
+]:
     namespace = str(target["name"])
     unmapped: list[dict[str, object]] = []
     ambiguous: list[dict[str, object]] = []
@@ -146,7 +189,9 @@ def _map_target_task(
     return namespace, mapped, unmapped, ambiguous, non_gene, archive_audit, ncbi_audit, mapping_status
 
 
-def _merge_mapping_status(target: dict[tuple[str, str, str, str], int], source: dict[tuple[str, str, str, str], int]) -> None:
+def _merge_mapping_status(
+    target: dict[tuple[str, str, str, str], int], source: dict[tuple[str, str, str, str], int]
+) -> None:
     for key, value in source.items():
         target[key] = target.get(key, 0) + value
 
@@ -182,7 +227,9 @@ def map_symbols(
             resolve_cache[gene_symbol] = resolved
         symbol, status, matches = resolved
         if status == "ambiguous_alias":
-            ambiguous.append(_ambiguous_row("symbols", row, row["gene_symbol"], "hgnc_alias_symbol", matches, [], "drop_alias"))
+            ambiguous.append(
+                _ambiguous_row("symbols", row, row["gene_symbol"], "hgnc_alias_symbol", matches, [], "drop_alias")
+            )
             if not preserve:
                 continue
             symbol = str(row["gene_symbol"])
@@ -209,7 +256,7 @@ def map_ensembl(
     archive_audit: list[dict[str, object]] | None = None,
     ncbi_audit: list[dict[str, object]] | None = None,
     mapping_status: dict[tuple[str, str, str, str], int] | None = None,
-    archive_resolver: "EnsemblArchiveResolver | None" = None,
+    archive_resolver: EnsemblArchiveResolver | None = None,
     gene_filter: set[str] | None = None,
     prefetch_archive: bool = True,
 ) -> dict[str, dict[str, Any]]:
@@ -258,7 +305,9 @@ def map_ensembl(
                 rescued = archive_matches[0]
                 _add_gene(output, row, rescued)
                 _count_status(mapping_status, namespace, row, "archive_ensembl_rescue")
-                archive_audit.append(_archive_audit_row(namespace, row, source_ensembl, archive_info, rescued, "archive_ensembl_rescue"))
+                archive_audit.append(
+                    _archive_audit_row(namespace, row, source_ensembl, archive_info, rescued, "archive_ensembl_rescue")
+                )
                 continue
 
         # Fall back through HGNC symbol history and target annotation helpers
@@ -269,23 +318,50 @@ def map_ensembl(
         current_symbol, status, matches = resolved
         if status == "ambiguous_alias":
             _count_status(mapping_status, namespace, row, "ambiguous_drop")
-            ambiguous.append(_ambiguous_row(namespace, row, row["gene_symbol"], "hgnc_alias_symbol", matches, [], "drop"))
+            ambiguous.append(
+                _ambiguous_row(namespace, row, row["gene_symbol"], "hgnc_alias_symbol", matches, [], "drop")
+            )
             if archive_checked:
-                archive_audit.append(_archive_audit_row(namespace, row, source_ensembl, archive_info, "", _archive_unresolved_status(archive_info, archive_matches, "ambiguous_symbol")))
+                archive_audit.append(
+                    _archive_audit_row(
+                        namespace,
+                        row,
+                        source_ensembl,
+                        archive_info,
+                        "",
+                        _archive_unresolved_status(archive_info, archive_matches, "ambiguous_symbol"),
+                    )
+                )
             continue
         if not current_symbol:
-            ncbi_rescue = _cached_ncbi_rescue(ncbi_rescue_cache, row, ncbi_maps or {}, symbol_index, hgnc_maps, target_ids, cfg)
+            ncbi_rescue = _cached_ncbi_rescue(
+                ncbi_rescue_cache, row, ncbi_maps or {}, symbol_index, hgnc_maps, target_ids, cfg
+            )
             if ncbi_rescue["status"] in {"ncbi_gene_history", "ncbi_gene_info_synonym"}:
                 rescued = str(ncbi_rescue["ensembl_gene_id"])
                 _add_gene(output, row, rescued)
                 _count_status(mapping_status, namespace, row, str(ncbi_rescue["status"]))
                 ncbi_audit.append(_ncbi_audit_row(namespace, row, ncbi_rescue, rescued, "rescued"))
                 if archive_checked:
-                    archive_audit.append(_archive_audit_row(namespace, row, source_ensembl, archive_info, rescued, str(ncbi_rescue["status"])))
+                    archive_audit.append(
+                        _archive_audit_row(
+                            namespace, row, source_ensembl, archive_info, rescued, str(ncbi_rescue["status"])
+                        )
+                    )
                 continue
             if ncbi_rescue["status"].startswith("ambiguous"):
                 _count_status(mapping_status, namespace, row, "ambiguous_drop")
-                ambiguous.append(_ambiguous_row(namespace, row, row["gene_symbol"], str(ncbi_rescue["status"]), list(ncbi_rescue["possible_symbols"]), list(ncbi_rescue["possible_ensembl_ids"]), "drop"))
+                ambiguous.append(
+                    _ambiguous_row(
+                        namespace,
+                        row,
+                        row["gene_symbol"],
+                        str(ncbi_rescue["status"]),
+                        list(ncbi_rescue["possible_symbols"]),
+                        list(ncbi_rescue["possible_ensembl_ids"]),
+                        "drop",
+                    )
+                )
                 ncbi_audit.append(_ncbi_audit_row(namespace, row, ncbi_rescue, "", "ambiguous_drop"))
             else:
                 _count_status(mapping_status, namespace, row, "unmapped_drop")
@@ -293,29 +369,59 @@ def map_ensembl(
                 if ncbi_rescue["status"] != "ncbi_not_checked":
                     ncbi_audit.append(_ncbi_audit_row(namespace, row, ncbi_rescue, "", "unmapped_drop"))
             if archive_checked:
-                archive_audit.append(_archive_audit_row(namespace, row, source_ensembl, archive_info, "", _archive_unresolved_status(archive_info, archive_matches, "unmapped_symbol")))
+                archive_audit.append(
+                    _archive_audit_row(
+                        namespace,
+                        row,
+                        source_ensembl,
+                        archive_info,
+                        "",
+                        _archive_unresolved_status(archive_info, archive_matches, "unmapped_symbol"),
+                    )
+                )
             continue
 
         candidates = candidate_cache.get(current_symbol)
         if candidates is None:
-            candidates = [candidate for candidate in _symbol_candidates(current_symbol, symbol_index, hgnc_maps) if candidate["ensembl_gene_id"] in target_ids]
+            candidates = [
+                candidate
+                for candidate in _symbol_candidates(current_symbol, symbol_index, hgnc_maps)
+                if candidate["ensembl_gene_id"] in target_ids
+            ]
             candidate_cache[current_symbol] = candidates
         if not candidates:
-            ncbi_rescue = _cached_ncbi_rescue(ncbi_rescue_cache, row, ncbi_maps or {}, symbol_index, hgnc_maps, target_ids, cfg)
+            ncbi_rescue = _cached_ncbi_rescue(
+                ncbi_rescue_cache, row, ncbi_maps or {}, symbol_index, hgnc_maps, target_ids, cfg
+            )
             if ncbi_rescue["status"] in {"ncbi_gene_history", "ncbi_gene_info_synonym"}:
                 rescued = str(ncbi_rescue["ensembl_gene_id"])
                 _add_gene(output, row, rescued)
                 _count_status(mapping_status, namespace, row, str(ncbi_rescue["status"]))
                 ncbi_audit.append(_ncbi_audit_row(namespace, row, ncbi_rescue, rescued, "rescued"))
                 if archive_checked:
-                    archive_audit.append(_archive_audit_row(namespace, row, source_ensembl, archive_info, rescued, str(ncbi_rescue["status"])))
+                    archive_audit.append(
+                        _archive_audit_row(
+                            namespace, row, source_ensembl, archive_info, rescued, str(ncbi_rescue["status"])
+                        )
+                    )
                 continue
             _count_status(mapping_status, namespace, row, "not_in_output_genes")
-            unmapped.append(_unmapped_row(namespace, row, row["gene_symbol"], current_symbol, "not_in_output_genes", []))
+            unmapped.append(
+                _unmapped_row(namespace, row, row["gene_symbol"], current_symbol, "not_in_output_genes", [])
+            )
             if ncbi_rescue["status"] != "ncbi_not_checked":
                 ncbi_audit.append(_ncbi_audit_row(namespace, row, ncbi_rescue, "", "not_in_output_genes"))
             if archive_checked:
-                archive_audit.append(_archive_audit_row(namespace, row, source_ensembl, archive_info, "", _archive_unresolved_status(archive_info, archive_matches, "not_in_output_genes")))
+                archive_audit.append(
+                    _archive_audit_row(
+                        namespace,
+                        row,
+                        source_ensembl,
+                        archive_info,
+                        "",
+                        _archive_unresolved_status(archive_info, archive_matches, "not_in_output_genes"),
+                    )
+                )
             continue
         chosen = _choose_gencode_candidate(candidates)
         if chosen is None:
@@ -324,16 +430,31 @@ def map_ensembl(
                 _add_gene(output, row, chosen["ensembl_gene_id"])
                 _count_status(mapping_status, namespace, row, "hgnc_ensembl_tiebreak")
                 if archive_checked:
-                    archive_audit.append(_archive_audit_row(namespace, row, source_ensembl, archive_info, chosen["ensembl_gene_id"], "hgnc_ensembl_tiebreak"))
+                    archive_audit.append(
+                        _archive_audit_row(
+                            namespace,
+                            row,
+                            source_ensembl,
+                            archive_info,
+                            chosen["ensembl_gene_id"],
+                            "hgnc_ensembl_tiebreak",
+                        )
+                    )
                 continue
-            ncbi_rescue = _cached_ncbi_rescue(ncbi_rescue_cache, row, ncbi_maps or {}, symbol_index, hgnc_maps, target_ids, cfg)
+            ncbi_rescue = _cached_ncbi_rescue(
+                ncbi_rescue_cache, row, ncbi_maps or {}, symbol_index, hgnc_maps, target_ids, cfg
+            )
             if ncbi_rescue["status"] in {"ncbi_gene_history", "ncbi_gene_info_synonym"}:
                 rescued = str(ncbi_rescue["ensembl_gene_id"])
                 _add_gene(output, row, rescued)
                 _count_status(mapping_status, namespace, row, str(ncbi_rescue["status"]))
                 ncbi_audit.append(_ncbi_audit_row(namespace, row, ncbi_rescue, rescued, "rescued"))
                 if archive_checked:
-                    archive_audit.append(_archive_audit_row(namespace, row, source_ensembl, archive_info, rescued, str(ncbi_rescue["status"])))
+                    archive_audit.append(
+                        _archive_audit_row(
+                            namespace, row, source_ensembl, archive_info, rescued, str(ncbi_rescue["status"])
+                        )
+                    )
                 continue
             _count_status(mapping_status, namespace, row, "ambiguous_drop")
             ambiguous.append(
@@ -348,13 +469,26 @@ def map_ensembl(
                 )
             )
             if archive_checked:
-                archive_audit.append(_archive_audit_row(namespace, row, source_ensembl, archive_info, "", _archive_unresolved_status(archive_info, archive_matches, "ambiguous_gencode")))
+                archive_audit.append(
+                    _archive_audit_row(
+                        namespace,
+                        row,
+                        source_ensembl,
+                        archive_info,
+                        "",
+                        _archive_unresolved_status(archive_info, archive_matches, "ambiguous_gencode"),
+                    )
+                )
             continue
         _add_gene(output, row, chosen["ensembl_gene_id"])
         mapping_status_name = _symbol_mapping_status(status)
         _count_status(mapping_status, namespace, row, mapping_status_name)
         if archive_checked:
-            archive_audit.append(_archive_audit_row(namespace, row, source_ensembl, archive_info, chosen["ensembl_gene_id"], mapping_status_name))
+            archive_audit.append(
+                _archive_audit_row(
+                    namespace, row, source_ensembl, archive_info, chosen["ensembl_gene_id"], mapping_status_name
+                )
+            )
     return output
 
 
@@ -374,9 +508,15 @@ def _target_id_sets(
     else:
         target_ids = set(annotation_ids)
     current_hgnc_ensembl_ids = {
-        strip_ensembl_version(value) for value in hgnc_maps.get("current_to_ensembl", {}).values() if strip_ensembl_version(value)
+        strip_ensembl_version(value)
+        for value in hgnc_maps.get("current_to_ensembl", {}).values()
+        if strip_ensembl_version(value)
     }
-    return target_ids, annotation_ids, annotation_ids | target_ids | output_gene_set | filter_ids | current_hgnc_ensembl_ids
+    return (
+        target_ids,
+        annotation_ids,
+        annotation_ids | target_ids | output_gene_set | filter_ids | current_hgnc_ensembl_ids,
+    )
 
 
 def _problematic_source_ids(term_records: list[dict[str, Any]], known_target_ids: set[str]) -> list[str]:
@@ -405,7 +545,9 @@ def _cached_ncbi_rescue(
     return cache[key]
 
 
-def resolve_current_symbol(symbol: str, hgnc_maps: dict[str, object], manual_repairs: dict[str, str] | None = None) -> tuple[str, str, list[str]]:
+def resolve_current_symbol(
+    symbol: str, hgnc_maps: dict[str, object], manual_repairs: dict[str, str] | None = None
+) -> tuple[str, str, list[str]]:
     symbol = str(symbol).strip()
     if not symbol:
         return "", "unmapped", []
@@ -443,7 +585,9 @@ def _gencode_symbol_index(gencode: pd.DataFrame) -> dict[str, list[dict[str, str
                 "gene_biotype": str(row_dict.get("gene_biotype", "")),
                 "is_in_output_genes": str(row_dict.get("is_in_output_genes", "")) == "True"
                 or bool(row_dict.get("is_in_output_genes", False)),
-                "annotation_source": str(row_dict.get("target_id_metadata_source", "annotation_gtf") or "annotation_gtf"),
+                "annotation_source": str(
+                    row_dict.get("target_id_metadata_source", "annotation_gtf") or "annotation_gtf"
+                ),
             }
         )
     return index
@@ -492,7 +636,9 @@ def _choose_hgnc_ensembl_tiebreak(
     return {**matches[0], "annotation_source": matches[0].get("annotation_source", "HGNC")}
 
 
-def _symbol_candidates(current_symbol: str, symbol_index: dict[str, list[dict[str, str]]], hgnc_maps: dict[str, object]) -> list[dict[str, Any]]:
+def _symbol_candidates(
+    current_symbol: str, symbol_index: dict[str, list[dict[str, str]]], hgnc_maps: dict[str, object]
+) -> list[dict[str, Any]]:
     candidates = list(symbol_index.get(current_symbol, []))
     hgnc_ensembl = str(hgnc_maps.get("current_to_ensembl", {}).get(current_symbol, ""))
     hgnc_ensembl = strip_ensembl_version(hgnc_ensembl)
@@ -575,7 +721,11 @@ def _ncbi_target_candidate(
         for ensembl_id in record.get("ensembl_gene_ids", [])
         if ensembl_id in target_ids
     ]
-    candidates.extend(candidate for candidate in _symbol_candidates(current_symbol, symbol_index, hgnc_maps) if candidate["ensembl_gene_id"] in target_ids)
+    candidates.extend(
+        candidate
+        for candidate in _symbol_candidates(current_symbol, symbol_index, hgnc_maps)
+        if candidate["ensembl_gene_id"] in target_ids
+    )
     candidates = _dedupe_candidates(candidates)
     chosen = _choose_gencode_candidate(candidates)
     if chosen is None:
@@ -616,7 +766,9 @@ def _symbol_mapping_status(status: str) -> str:
     }.get(status, status)
 
 
-def _count_status(mapping_status: dict[tuple[str, str, str, str], int], namespace: str, row: dict[str, Any], status: str) -> None:
+def _count_status(
+    mapping_status: dict[tuple[str, str, str, str], int], namespace: str, row: dict[str, Any], status: str
+) -> None:
     key = (namespace, str(row.get("family", "")), str(row.get("source_tag", "")), status)
     mapping_status[key] = mapping_status.get(key, 0) + 1
 
@@ -687,7 +839,9 @@ def _non_gene_row(namespace: str, row: dict[str, Any], input_gene: object, reaso
     }
 
 
-def _unmapped_row(namespace: str, row: dict[str, Any], input_gene: object, attempted: object, reason: str, matches: list[str]) -> dict[str, object]:
+def _unmapped_row(
+    namespace: str, row: dict[str, Any], input_gene: object, attempted: object, reason: str, matches: list[str]
+) -> dict[str, object]:
     return {
         "target_namespace": namespace,
         "family": row.get("family", ""),
@@ -700,7 +854,9 @@ def _unmapped_row(namespace: str, row: dict[str, Any], input_gene: object, attem
     }
 
 
-def _ncbi_audit_row(namespace: str, row: dict[str, Any], rescue: dict[str, object], resolved_ensembl: str, action: str) -> dict[str, object]:
+def _ncbi_audit_row(
+    namespace: str, row: dict[str, Any], rescue: dict[str, object], resolved_ensembl: str, action: str
+) -> dict[str, object]:
     return {
         "target_namespace": namespace,
         "family": row.get("family", ""),
@@ -719,7 +875,15 @@ def _ncbi_audit_row(namespace: str, row: dict[str, Any], rescue: dict[str, objec
     }
 
 
-def _ambiguous_row(namespace: str, row: dict[str, Any], input_gene: object, stage: str, symbols: list[str], ensembl: list[str], action: str) -> dict[str, object]:
+def _ambiguous_row(
+    namespace: str,
+    row: dict[str, Any],
+    input_gene: object,
+    stage: str,
+    symbols: list[str],
+    ensembl: list[str],
+    action: str,
+) -> dict[str, object]:
     return {
         "target_namespace": namespace,
         "family": row.get("family", ""),

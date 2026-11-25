@@ -10,7 +10,6 @@ import tomllib
 from pathlib import Path
 from urllib.parse import quote, urldefrag
 
-
 REPO_URL = "https://github.com/deminden/alien"
 RAW_URL = "https://raw.githubusercontent.com/deminden/alien"
 ROOT = Path(__file__).resolve().parents[1]
@@ -26,9 +25,7 @@ def project_version() -> str:
 
 
 def should_rewrite(target: str) -> bool:
-    if target.startswith(("#", "/", "http://", "https://", "mailto:", "tel:")):
-        return False
-    return True
+    return not target.startswith(("#", "/", "http://", "https://", "mailto:", "tel:"))
 
 
 def github_url(target: str, ref: str, *, raw: bool) -> str:
@@ -72,7 +69,9 @@ def rewrite_links(markdown: str, ref: str) -> str:
 def generated_readme(ref: str) -> str:
     markdown = README.read_text(encoding="utf-8")
     body = rewrite_links(markdown, ref).rstrip()
-    return "<!-- Generated from README.md by scripts/generate_pypi_readme.py. Do not edit directly. -->\n\n" + body + "\n"
+    return (
+        "<!-- Generated from README.md by scripts/generate_pypi_readme.py. Do not edit directly. -->\n\n" + body + "\n"
+    )
 
 
 def main() -> int:

@@ -79,7 +79,9 @@ def remove_redundancy(
     for family in sorted({record["meta"].get("family", "") for record in term_genes.values()}):
         subset = {tid: rec for tid, rec in term_genes.items() if rec["meta"].get("family", "") == family}
         after_exact, exact_removed = _remove_exact_duplicates(subset, namespace, family, priority.get(family, []))
-        after_jaccard, jaccard_removed = _remove_jaccard(after_exact, namespace, family, priority.get(family, []), jaccard)
+        after_jaccard, jaccard_removed = _remove_jaccard(
+            after_exact, namespace, family, priority.get(family, []), jaccard
+        )
         kept.update(after_jaccard)
         removed_rows.extend(exact_removed + jaccard_removed)
         summary_rows.append(
@@ -114,7 +116,11 @@ def _remove_exact_duplicates(
         kept[representative] = terms[representative]
         cluster = f"{namespace}:{family}:exact:{representative}"
         for term_id in sorted(set(term_ids) - {representative}):
-            removed.append(_redundancy_removed(namespace, family, term_id, representative, cluster, "exact_duplicate", len(gene_key)))
+            removed.append(
+                _redundancy_removed(
+                    namespace, family, term_id, representative, cluster, "exact_duplicate", len(gene_key)
+                )
+            )
     return kept, removed
 
 
@@ -168,7 +174,17 @@ def _remove_jaccard(
         kept[representative] = terms[representative]
         cluster = f"{namespace}:{family}:jaccard:{representative}"
         for term_id in sorted(set(members) - {representative}):
-            removed.append(_redundancy_removed(namespace, family, term_id, representative, cluster, "jaccard_duplicate", len(terms[term_id]["genes"])))
+            removed.append(
+                _redundancy_removed(
+                    namespace,
+                    family,
+                    term_id,
+                    representative,
+                    cluster,
+                    "jaccard_duplicate",
+                    len(terms[term_id]["genes"]),
+                )
+            )
     return kept, removed
 
 
@@ -213,7 +229,9 @@ def _choose_representative(term_ids: list[str], terms: dict[str, dict[str, Any]]
     return sorted(term_ids, key=key)[0]
 
 
-def _redundancy_removed(namespace: str, family: str, term_id: str, representative: str, cluster: str, reason: str, size: int) -> dict[str, object]:
+def _redundancy_removed(
+    namespace: str, family: str, term_id: str, representative: str, cluster: str, reason: str, size: int
+) -> dict[str, object]:
     return {
         "target_namespace": namespace,
         "family": family,

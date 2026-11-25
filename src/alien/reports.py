@@ -209,7 +209,7 @@ def build_source_manifest(source_terms: pd.DataFrame) -> pd.DataFrame:
                 "match_method": metadata.get("match_method", ""),
                 "candidate_libraries": metadata.get("candidate_libraries", ""),
                 "n_terms": int(group["term_id"].nunique()),
-                "n_memberships": int(len(group)),
+                "n_memberships": len(group),
                 "n_unique_symbols": int(group["gene_symbol"].nunique()),
                 "source_url": _single_value(group["source_url"]),
                 "source_license_note": _single_value(group["source_license_note"]),
@@ -335,7 +335,9 @@ def _group_terms(terms: dict[str, dict[str, Any]]) -> dict[tuple[str, str], dict
 
 
 def _source_group_metadata(group: pd.DataFrame) -> dict[str, str]:
-    parsed = [_parse_metadata_json(value) for value in group.get("metadata_json", pd.Series(dtype=str)).drop_duplicates()]
+    parsed = [
+        _parse_metadata_json(value) for value in group.get("metadata_json", pd.Series(dtype=str)).drop_duplicates()
+    ]
     return {
         "selected_library": _metadata_value(parsed, "selected_library"),
         "configured_name": _metadata_value(parsed, "configured_name"),

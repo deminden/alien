@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+import shutil
+import tempfile
 from collections.abc import Sequence
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass
-import shutil
-import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -36,8 +36,15 @@ from .sources import (
     write_gene_symbol_master,
     write_mapping,
 )
-from .utils import LOGGER, ensure_dirs, process_pool_context, setup_logging, strip_ensembl_version, write_gmt, write_tsv_gz
-
+from .utils import (
+    LOGGER,
+    ensure_dirs,
+    process_pool_context,
+    setup_logging,
+    strip_ensembl_version,
+    write_gmt,
+    write_tsv_gz,
+)
 
 DEFAULT_OUTDIR = Path("data/alien_gmt")
 TERM_ID_IDENTITY_COLUMNS = [
@@ -136,7 +143,9 @@ def _build_to_output_dir(
     gmt_dir = output_dir / "gmt"
 
     if dry_run:
-        LOGGER.info("Dry run: would build ALIEN GMT outputs under %s with %d worker process(es).", output_dir, worker_count)
+        LOGGER.info(
+            "Dry run: would build ALIEN GMT outputs under %s with %d worker process(es).", output_dir, worker_count
+        )
         return BuildResult(output_dir, tuple(_configured_namespace_names(cfg)), 0, 0, tuple())
 
     ensure_dirs(metadata_dir, qc_dir, gmt_dir)
@@ -150,7 +159,9 @@ def _build_to_output_dir(
     source_terms = load_source_memberships(cfg, force_download=force_download)
     if source_terms.empty:
         raise RuntimeError("No source gene-set memberships were loaded.")
-    LOGGER.info("Loaded %d source gene memberships across %d terms", len(source_terms), source_terms["term_id"].nunique())
+    LOGGER.info(
+        "Loaded %d source gene memberships across %d terms", len(source_terms), source_terms["term_id"].nunique()
+    )
     _check_term_id_collisions(source_terms, metadata_dir, cfg, warnings)
 
     LOGGER.info("Loading mapping resources")
@@ -160,8 +171,8 @@ def _build_to_output_dir(
     write_gene_symbol_master(hgnc_maps, metadata_dir / "gene_symbol_master.tsv.gz")
 
     LOGGER.info("Projecting gene sets to configured namespaces")
-    mapped_pre_filter, unmapped, ambiguous, non_gene, ensembl_archive_audit, ncbi_gene_audit, mapping_status_summary = map_namespaces(
-        source_terms, hgnc_maps, ncbi_maps, targets, cfg, source_dir, workers=worker_count
+    mapped_pre_filter, unmapped, ambiguous, non_gene, ensembl_archive_audit, ncbi_gene_audit, mapping_status_summary = (
+        map_namespaces(source_terms, hgnc_maps, ncbi_maps, targets, cfg, source_dir, workers=worker_count)
     )
     _report_ensembl_archive_audit(ensembl_archive_audit, cfg)
 
@@ -178,18 +189,49 @@ def _build_to_output_dir(
 
     LOGGER.info("Writing metadata and QC reports")
     build_source_manifest(source_terms).to_csv(metadata_dir / "source_manifest.tsv", sep="\t", index=False)
-    write_tsv_gz(build_term_manifest(source_terms, filtered, removed_size, removed_redundancy), metadata_dir / "term_manifest.tsv.gz")
+    write_tsv_gz(
+        build_term_manifest(source_terms, filtered, removed_size, removed_redundancy),
+        metadata_dir / "term_manifest.tsv.gz",
+    )
     _target_metadata_fallbacks(targets).to_csv(metadata_dir / "target_metadata_fallbacks.tsv", sep="\t", index=False)
     write_tsv_gz(_target_output_genes(targets), metadata_dir / "target_output_genes.tsv.gz")
     write_tsv_gz(_target_gene_filter(targets), metadata_dir / "target_gene_filter.tsv.gz")
     write_tsv_gz(removed_size, metadata_dir / "removed_terms_size_filter.tsv.gz")
     write_tsv_gz(removed_redundancy, metadata_dir / "removed_terms_redundancy.tsv.gz")
-    write_tsv_gz(_with_columns(unmapped, ["target_namespace", "family", "term_id", "source_tag", "input_gene", "attempted_current_symbol", "reason", "possible_matches"]), metadata_dir / "unmapped_genes.tsv.gz")
-    write_tsv_gz(_with_columns(non_gene, ["target_namespace", "family", "term_id", "source_tag", "input_gene", "reason"]), metadata_dir / "dropped_non_gene_tokens.tsv.gz")
+    write_tsv_gz(
+        _with_columns(
+            unmapped,
+            [
+                "target_namespace",
+                "family",
+                "term_id",
+                "source_tag",
+                "input_gene",
+                "attempted_current_symbol",
+                "reason",
+                "possible_matches",
+            ],
+        ),
+        metadata_dir / "unmapped_genes.tsv.gz",
+    )
+    write_tsv_gz(
+        _with_columns(non_gene, ["target_namespace", "family", "term_id", "source_tag", "input_gene", "reason"]),
+        metadata_dir / "dropped_non_gene_tokens.tsv.gz",
+    )
     write_tsv_gz(
         _with_columns(
             ambiguous,
-            ["target_namespace", "family", "term_id", "source_tag", "input_gene", "mapping_stage", "possible_symbols", "possible_ensembl_ids", "action"],
+            [
+                "target_namespace",
+                "family",
+                "term_id",
+                "source_tag",
+                "input_gene",
+                "mapping_stage",
+                "possible_symbols",
+                "possible_ensembl_ids",
+                "action",
+            ],
         ),
         metadata_dir / "ambiguous_gene_mappings.tsv.gz",
     )
@@ -239,17 +281,23 @@ def _build_to_output_dir(
         ),
         metadata_dir / "ncbi_gene_rescue_audit.tsv.gz",
     )
-    _ensembl_archive_summary(ensembl_archive_audit).to_csv(qc_dir / "ensembl_archive_summary.tsv", sep="\t", index=False)
+    _ensembl_archive_summary(ensembl_archive_audit).to_csv(
+        qc_dir / "ensembl_archive_summary.tsv", sep="\t", index=False
+    )
     _non_gene_summary(non_gene).to_csv(qc_dir / "non_gene_token_summary.tsv", sep="\t", index=False)
     _ncbi_gene_summary(ncbi_gene_audit).to_csv(qc_dir / "ncbi_gene_rescue_summary.tsv", sep="\t", index=False)
-    _target_namespace_summary(targets, source_terms).to_csv(qc_dir / "target_namespace_summary.tsv", sep="\t", index=False)
+    _target_namespace_summary(targets, source_terms).to_csv(
+        qc_dir / "target_namespace_summary.tsv", sep="\t", index=False
+    )
     mapping_status_summary.to_csv(qc_dir / "mapping_status_summary.tsv", sep="\t", index=False)
     provenance = build_source_provenance(cfg, source_dir, targets, warnings)
     write_provenance(provenance, metadata_dir / "source_provenance.json")
     write_qc(
         qc_dir,
         collection_summary(mapped_pre_filter, size_filtered, filtered),
-        mapping_summary(source_terms, mapped_pre_filter, unmapped, ambiguous, non_gene, removed_size, mapping_status_summary),
+        mapping_summary(
+            source_terms, mapped_pre_filter, unmapped, ambiguous, non_gene, removed_size, mapping_status_summary
+        ),
         redundancy_summary,
         warnings,
     )
@@ -383,7 +431,9 @@ def _check_term_id_collisions(
         f"see {audit_path}."
     )
     if action == "error":
-        raise RuntimeError(f"{message} Rename or prefix the colliding term IDs, or set term_id_collisions.action explicitly.")
+        raise RuntimeError(
+            f"{message} Rename or prefix the colliding term IDs, or set term_id_collisions.action explicitly."
+        )
     warnings.append(f"{message} Continuing because term_id_collisions.action is {action!r}.")
     LOGGER.warning("%s Continuing because term_id_collisions.action is %r.", message, action)
 
@@ -458,14 +508,18 @@ def _prepare_targets(
         if target_type != "ensembl_gtf":
             raise ValueError(f"Target {name} has unsupported type {target_type!r}.")
         if "restrict_to" in target:
-            raise ValueError(f"Target {name} uses unsupported key 'restrict_to'; use 'output_genes' or 'gene_filter' instead.")
+            raise ValueError(
+                f"Target {name} uses unsupported key 'restrict_to'; use 'output_genes' or 'gene_filter' instead."
+            )
         if "gene_universe" in target:
             raise ValueError(f"Target {name} uses unsupported key 'gene_universe'; use 'output_genes' instead.")
         if "output_ids" in target:
             raise ValueError(f"Target {name} uses unsupported key 'output_ids'; use 'output_genes' instead.")
         if not _empty_config_value(target.get("output_genes")) and not _empty_config_value(target.get("gene_filter")):
             raise ValueError(f"Target {name} must define only one of output_genes or gene_filter.")
-        output_path, output_id_column, output_symbol_column, output_genes_inline = _target_gene_id_spec(target.get("output_genes"), "output_genes")
+        output_path, output_id_column, output_symbol_column, output_genes_inline = _target_gene_id_spec(
+            target.get("output_genes"), "output_genes"
+        )
         output_genes, output_genes_table, id_type = read_output_genes(
             output_path,
             id_column=output_id_column,
@@ -473,19 +527,25 @@ def _prepare_targets(
             symbol_column=output_symbol_column,
         )
         filter_path, filter_column, _, filter_ids = _target_gene_id_spec(target.get("gene_filter"), "gene_filter")
-        gene_filter, gene_filter_table, filter_id_type = read_output_genes(filter_path, id_column=filter_column, ids=filter_ids)
+        gene_filter, gene_filter_table, filter_id_type = read_output_genes(
+            filter_path, id_column=filter_column, ids=filter_ids
+        )
         if output_genes is None and gene_filter is None:
             LOGGER.info("No output_genes or gene_filter supplied for %s; using all annotation genes.", name)
         LOGGER.info("%s output_genes ID type: %s", name, id_type)
         LOGGER.info("%s gene_filter ID type: %s", name, filter_id_type)
         annotation, annotation_label, annotation_path = load_ensembl_gtf_target(source_dir, target, force_download)
-        primary_annotation_ids_from_gtf = {strip_ensembl_version(gene) for gene in annotation.get("ensembl_gene_id", pd.Series(dtype=str))}
+        primary_annotation_ids_from_gtf = {
+            strip_ensembl_version(gene) for gene in annotation.get("ensembl_gene_id", pd.Series(dtype=str))
+        }
         fallback_annotation, fallback_records = load_metadata_fallbacks(
             source_dir, target, output_genes, primary_annotation_ids_from_gtf, force_download
         )
         if not fallback_annotation.empty:
             annotation = pd.concat([annotation, fallback_annotation], ignore_index=True).drop_duplicates()
-        annotation_ids_from_gtf = {strip_ensembl_version(gene) for gene in annotation.get("ensembl_gene_id", pd.Series(dtype=str))}
+        annotation_ids_from_gtf = {
+            strip_ensembl_version(gene) for gene in annotation.get("ensembl_gene_id", pd.Series(dtype=str))
+        }
         if output_genes:
             missing_annotation = output_genes - annotation_ids_from_gtf
             if missing_annotation:
@@ -498,7 +558,9 @@ def _prepare_targets(
                     f"Target {name}: {len(missing_annotation)} output_genes lack annotation-helper metadata; "
                     f"{len(missing_annotation & symbol_metadata_ids)} have output_genes symbol metadata."
                 )
-        annotation = augment_annotation_with_output_gene_symbols(annotation, output_genes_table, output_genes, output_path)
+        annotation = augment_annotation_with_output_gene_symbols(
+            annotation, output_genes_table, output_genes, output_path
+        )
         annotation = mark_output_genes(annotation, output_genes or gene_filter)
         write_mapping(annotation, metadata_dir / f"gene_mapping_{name}.tsv.gz")
         prepared.append(
@@ -526,12 +588,16 @@ def _prepare_targets(
     return prepared
 
 
-def _target_gene_id_spec(value: object, field_name: str) -> tuple[Path | None, str | None, str | None, list[str] | tuple[str, ...] | set[str] | None]:
+def _target_gene_id_spec(
+    value: object, field_name: str
+) -> tuple[Path | None, str | None, str | None, list[str] | tuple[str, ...] | set[str] | None]:
     if _empty_config_value(value):
         return None, None, None, None
     if isinstance(value, dict):
         path = _optional_path(value.get("path") or value.get("file"))
-        id_column = _optional_string(value.get("id_column") or value.get("column") or value.get("gene_column") or value.get("field"))
+        id_column = _optional_string(
+            value.get("id_column") or value.get("column") or value.get("gene_column") or value.get("field")
+        )
         symbol_column = _optional_string(value.get("symbol_column") or value.get("gene_symbol_column"))
         ids = value.get("ids", value.get("genes"))
         if ids is not None:
@@ -609,7 +675,9 @@ def _filter_namespaces_parallel(
         return {}, {}, pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
     LOGGER.info("Applying size filters with %d workers", min(workers, len(namespace_order)))
     size_results: dict[str, tuple[dict[str, dict[str, Any]], pd.DataFrame]] = {}
-    with ProcessPoolExecutor(max_workers=min(workers, len(namespace_order)), mp_context=process_pool_context()) as executor:
+    with ProcessPoolExecutor(
+        max_workers=min(workers, len(namespace_order)), mp_context=process_pool_context()
+    ) as executor:
         futures = {
             executor.submit(_size_filter_namespace_task, namespace, mapped_pre_filter[namespace], cfg): namespace
             for namespace in namespace_order
@@ -635,9 +703,15 @@ def _filter_namespaces_parallel(
     if not redundancy_tasks:
         return size_filtered, filtered, _concat_any(removed_size_frames), pd.DataFrame(), pd.DataFrame()
 
-    LOGGER.info("Removing redundancy with %d workers across %d namespace/family groups", min(workers, len(redundancy_tasks)), len(redundancy_tasks))
+    LOGGER.info(
+        "Removing redundancy with %d workers across %d namespace/family groups",
+        min(workers, len(redundancy_tasks)),
+        len(redundancy_tasks),
+    )
     redundancy_results: list[tuple[str, str, dict[str, dict[str, Any]], pd.DataFrame, pd.DataFrame]] = []
-    with ProcessPoolExecutor(max_workers=min(workers, len(redundancy_tasks)), mp_context=process_pool_context()) as executor:
+    with ProcessPoolExecutor(
+        max_workers=min(workers, len(redundancy_tasks)), mp_context=process_pool_context()
+    ) as executor:
         futures = [executor.submit(_redundancy_family_task, *task) for task in redundancy_tasks]
         for future in as_completed(futures):
             redundancy_results.append(future.result())
@@ -755,7 +829,14 @@ def _target_gene_id_table(
             strip_ensembl_version(gene) for gene in annotation.get("ensembl_gene_id", pd.Series(dtype=str))
         }
         if gene_table.empty and gene_ids:
-            gene_table = pd.DataFrame({"input_gene_id": sorted(gene_ids), "ensembl_gene_id": sorted(gene_ids), "gene_symbol": "", "id_type": "ensembl_stable"})
+            gene_table = pd.DataFrame(
+                {
+                    "input_gene_id": sorted(gene_ids),
+                    "ensembl_gene_id": sorted(gene_ids),
+                    "gene_symbol": "",
+                    "id_type": "ensembl_stable",
+                }
+            )
         for _, row in gene_table.iterrows():
             stable = strip_ensembl_version(row.get("ensembl_gene_id", ""))
             if not stable:
@@ -859,7 +940,10 @@ def _report_ensembl_archive_audit(audit: pd.DataFrame, cfg: dict) -> None:
     }
     unresolved = audit[~audit["rescue_status"].isin(rescued_statuses)]
     if unresolved.empty:
-        LOGGER.info("Ensembl archive audit: all %d problematic source Ensembl mappings were resolved by archive or symbol fallback.", len(audit))
+        LOGGER.info(
+            "Ensembl archive audit: all %d problematic source Ensembl mappings were resolved by archive or symbol fallback.",
+            len(audit),
+        )
         return
     limit = int(cfg.get("ensembl_archive", {}).get("unresolved_print_limit", 20))
     LOGGER.warning("Ensembl archive audit: %d problematic source Ensembl mappings were not resolved.", len(unresolved))

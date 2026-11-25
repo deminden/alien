@@ -3,8 +3,7 @@ import json
 import pandas as pd
 import pytest
 
-from alien import build
-from alien import sources
+from alien import build, sources
 from alien.reports import build_source_manifest
 from alien.sources import read_enrichr_remote, resolve_enrichr_library
 
@@ -115,11 +114,13 @@ def test_enrichr_remote_unresolved_library_errors(tmp_path, monkeypatch):
 
 
 def test_optional_source_key_is_not_supported(tmp_path):
-    with pytest.raises(ValueError, match="optional.*not supported"):
+    with pytest.raises(ValueError, match=r"optional.*not supported"):
         read_enrichr_remote(_enrichr_spec(tmp_path, optional=True), tmp_path)
 
-    with pytest.raises(ValueError, match="optional.*not supported"):
-        read_enrichr_remote(_enrichr_spec(tmp_path, libraries=[{"name": "KEGG_2021_Human", "optional": True}]), tmp_path)
+    with pytest.raises(ValueError, match=r"optional.*not supported"):
+        read_enrichr_remote(
+            _enrichr_spec(tmp_path, libraries=[{"name": "KEGG_2021_Human", "optional": True}]), tmp_path
+        )
 
 
 def test_enrichr_remote_build_smoke(tmp_path, monkeypatch):

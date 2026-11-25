@@ -9,7 +9,6 @@ import yaml
 
 from .defaults import default_config
 
-
 REQUIRED_SECTIONS = [
     "sources",
     "targets",
@@ -21,7 +20,9 @@ REQUIRED_SECTIONS = [
 ]
 
 
-def load_config(path: str | Path | None = None, overrides: Sequence[str | Path | dict[str, Any]] | None = None) -> dict[str, Any]:
+def load_config(
+    path: str | Path | None = None, overrides: Sequence[str | Path | dict[str, Any]] | None = None
+) -> dict[str, Any]:
     cfg = default_config()
     if path is not None:
         cfg = merge_config(cfg, read_config_file(path))

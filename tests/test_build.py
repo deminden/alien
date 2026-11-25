@@ -63,7 +63,7 @@ def test_small_build_is_deterministic_and_writes_combined_gmts(tmp_path):
     }
 
     result1 = build(config=cfg, outdir=out1, workers=1)
-    result2 = build(config=cfg, outdir=out2, workers=2)
+    build(config=cfg, outdir=out2, workers=2)
 
     assert result1.namespaces == ("symbols", "human_test")
     assert (out1 / "gmt" / "symbols.gmt").exists()
@@ -77,8 +77,12 @@ def test_small_build_is_deterministic_and_writes_combined_gmts(tmp_path):
     assert source_manifest.set_index("source_tag").loc["REACTOME", "n_terms"] == "1"
     mapping = pd.read_csv(out1 / "metadata" / "gene_mapping_human_test.tsv.gz", sep="\t", dtype=str)
     assert mapping["source_gtf"].unique().tolist() == [str(gtf)]
-    assert (out1 / "gmt" / "symbols.gmt").read_text(encoding="utf-8") == (out2 / "gmt" / "symbols.gmt").read_text(encoding="utf-8")
-    assert (out1 / "gmt" / "human_test.gmt").read_text(encoding="utf-8") == (out2 / "gmt" / "human_test.gmt").read_text(encoding="utf-8")
+    assert (out1 / "gmt" / "symbols.gmt").read_text(encoding="utf-8") == (out2 / "gmt" / "symbols.gmt").read_text(
+        encoding="utf-8"
+    )
+    assert (out1 / "gmt" / "human_test.gmt").read_text(encoding="utf-8") == (out2 / "gmt" / "human_test.gmt").read_text(
+        encoding="utf-8"
+    )
 
 
 def test_term_id_collision_audit_ignores_membership_rows_for_same_term_identity():
@@ -396,8 +400,20 @@ def test_build_errors_and_writes_audit_for_conflicting_term_ids(tmp_path):
         "project": {"source_dir": str(tmp_path / "sources")},
         "outputs": {"include_symbols": True},
         "sources": [
-            {"type": "canonical_tsv", "path": str(source_a), "source": "Library A", "source_tag": "LIB_A", "collection": "a"},
-            {"type": "canonical_tsv", "path": str(source_b), "source": "Library B", "source_tag": "LIB_B", "collection": "b"},
+            {
+                "type": "canonical_tsv",
+                "path": str(source_a),
+                "source": "Library A",
+                "source_tag": "LIB_A",
+                "collection": "a",
+            },
+            {
+                "type": "canonical_tsv",
+                "path": str(source_b),
+                "source": "Library B",
+                "source_tag": "LIB_B",
+                "collection": "b",
+            },
         ],
         "targets": [],
     }

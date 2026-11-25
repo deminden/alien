@@ -28,7 +28,6 @@ from .utils import (
     write_tsv_gz,
 )
 
-
 MSIGDB_SOURCES = {
     "REACTOME": ("C2", "CP:REACTOME", "biology_process_pathway", "pathway"),
     "WIKIPATHWAYS": ("C2", "CP:WIKIPATHWAYS", "biology_process_pathway", "pathway"),
@@ -110,7 +109,9 @@ def _load_source_spec(
 
 def _reject_optional_source_key(spec: dict[str, Any]) -> None:
     if "optional" in spec:
-        raise ValueError("Source option 'optional' is not supported; configured sources are required. Use enabled: false to exclude a source.")
+        raise ValueError(
+            "Source option 'optional' is not supported; configured sources are required. Use enabled: false to exclude a source."
+        )
 
 
 def _source_paths(spec: dict[str, Any], source_dir: Path) -> list[Path]:
@@ -134,7 +135,9 @@ def read_canonical_memberships(path: Path, spec: dict[str, Any] | None = None) -
     frame = pd.DataFrame({column: raw[column] if column in raw else "" for column in CANONICAL_COLUMNS})
     frame["term_id"] = frame["term_id"].map(sanitize_id)
     frame["source"] = frame["source"].replace("", spec.get("source", spec.get("name", "canonical")))
-    frame["source_tag"] = frame["source_tag"].replace("", spec.get("source_tag", sanitize_id(frame["source"].iloc[0]).upper()))
+    frame["source_tag"] = frame["source_tag"].replace(
+        "", spec.get("source_tag", sanitize_id(frame["source"].iloc[0]).upper())
+    )
     frame["family"] = frame["family"].replace("", spec.get("family", "biology_process_pathway"))
     frame["aspect"] = frame["aspect"].replace("", spec.get("aspect", "library"))
     frame["collection"] = frame["collection"].replace("", spec.get("collection", Path(path).stem))
@@ -146,7 +149,9 @@ def read_canonical_memberships(path: Path, spec: dict[str, Any] | None = None) -
         ensembl_mask = raw["gene_id_namespace"].str.lower().str.contains("ensembl|ensg", regex=True, na=False)
         frame.loc[ensembl_mask, "gene_ensembl_from_source"] = raw.loc[ensembl_mask, "gene_id"]
     elif "gene_id" in raw:
-        frame["gene_ensembl_from_source"] = raw["gene_id"].map(lambda value: value if strip_ensembl_version(value).startswith("ENSG") else "")
+        frame["gene_ensembl_from_source"] = raw["gene_id"].map(
+            lambda value: value if strip_ensembl_version(value).startswith("ENSG") else ""
+        )
     frame["metadata_json"] = frame["metadata_json"].replace("", "{}")
     return frame[CANONICAL_COLUMNS]
 
@@ -165,7 +170,18 @@ def read_msigdb_cache(
         file_path = path / f"msigdbr_{tag}.tsv.gz"
         if not file_path.exists():
             raise FileNotFoundError(f"Missing MSigDB cache file: {file_path}")
-        frames.append(read_msigdb_like_table(file_path, {"source_tag": tag, "collection": collection, "subcollection": subcollection, "family": family, "aspect": aspect}))
+        frames.append(
+            read_msigdb_like_table(
+                file_path,
+                {
+                    "source_tag": tag,
+                    "collection": collection,
+                    "subcollection": subcollection,
+                    "family": family,
+                    "aspect": aspect,
+                },
+            )
+        )
     return concat_frames(frames)
 
 
@@ -255,7 +271,9 @@ def _write_canonical_parquet(frame: pd.DataFrame, path: Path) -> None:
     frame[CANONICAL_COLUMNS].to_parquet(path, index=False)
 
 
-def ensure_msigdb_remote_cache(cache_dir: Path, release: dict[str, str], force: bool = False, timeout: int = 600) -> Path:
+def ensure_msigdb_remote_cache(
+    cache_dir: Path, release: dict[str, str], force: bool = False, timeout: int = 600
+) -> Path:
     ensure_dirs(cache_dir)
     zip_name = str(release["zip_name"])
     zip_path = cache_dir / zip_name
@@ -277,7 +295,9 @@ def ensure_msigdb_remote_cache(cache_dir: Path, release: dict[str, str], force: 
         if nested:
             summary_path = nested[0]
         else:
-            raise FileNotFoundError(f"Expected MSigDB summary RDS was not found after extraction: {release['summary_rds']}")
+            raise FileNotFoundError(
+                f"Expected MSigDB summary RDS was not found after extraction: {release['summary_rds']}"
+            )
     return summary_path.parent
 
 
@@ -342,9 +362,15 @@ def _normalize_msigdb_remote_frame(raw: pd.DataFrame, spec: dict[str, Any]) -> p
         raise ValueError("No MSigDB remote rows matched the requested filters.")
     raw["gene_symbol"] = raw["db_gene_symbol"]
     raw["ensembl_gene"] = raw.get("db_ensembl_gene", "")
-    subcollection = raw.get("gs_subcollection", pd.Series([""] * len(raw), index=raw.index)).fillna("").astype(str).str.strip()
-    collection = raw.get("gs_collection", pd.Series([""] * len(raw), index=raw.index)).fillna("").astype(str).str.strip()
-    raw["_alien_source_tag"] = subcollection.where(subcollection.ne(""), collection).replace("", "MSIGDB").map(_msigdb_remote_source_tag)
+    subcollection = (
+        raw.get("gs_subcollection", pd.Series([""] * len(raw), index=raw.index)).fillna("").astype(str).str.strip()
+    )
+    collection = (
+        raw.get("gs_collection", pd.Series([""] * len(raw), index=raw.index)).fillna("").astype(str).str.strip()
+    )
+    raw["_alien_source_tag"] = (
+        subcollection.where(subcollection.ne(""), collection).replace("", "MSIGDB").map(_msigdb_remote_source_tag)
+    )
     frames = []
     for tag, tag_frame in raw.groupby("_alien_source_tag", sort=True):
         family = str(spec.get("family") or _family_for_msigdb_tag(tag))
@@ -475,7 +501,9 @@ def read_enrichr_remote(
             _normalize_enrichr_gmt(
                 gmt_path,
                 selected,
-                source_tag=str(library_spec.get("source_tag") or spec.get("source_tag") or sanitize_id(selected).upper()),
+                source_tag=str(
+                    library_spec.get("source_tag") or spec.get("source_tag") or sanitize_id(selected).upper()
+                ),
                 family=str(library_spec.get("family") or spec.get("family") or "biology_process_pathway"),
                 aspect=str(library_spec.get("aspect") or spec.get("aspect") or "library"),
                 metadata={
@@ -661,7 +689,11 @@ def _read_ncbi_gene_map_json(path: Path) -> dict[str, object] | None:
     except Exception as exc:
         LOGGER.warning("Could not read cached NCBI Gene rescue maps %s: %s", path, exc)
         return None
-    if not isinstance(maps, dict) or not isinstance(maps.get("stages"), dict) or not isinstance(maps.get("ambiguous"), dict):
+    if (
+        not isinstance(maps, dict)
+        or not isinstance(maps.get("stages"), dict)
+        or not isinstance(maps.get("ambiguous"), dict)
+    ):
         LOGGER.warning("Cached NCBI Gene rescue maps have an unexpected shape: %s", path)
         return None
     return maps
@@ -671,7 +703,9 @@ def _read_ncbi_gene_info(path: Path) -> pd.DataFrame:
     raw = pd.read_csv(path, sep="\t", dtype=str, keep_default_na=False)
     tax_col = "#tax_id" if "#tax_id" in raw else "tax_id"
     raw = raw[raw[tax_col].eq("9606")].copy()
-    raw["ensembl_gene_ids"] = raw.get("dbXrefs", pd.Series([""] * len(raw), index=raw.index)).map(_ensembl_ids_from_dbxrefs)
+    raw["ensembl_gene_ids"] = raw.get("dbXrefs", pd.Series([""] * len(raw), index=raw.index)).map(
+        _ensembl_ids_from_dbxrefs
+    )
     return raw
 
 
@@ -742,12 +776,7 @@ def _ncbi_maps_from_rows(rows: pd.DataFrame) -> dict[str, object]:
                 stage_ambiguous[str(input_symbol)] = current_symbols
                 continue
             ensembl_ids = sorted(
-                {
-                    ensembl
-                    for value in targets["ensembl_gene_ids"]
-                    for ensembl in str(value).split(",")
-                    if ensembl
-                }
+                {ensembl for value in targets["ensembl_gene_ids"] for ensembl in str(value).split(",") if ensembl}
             )
             stage_map[str(input_symbol)] = {
                 "current_symbol": current_symbols[0],
@@ -838,12 +867,14 @@ def _load_ensembl_gtf_annotation(
         download_file(str(annotation["url"]), path, force=force)
     else:
         if not version:
-            raise ValueError(f"Target {target.get('name', '<unnamed>')} must define an annotation path, URL, or version.")
+            raise ValueError(
+                f"Target {target.get('name', '<unnamed>')} must define an annotation path, URL, or version."
+            )
         if source_name.upper() != "GENCODE":
             raise ValueError(
                 f"Target {target.get('name', '<unnamed>')} uses annotation source {source_name!r}; "
                 "provide annotation.path or annotation.url for non-GENCODE target annotations."
-        )
+            )
         path = source_dir / "gencode" / f"gencode.v{version}.annotation.gtf.gz"
         url = gencode_annotation_url(version)
         try:
@@ -897,11 +928,17 @@ def load_metadata_fallbacks(
     covered_ids = set(primary_annotation_ids)
     for index, spec in enumerate(fallbacks, start=1):
         if not isinstance(spec, dict):
-            raise TypeError(f"Target {target.get('name', '<unnamed>')} annotation metadata fallback {index} must be a mapping.")
+            raise TypeError(
+                f"Target {target.get('name', '<unnamed>')} annotation metadata fallback {index} must be a mapping."
+            )
         mode = str(spec.get("mode", "fill_missing_output_metadata"))
         if mode != "fill_missing_output_metadata":
-            raise ValueError(f"Unsupported annotation metadata fallback mode {mode!r}; use 'fill_missing_output_metadata'.")
-        frame, label, path = _load_ensembl_gtf_annotation(source_dir, target, spec, force, role=f"metadata_fallback_{index}")
+            raise ValueError(
+                f"Unsupported annotation metadata fallback mode {mode!r}; use 'fill_missing_output_metadata'."
+            )
+        frame, label, path = _load_ensembl_gtf_annotation(
+            source_dir, target, spec, force, role=f"metadata_fallback_{index}"
+        )
         fallback_ids = {strip_ensembl_version(gene) for gene in frame.get("ensembl_gene_id", pd.Series(dtype=str))}
         missing_before = output_gene_ids - covered_ids if output_gene_ids else set()
         add_ids = missing_before & fallback_ids
@@ -1105,9 +1142,18 @@ def read_output_genes(
             row_id_type = "ensembl_versioned" if stripped != gene else "ensembl_stable"
             stable.add(stripped)
         id_types.append(row_id_type)
-        rows.append({"input_gene_id": gene, "ensembl_gene_id": stripped, "gene_symbol": str(symbol).strip(), "id_type": row_id_type})
+        rows.append(
+            {
+                "input_gene_id": gene,
+                "ensembl_gene_id": stripped,
+                "gene_symbol": str(symbol).strip(),
+                "id_type": row_id_type,
+            }
+        )
     if genes and not stable:
-        raise ValueError("output_genes and gene_filter must provide Ensembl IDs in id_column/ids; symbol_column is optional metadata.")
+        raise ValueError(
+            "output_genes and gene_filter must provide Ensembl IDs in id_column/ids; symbol_column is optional metadata."
+        )
     unique_id_types = set(id_types)
     id_type = "none" if not unique_id_types else next(iter(unique_id_types)) if len(unique_id_types) == 1 else "mixed"
     return stable if stable else None, pd.DataFrame(rows).drop_duplicates(), id_type

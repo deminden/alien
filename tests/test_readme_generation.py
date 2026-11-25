@@ -10,6 +10,7 @@ def test_pypi_readme_is_generated_from_readme():
         cwd=root,
         capture_output=True,
         text=True,
+        check=False,
     )
 
     assert result.returncode == 0, result.stderr

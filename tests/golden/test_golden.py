@@ -6,9 +6,9 @@ Set ``ALIEN_UPDATE_GOLDEN=1`` to rewrite the expected files after an intended ou
 from __future__ import annotations
 
 import gzip
-import re
 import json
 import os
+import re
 import shutil
 from pathlib import Path
 
@@ -51,7 +51,9 @@ def _normalized_text(path: Path, root: Path) -> str:
     if path.name == "MANIFEST.json":
         manifest = json.loads(text)
         manifest["files"] = {
-            name: entry for name, entry in manifest.get("files", {}).items() if not name.endswith("source_provenance.json")
+            name: entry
+            for name, entry in manifest.get("files", {}).items()
+            if not name.endswith("source_provenance.json")
         }
         text = json.dumps(manifest, indent=2, sort_keys=True) + "\n"
     return text

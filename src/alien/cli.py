@@ -8,21 +8,40 @@ from .presets import is_preset_name, list_presets
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="alien", description="ALIEN: Audited Library Integration for External Namespaces")
+    parser = argparse.ArgumentParser(
+        prog="alien", description="ALIEN: Audited Library Integration for External Namespaces"
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     subparsers.add_parser("presets", help="List bundled ALIEN build presets")
 
     build_parser = subparsers.add_parser("build", help="Build audited combined GMT files")
-    build_parser.add_argument("config_or_preset", nargs="?", help="Bundled preset name/alias or YAML configuration file")
+    build_parser.add_argument(
+        "config_or_preset", nargs="?", help="Bundled preset name/alias or YAML configuration file"
+    )
     build_parser.add_argument("--config", type=Path, default=None, help="YAML configuration file")
-    build_parser.add_argument("--override", type=Path, action="append", default=[], help="YAML overlay merged after the preset/config; repeatable")
-    build_parser.add_argument("--source-dir", type=Path, default=None, help="Override project.source_dir from the config")
+    build_parser.add_argument(
+        "--override",
+        type=Path,
+        action="append",
+        default=[],
+        help="YAML overlay merged after the preset/config; repeatable",
+    )
+    build_parser.add_argument(
+        "--source-dir", type=Path, default=None, help="Override project.source_dir from the config"
+    )
     build_parser.add_argument("--outdir", type=Path, default=None, help="Override project.outdir from the config")
     build_parser.add_argument("--workers", type=_positive_int, default=None, help="Number of local worker processes")
-    build_parser.add_argument("--output-mode", choices=["full", "minimal", "gmt"], default="full", help="Which outputs to keep after the build")
+    build_parser.add_argument(
+        "--output-mode",
+        choices=["full", "minimal", "gmt"],
+        default="full",
+        help="Which outputs to keep after the build",
+    )
     build_parser.add_argument("--dry-run", action="store_true", help="Validate configuration and report planned output")
-    build_parser.add_argument("--force-download", action="store_true", help="Refresh mapping-resource downloads and caches")
+    build_parser.add_argument(
+        "--force-download", action="store_true", help="Refresh mapping-resource downloads and caches"
+    )
 
     args = parser.parse_args(argv)
     if args.command == "presets":

@@ -208,6 +208,6 @@ def _write_tiny_rds_release(release_dir):
         release_dir / "hs_c5.rds",
         release_dir / "mm_m8.rds",
     ]
-    for path, frame in zip(paths, [summary, hs_c2, hs_c5, mm_m8]):
+    for path, frame in zip(paths, [summary, hs_c2, hs_c5, mm_m8], strict=True):
         rdata.write_rds(path, frame)
     return paths
