@@ -1,8 +1,8 @@
 project:
-  # Fixture cache root; contains a tiny HGNC table so this example is fully offline.
-  source_dir: examples/fixtures/sources
+  # Paths are relative to this file. Fixture cache root; contains a tiny HGNC table so this example is fully offline.
+  source_dir: fixtures/sources
   # Output root. ALIEN creates gmt/, metadata/, and qc/ below this folder.
-  outdir: results/alien_outputs/tiny
+  outdir: ../results/alien_outputs/tiny
 
 outputs:
   # Also write a symbols.gmt beside the target-namespace GMT.
@@ -11,14 +11,14 @@ outputs:
 sources:
   # MSigDB-like table: term rows with symbols plus optional source Ensembl IDs.
   - type: msigdb_tsv
-    path: examples/fixtures/msigdb_like.tsv
+    path: fixtures/msigdb_like.tsv
     source_tag: REACTOME
     collection: C2
     family: biology_process_pathway
     aspect: pathway
   # Symbol-only GMT: useful for local/Enrichr-style libraries.
   - type: symbol_gmt
-    path: examples/fixtures/symbolic.gmt
+    path: fixtures/symbolic.gmt
     source: Example symbolic
     source_tag: LOCAL
     family: biology_process_pathway
@@ -31,7 +31,7 @@ targets:
     annotation:
       source: TinyFixture
       version: tiny
-      path: examples/fixtures/genes.gtf
+      path: fixtures/genes.gtf
 
 filtering:
   min_size_default: 10

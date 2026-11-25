@@ -4,18 +4,18 @@
       "aspect": "pathway",
       "collection": "C2",
       "family": "biology_process_pathway",
-      "path": "inputs/msigdb_like.tsv",
+      "path": "<ROOT>/inputs/msigdb_like.tsv",
       "source_tag": "REACTOME",
       "type": "msigdb_tsv"
     },
     {
-      "path": "inputs/canonical.tsv",
+      "path": "<ROOT>/inputs/canonical.tsv",
       "type": "canonical_tsv"
     },
     {
       "aspect": "pathway",
       "family": "biology_process_pathway",
-      "path": "inputs/local_pathways.gmt",
+      "path": "<ROOT>/inputs/local_pathways.gmt",
       "source": "Local pathways",
       "source_tag": "LOCAL",
       "type": "symbol_gmt"
@@ -23,7 +23,7 @@
     {
       "aspect": "phenotype",
       "family": "disease_phenotype",
-      "path": "inputs/local_disease.gmt",
+      "path": "<ROOT>/inputs/local_disease.gmt",
       "source": "Local disease",
       "source_tag": "LOCALDIS",
       "type": "symbol_gmt"
@@ -32,7 +32,7 @@
   "configured_targets": [
     {
       "annotation": "Fixture v1",
-      "annotation_path": "inputs/genes.gtf",
+      "annotation_path": "<ROOT>/inputs/genes.gtf",
       "gene_filter_column": "",
       "gene_filter_path": "",
       "metadata_fallbacks": [],
@@ -44,13 +44,13 @@
     },
     {
       "annotation": "Fixture v1",
-      "annotation_path": "inputs/genes.gtf",
+      "annotation_path": "<ROOT>/inputs/genes.gtf",
       "gene_filter_column": "",
       "gene_filter_path": "",
       "metadata_fallbacks": [],
       "name": "fixture_measured",
       "output_genes_id_column": "feature",
-      "output_genes_path": "inputs/output_genes.tsv",
+      "output_genes_path": "<ROOT>/inputs/output_genes.tsv",
       "output_genes_symbol_column": "symbol",
       "type": "ensembl_gtf"
     }
@@ -63,18 +63,18 @@
   "sources": {
     "Ensembl_archive": {
       "license_note": "Ensembl REST archive stable-ID lookup; cached for reproducible reruns.",
-      "local_cache_file": "sources/ensembl_archive/archive_id_cache.json",
+      "local_cache_file": "<ROOT>/sources/ensembl_archive/archive_id_cache.json",
       "source_url": "https://rest.ensembl.org/archive/id"
     },
     "HGNC": {
       "license_note": "HGNC data license and attribution terms apply.",
-      "local_raw_file": "sources/hgnc/hgnc_complete_set.txt",
+      "local_raw_file": "<ROOT>/sources/hgnc/hgnc_complete_set.txt",
       "source_url": "https://ftp.ebi.ac.uk/pub/databases/genenames/hgnc/tsv/hgnc_complete_set.txt"
     },
     "MSigDB": {
       "db_version": "",
       "license_note": "MSigDB license and attribution terms apply.",
-      "local_raw_dir": "sources/msigdb",
+      "local_raw_dir": "<ROOT>/sources/msigdb",
       "source_url": "https://www.gsea-msigdb.org/gsea/msigdb",
       "target_release": "2026.1.Hs"
     },
@@ -82,17 +82,17 @@
       "gene_history_url": "https://ftp.ncbi.nlm.nih.gov/gene/DATA/gene_history.gz",
       "gene_info_url": "https://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz",
       "license_note": "NCBI Gene history and gene info are used only as a lower-confidence audited rescue layer.",
-      "local_cache_file": "sources/ncbi_gene/ncbi_gene_symbol_rescue.tsv.gz"
+      "local_cache_file": "<ROOT>/sources/ncbi_gene/ncbi_gene_symbol_rescue.tsv.gz"
     },
     "Target_annotation__fixture_annotation": {
       "annotation": "Fixture v1",
       "license_note": "Target annotation GTF; used as a symbol/metadata helper unless it also defines the target ID set.",
-      "local_cache_file": "inputs/genes.gtf"
+      "local_cache_file": "<ROOT>/inputs/genes.gtf"
     },
     "Target_annotation__fixture_measured": {
       "annotation": "Fixture v1",
       "license_note": "Target annotation GTF; used as a symbol/metadata helper unless it also defines the target ID set.",
-      "local_cache_file": "inputs/genes.gtf"
+      "local_cache_file": "<ROOT>/inputs/genes.gtf"
     }
   },
   "tool": "ALIEN",

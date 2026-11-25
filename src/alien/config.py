@@ -34,22 +34,73 @@ REMOVED_OPTIONS: dict[tuple[str, str], str] = {
 
 
 def load_config(
-    path: str | Path | None = None, overrides: Sequence[str | Path | dict[str, Any]] | None = None
+    path: str | Path | None = None,
+    overrides: Sequence[str | Path | dict[str, Any]] | None = None,
+    *,
+    resolve_relative_paths: bool = True,
 ) -> dict[str, Any]:
+    """Load defaults, then ``path``, then each override.
+
+    Relative paths declared in a YAML file resolve against that file's directory. Bundled presets
+    pass ``resolve_relative_paths=False`` so their cache and output paths stay relative to the
+    working directory; dict overrides are taken as given (relative to the working directory).
+    """
     cfg = default_config()
     if path is not None:
-        cfg = merge_config(cfg, read_config_file(path))
+        cfg = merge_config(cfg, read_config_file(path, resolve_relative_paths=resolve_relative_paths))
     for override in overrides or []:
         cfg = merge_config(cfg, _coerce_override(override))
     return finalize_config(cfg)
 
 
-def read_config_file(path: str | Path) -> dict[str, Any]:
+def read_config_file(path: str | Path, *, resolve_relative_paths: bool = True) -> dict[str, Any]:
     with Path(path).open("r", encoding="utf-8") as handle:
         data = yaml.safe_load(handle) or {}
     if not isinstance(data, dict):
         raise ValueError(f"Config file {path} must contain a YAML mapping.")
+    if resolve_relative_paths:
+        resolve_config_paths(data, Path(path).resolve().parent)
     return data
+
+
+def _resolve_path_value(value: object, base_dir: Path) -> object:
+    if not isinstance(value, str) or not value.strip() or value.strip() == "null" or "://" in value:
+        return value
+    path = Path(value).expanduser()
+    return str(path if path.is_absolute() else base_dir / path)
+
+
+def _resolve_keys(mapping: object, keys: Sequence[str], base_dir: Path) -> None:
+    if not isinstance(mapping, dict):
+        return
+    for key in keys:
+        if key in mapping:
+            value = mapping[key]
+            if isinstance(value, list):
+                mapping[key] = [_resolve_path_value(item, base_dir) for item in value]
+            else:
+                mapping[key] = _resolve_path_value(value, base_dir)
+
+
+def resolve_config_paths(data: dict[str, Any], base_dir: Path) -> None:
+    """Rewrite every path-typed field of one config layer relative to ``base_dir`` (in place)."""
+    _resolve_keys(data.get("project"), ["source_dir", "outdir"], base_dir)
+    for spec in data.get("sources") or []:
+        _resolve_keys(spec, ["path", "paths", "cache_dir"], base_dir)
+    for target in data.get("targets") or []:
+        if not isinstance(target, dict):
+            continue
+        _resolve_keys(target, ["annotation_gtf"], base_dir)
+        for key in ["output_genes", "gene_filter"]:
+            if isinstance(target.get(key), str):
+                target[key] = _resolve_path_value(target[key], base_dir)
+            _resolve_keys(target.get(key), ["path", "file"], base_dir)
+        annotation = target.get("annotation")
+        _resolve_keys(annotation, ["path"], base_dir)
+        if isinstance(annotation, dict):
+            fallbacks = annotation.get("metadata_fallbacks") or []
+            for fallback in fallbacks if isinstance(fallbacks, list) else [fallbacks]:
+                _resolve_keys(fallback, ["path"], base_dir)
 
 
 def finalize_config(cfg: dict[str, Any]) -> dict[str, Any]:

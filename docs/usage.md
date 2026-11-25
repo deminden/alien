@@ -129,6 +129,8 @@ data/alien_gmt/
 
 Those are the two normal filesystem locations in an ALIEN config. `project.source_dir` stores downloaded source GMTs, MSigDB/Enrichr caches, annotation files, HGNC/NCBI mapping resources, and other conversion inputs. `project.outdir` is the result root; ALIEN creates `gmt/`, `metadata/`, and `qc/` inside it. The CLI `--outdir` option is only an override for `project.outdir`.
 
+Relative paths written in a YAML config file or `--override` file (`project.source_dir`, `project.outdir`, source `path`/`paths`/`cache_dir`, target `annotation.path`, `metadata_fallbacks[].path`, `output_genes` and `gene_filter` paths) resolve against the directory of the file that declares them, so a config works no matter where `alien` is started. Bundled presets are the exception: their `data/alien_sources` and `results/...` paths stay relative to the working directory. Paths passed on the command line or as Python dicts resolve against the working directory.
+
 `--source-dir` is a convenience override for `project.source_dir`. Use it to redirect managed downloads and caches to a scratch or shared cache location without editing the YAML.
 
 ## Output Modes

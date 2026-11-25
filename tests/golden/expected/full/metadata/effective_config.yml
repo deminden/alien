@@ -1,6 +1,6 @@
 project:
   name: alien
-  source_dir: sources
+  source_dir: <ROOT>/sources
   outdir: <ROOT>/out
 outputs:
   include_symbols: true
@@ -8,21 +8,21 @@ term_id_collisions:
   action: error
 sources:
 - type: msigdb_tsv
-  path: inputs/msigdb_like.tsv
+  path: <ROOT>/inputs/msigdb_like.tsv
   source_tag: REACTOME
   collection: C2
   family: biology_process_pathway
   aspect: pathway
 - type: canonical_tsv
-  path: inputs/canonical.tsv
+  path: <ROOT>/inputs/canonical.tsv
 - type: symbol_gmt
-  path: inputs/local_pathways.gmt
+  path: <ROOT>/inputs/local_pathways.gmt
   source: Local pathways
   source_tag: LOCAL
   family: biology_process_pathway
   aspect: pathway
 - type: symbol_gmt
-  path: inputs/local_disease.gmt
+  path: <ROOT>/inputs/local_disease.gmt
   source: Local disease
   source_tag: LOCALDIS
   family: disease_phenotype
@@ -33,15 +33,15 @@ targets:
   annotation:
     source: Fixture
     version: '1'
-    path: inputs/genes.gtf
+    path: <ROOT>/inputs/genes.gtf
 - name: fixture_measured
   type: ensembl_gtf
   annotation:
     source: Fixture
     version: '1'
-    path: inputs/genes.gtf
+    path: <ROOT>/inputs/genes.gtf
   output_genes:
-    path: inputs/output_genes.tsv
+    path: <ROOT>/inputs/output_genes.tsv
     id_column: feature
     symbol_column: symbol
 filtering:

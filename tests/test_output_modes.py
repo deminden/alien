@@ -83,7 +83,8 @@ sources:
     assert captured["cfg"]["runtime"]["workers"] == 8
     assert captured["cfg"]["filtering"]["min_size_default"] == 2
     assert captured["cfg"]["filtering"]["max_size_default"] == 77
-    assert captured["cfg"]["sources"] == [{"type": "symbol_gmt", "path": "overlay2.gmt"}]
+    # Relative paths in an overlay file resolve against that file's directory.
+    assert captured["cfg"]["sources"] == [{"type": "symbol_gmt", "path": str(tmp_path / "overlay2.gmt")}]
     assert captured["output_dir"] == outdir
     assert captured["source_dir"] == source_dir
     assert captured["worker_count"] == 8

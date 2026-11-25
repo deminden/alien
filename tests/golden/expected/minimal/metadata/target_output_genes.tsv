@@ -1,13 +1,13 @@
 target_namespace	source_path	source_id_column	source_symbol_column	input_gene_id	ensembl_gene_id	gene_symbol	id_type	has_annotation_metadata
-fixture_measured	inputs/output_genes.tsv	feature	symbol	ENSG00000000001.3	ENSG00000000001		ensembl_versioned	True
-fixture_measured	inputs/output_genes.tsv	feature	symbol	ENSG00000000002.3	ENSG00000000002		ensembl_versioned	True
-fixture_measured	inputs/output_genes.tsv	feature	symbol	ENSG00000000003.3	ENSG00000000003		ensembl_versioned	True
-fixture_measured	inputs/output_genes.tsv	feature	symbol	ENSG00000000004.3	ENSG00000000004		ensembl_versioned	True
-fixture_measured	inputs/output_genes.tsv	feature	symbol	ENSG00000000005.3	ENSG00000000005		ensembl_versioned	True
-fixture_measured	inputs/output_genes.tsv	feature	symbol	ENSG00000000006.3	ENSG00000000006		ensembl_versioned	True
-fixture_measured	inputs/output_genes.tsv	feature	symbol	ENSG00000000007.3	ENSG00000000007		ensembl_versioned	True
-fixture_measured	inputs/output_genes.tsv	feature	symbol	ENSG00000000009.3	ENSG00000000009		ensembl_versioned	True
-fixture_measured	inputs/output_genes.tsv	feature	symbol	ENSG00000000010.3	ENSG00000000010		ensembl_versioned	True
-fixture_measured	inputs/output_genes.tsv	feature	symbol	ENSG00000000011.3	ENSG00000000011		ensembl_versioned	True
-fixture_measured	inputs/output_genes.tsv	feature	symbol	ENSG00000000012.3	ENSG00000000012		ensembl_versioned	True
-fixture_measured	inputs/output_genes.tsv	feature	symbol	ENSG00000000077.1	ENSG00000000077	ZZZ77	ensembl_versioned	False
+fixture_measured	<ROOT>/inputs/output_genes.tsv	feature	symbol	ENSG00000000001.3	ENSG00000000001		ensembl_versioned	True
+fixture_measured	<ROOT>/inputs/output_genes.tsv	feature	symbol	ENSG00000000002.3	ENSG00000000002		ensembl_versioned	True
+fixture_measured	<ROOT>/inputs/output_genes.tsv	feature	symbol	ENSG00000000003.3	ENSG00000000003		ensembl_versioned	True
+fixture_measured	<ROOT>/inputs/output_genes.tsv	feature	symbol	ENSG00000000004.3	ENSG00000000004		ensembl_versioned	True
+fixture_measured	<ROOT>/inputs/output_genes.tsv	feature	symbol	ENSG00000000005.3	ENSG00000000005		ensembl_versioned	True
+fixture_measured	<ROOT>/inputs/output_genes.tsv	feature	symbol	ENSG00000000006.3	ENSG00000000006		ensembl_versioned	True
+fixture_measured	<ROOT>/inputs/output_genes.tsv	feature	symbol	ENSG00000000007.3	ENSG00000000007		ensembl_versioned	True
+fixture_measured	<ROOT>/inputs/output_genes.tsv	feature	symbol	ENSG00000000009.3	ENSG00000000009		ensembl_versioned	True
+fixture_measured	<ROOT>/inputs/output_genes.tsv	feature	symbol	ENSG00000000010.3	ENSG00000000010		ensembl_versioned	True
+fixture_measured	<ROOT>/inputs/output_genes.tsv	feature	symbol	ENSG00000000011.3	ENSG00000000011		ensembl_versioned	True
+fixture_measured	<ROOT>/inputs/output_genes.tsv	feature	symbol	ENSG00000000012.3	ENSG00000000012		ensembl_versioned	True
+fixture_measured	<ROOT>/inputs/output_genes.tsv	feature	symbol	ENSG00000000077.1	ENSG00000000077	ZZZ77	ensembl_versioned	False

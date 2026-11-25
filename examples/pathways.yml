@@ -1,8 +1,8 @@
 project:
   # Download/cache root for MSigDB, Enrichr, HGNC, GENCODE, NCBI, and conversion helpers.
-  source_dir: data/alien_sources
+  source_dir: ../data/alien_sources
   # Output root. ALIEN writes gmt/, metadata/, and qc/ subfolders here.
-  outdir: results/alien_outputs/pathways
+  outdir: ../results/alien_outputs/pathways
 
 outputs:
   include_symbols: false
@@ -36,7 +36,7 @@ targets:
       source: GENCODE
       version: "47"
     output_genes:
-      path: data/gtex/GTEx_Analysis_2025-08-22_v11_RNASeQCv2.4.3_gene_reads.parquet
+      path: ../data/gtex/GTEx_Analysis_2025-08-22_v11_RNASeQCv2.4.3_gene_reads.parquet
       id_column: index
   - name: tcga_recount3_gencode29
     type: ensembl_gtf
@@ -46,9 +46,9 @@ targets:
       metadata_fallbacks:
         - source: recount3
           version: G029
-          path: data/recount3/human.gene_sums.G029.gtf.gz
+          path: ../data/recount3/human.gene_sums.G029.gtf.gz
     output_genes:
-      path: data/recount3/tcga_gencode_v29_output_genes.tsv.gz
+      path: ../data/recount3/tcga_gencode_v29_output_genes.tsv.gz
       id_column: Ensembl_gene_ID
 
 filtering:

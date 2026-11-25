@@ -77,4 +77,4 @@ def preset_path(name: str) -> Path:
 
 
 def load_preset_config(name: str, overrides: Sequence[str | Path | dict[str, Any]] | None = None) -> dict[str, Any]:
-    return load_config(preset_path(name), overrides=overrides)
+    return load_config(preset_path(name), overrides=overrides, resolve_relative_paths=False)
