@@ -55,6 +55,7 @@
       "type": "ensembl_gtf"
     }
   ],
+  "output_schema_version": 2,
   "reference_facts": {
     "msigdb_target_release": "2026.1.Hs",
     "official_v0_1_scope": "human gene sets with HGNC symbols and Ensembl target namespaces"

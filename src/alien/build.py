@@ -190,7 +190,7 @@ def _build_to_output_dir(
     LOGGER.info("Writing metadata and QC reports")
     build_source_manifest(source_terms).to_csv(metadata_dir / "source_manifest.tsv", sep="\t", index=False)
     write_tsv_gz(
-        build_term_manifest(source_terms, filtered, removed_size, removed_redundancy),
+        build_term_manifest(source_terms, mapped_pre_filter, filtered, removed_size, removed_redundancy),
         metadata_dir / "term_manifest.tsv.gz",
     )
     _target_metadata_fallbacks(targets).to_csv(metadata_dir / "target_metadata_fallbacks.tsv", sep="\t", index=False)

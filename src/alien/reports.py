@@ -65,6 +65,7 @@ def build_source_provenance(
     return {
         "created_at": utc_now(),
         "tool": "ALIEN",
+        "output_schema_version": OUTPUT_SCHEMA_VERSION,
         "python_version": platform.python_version(),
         "packages": _python_packages(),
         "configured_sources": cfg.get("sources", []),
@@ -117,52 +118,68 @@ def write_provenance(obj: dict[str, Any], path: Path) -> None:
     write_json(obj, path)
 
 
+# Bumped whenever an output file or column changes incompatibly.
+OUTPUT_SCHEMA_VERSION = 2
+
+TERM_MANIFEST_COLUMNS = [
+    "term_id",
+    "target_namespace",
+    "original_name",
+    "display_name",
+    "family",
+    "aspect",
+    "source",
+    "source_tag",
+    "collection",
+    "subcollection",
+    "db_version",
+    "source_url",
+    "source_license_note",
+    "original_size_symbols",
+    "size_after_mapping",
+    "kept",
+    "removed_reason",
+    "representative_term_id",
+    "redundancy_cluster_id",
+]
+
+
 def build_term_manifest(
     source_terms: pd.DataFrame,
+    mapped_pre_filter: dict[str, dict[str, dict[str, Any]]],
     final_terms: dict[str, dict[str, dict[str, Any]]],
     removed_size: pd.DataFrame,
     removed_redundancy: pd.DataFrame,
 ) -> pd.DataFrame:
-    # Summarize term status across all output namespaces
-    rows: list[dict[str, object]] = []
+    """One row per (term, target namespace) with the namespace-specific outcome."""
     if source_terms.empty:
-        return pd.DataFrame()
+        return pd.DataFrame(columns=TERM_MANIFEST_COLUMNS)
     term_meta = source_terms.drop_duplicates("term_id").set_index("term_id")
     original_sizes = source_terms.groupby("term_id")["gene_symbol"].nunique().to_dict()
-    final_sizes = {
-        namespace: {term_id: len(record["genes"]) for term_id, record in terms.items()}
-        for namespace, terms in final_terms.items()
-    }
-    removed_reason = _removed_reason_map(removed_size, removed_redundancy)
+    removed = _removed_reason_map(removed_size, removed_redundancy)
+    rows: list[dict[str, object]] = []
     for term_id in sorted(term_meta.index):
-        row = term_meta.loc[term_id].to_dict()
-        representative = removed_reason.get(term_id, {}).get("representative_term_id", term_id)
-        manifest_row = {
-            "term_id": term_id,
-            "original_name": row.get("original_name", ""),
-            "display_name": row.get("display_name", ""),
-            "family": row.get("family", ""),
-            "aspect": row.get("aspect", ""),
-            "source": row.get("source", ""),
-            "source_tag": row.get("source_tag", ""),
-            "collection": row.get("collection", ""),
-            "subcollection": row.get("subcollection", ""),
-            "db_version": row.get("db_version", ""),
-            "source_url": row.get("source_url", ""),
-            "source_license_note": row.get("source_license_note", ""),
-            "original_size_symbols": original_sizes.get(term_id, 0),
-            "representative_term_id": representative,
-            "is_representative": representative == term_id,
-            "redundancy_cluster_id": removed_reason.get(term_id, {}).get("redundancy_cluster_id", ""),
-            "removed_reason": removed_reason.get(term_id, {}).get("reason", ""),
-            "created_at": utc_now(),
-        }
-        for namespace, sizes in final_sizes.items():
-            safe_namespace = str(namespace).replace("-", "_").replace(".", "_")
-            manifest_row[f"{safe_namespace}_size_after_mapping"] = sizes.get(term_id, 0)
-            manifest_row[f"kept_{safe_namespace}"] = term_id in sizes
-        rows.append(manifest_row)
-    return pd.DataFrame(rows)
+        meta = term_meta.loc[term_id].to_dict()
+        for namespace, mapped in mapped_pre_filter.items():
+            removal = removed.get((namespace, term_id), {})
+            kept = term_id in final_terms.get(namespace, {})
+            reason = str(removal.get("reason", ""))
+            if not kept and not reason:
+                reason = "no_mapped_genes"
+            rows.append(
+                {
+                    "term_id": term_id,
+                    "target_namespace": namespace,
+                    **{column: meta.get(column, "") for column in TERM_MANIFEST_COLUMNS[2:13]},
+                    "original_size_symbols": original_sizes.get(term_id, 0),
+                    "size_after_mapping": len(mapped[term_id]["genes"]) if term_id in mapped else 0,
+                    "kept": kept,
+                    "removed_reason": reason,
+                    "representative_term_id": removal.get("representative_term_id", "") or term_id,
+                    "redundancy_cluster_id": removal.get("redundancy_cluster_id", ""),
+                }
+            )
+    return pd.DataFrame(rows, columns=TERM_MANIFEST_COLUMNS)
 
 
 def build_source_manifest(source_terms: pd.DataFrame) -> pd.DataFrame:
@@ -315,13 +332,13 @@ def write_qc(
     (qc_dir / "warnings.txt").write_text("\n".join(warnings) + ("\n" if warnings else ""), encoding="utf-8")
 
 
-def _removed_reason_map(*frames: pd.DataFrame) -> dict[str, dict[str, object]]:
-    out: dict[str, dict[str, object]] = {}
+def _removed_reason_map(*frames: pd.DataFrame) -> dict[tuple[str, str], dict[str, object]]:
+    out: dict[tuple[str, str], dict[str, object]] = {}
     for frame in frames:
         if frame is None or frame.empty:
             continue
-        for _, row in frame.iterrows():
-            out.setdefault(str(row["term_id"]), row.to_dict())
+        for row in frame.to_dict("records"):
+            out.setdefault((str(row["target_namespace"]), str(row["term_id"])), row)
     return out
 
 
