@@ -9,23 +9,17 @@ from pathlib import Path
 from typing import Final
 
 from .io.atomic import atomic_dir_swap, atomic_write_json, unique_sibling
+from .schema import OUTPUT_FILES
 
 MANIFEST_NAME: Final = "MANIFEST.json"
 FAILED_DIR: Final = "failed"
 OUTPUT_MODES: Final = ("full", "minimal", "gmt")
 LEGACY_TOP_LEVEL: Final = frozenset({"gmt", "metadata", "qc", FAILED_DIR})
-MINIMAL_FILES: Final = (
-    "metadata/effective_config.yml",
-    "metadata/source_manifest.tsv",
-    "metadata/source_provenance.json",
-    "metadata/term_manifest.tsv.gz",
-    "metadata/target_metadata_fallbacks.tsv",
-    "metadata/target_output_genes.tsv.gz",
-    "metadata/target_gene_filter.tsv.gz",
-    "qc/target_namespace_summary.tsv",
-    "qc/mapping_summary.tsv",
-    "qc/redundancy_summary.tsv",
-    "qc/warnings.txt",
+#: Files kept by ``--output-mode minimal`` besides the GMTs, taken from the output catalogue in alien.schema.
+MINIMAL_FILES: Final = tuple(
+    output.path
+    for output in OUTPUT_FILES
+    if "minimal" in output.modes and not output.path.startswith("gmt/") and output.path != "MANIFEST.json"
 )
 
 
