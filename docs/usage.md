@@ -177,28 +177,37 @@ Relative paths written in a YAML config file or `--override` file (`project.sour
 
 ## Output Modes
 
-By default, `alien build` uses `--output-mode full`, which writes the complete `gmt/`, `metadata/`, and `qc/` tree to `project.outdir`.
+`outputs.mode` in the config (or `--output-mode`) selects which files are kept:
 
-For production handoff runs, `--output-mode gmt` builds in temporary space and copies only `gmt/*.gmt` files back to the requested output directory. This leaves audit tables behind, so use it only when you already have a preserved reproducibility record elsewhere.
+- `full` (default): the complete `gmt/`, `metadata/` and `qc/` tree.
+- `minimal`: the GMTs plus the compact reproducibility record (effective config, provenance, source and term manifests, target gene lists, mapping, redundancy and target summaries, warnings). The exact list is in [outputs.md](outputs.md).
+- `gmt`: only `gmt/*.gmt`. Use it only when the reproducibility record is preserved elsewhere.
 
-For compact but reproducible releases, `--output-mode minimal` also builds in temporary space and keeps:
+Every mode builds in a hidden staging directory next to `project.outdir`, prunes it to the mode, writes `MANIFEST.json` (every file with sha256 and size) last, and then swaps it into place with an atomic rename, so a crash never leaves a half-updated output directory and outputs of removed targets never linger. If the build fails, the previous output is left untouched and the staging tree, including any `metadata/term_id_collisions.tsv`, is kept under `<outdir>/failed/`; error messages point there. ALIEN refuses to replace a non-empty directory that is not an earlier ALIEN build unless you pass `--force` (`force=True` in Python).
 
-```text
-gmt/*.gmt
-metadata/effective_config.yml
-metadata/source_manifest.tsv
-metadata/source_provenance.json
-metadata/term_manifest.tsv.gz
-metadata/target_metadata_fallbacks.tsv
-metadata/target_output_genes.tsv.gz
-metadata/target_gene_filter.tsv.gz
-qc/target_namespace_summary.tsv
-qc/mapping_summary.tsv
-qc/redundancy_summary.tsv
-qc/warnings.txt
+`alien verify OUTDIR` re-hashes an output directory against its `MANIFEST.json` and reports missing, changed and unexpected files.
+
+Outputs are reproducible byte for byte: tables are written with a fixed column order and gzip members carry no timestamp. The only time-dependent value is `created_at` in `metadata/source_provenance.json`, which honours `SOURCE_DATE_EPOCH`.
+
+## Dry Runs, Lock Files and Offline Builds
+
+`alien build CONFIG --dry-run` validates the configuration, checks that every local input exists, lists which remote resources are cached and which would be downloaded, and prints the planned outputs. It writes nothing.
+
+HGNC, NCBI Gene, GENCODE, MSigDB and Enrichr are remote resources that change over time. To pin them:
+
+```bash
+alien fetch my-study.yml            # download everything the config needs; write my-study's alien.lock.json
+alien build my-study.yml --frozen   # no network; every cached file must match the lock byte for byte
+alien build my-study.yml --offline  # no network; use whatever is cached, lock optional
 ```
 
-Temporary output modes only stage `project.outdir`. `project.source_dir` still points at the configured cache/input-resource location. If you also want managed downloads and derived source caches to be temporary, point `project.source_dir` to scratch with an overlay or `--source-dir`.
+`alien.lock.json` is written next to the config file (in the working directory for presets and Python dicts); `--lock PATH` chooses another location. For every remote resource it records the URL, sha256, size, retrieval time, ETag and Last-Modified where available, and the upstream version (MSigDB release, GENCODE version, HGNC archive date, Enrichr library name). Enrichr libraries selected by `match:` are pinned by name, so a frozen build keeps using the library chosen when the lock was written even if a newer one appears. A frozen build fails with a clear message when a cached file is missing or differs from the lock. Ensembl archive lookups are pinned too: `alien fetch` performs them and records the lookup cache.
+
+To pin HGNC to a monthly archive instead of the current release, set `hgnc.archive_date` (for example `"2025-01-01"`), or point `hgnc.url` at any complete-set file.
+
+Caches are safe to share between concurrent builds (Snakemake, Nextflow, SLURM arrays): every download and derived cache is written through a per-file lock and an atomic rename. Derived caches (normalized MSigDB memberships, NCBI rescue maps, parsed GTF gene tables) are keyed by the sha256 of their inputs, the options that shape them and a cache schema version, so changing an option such as `ncbi_gene.use_gene_info_synonyms` never reuses a stale cache. Ensembl archive "not found" answers are stamped with the Ensembl release that gave them and are re-checked after a new release.
+
+Output modes only stage `project.outdir`; `project.source_dir` is always the shared cache. Point it at scratch with `--source-dir` to make downloads temporary too.
 
 ## Source Types
 
@@ -327,7 +336,7 @@ term_id_collisions:
   action: error
 ```
 
-When collisions are found, ALIEN writes `metadata/term_id_collisions.tsv` before raising an error. The table lists each conflicting identity, source metadata, row counts, and sample genes. The usual fix is to rename or prefix one source's term IDs.
+When collisions are found with `action: error`, the build stops and the audit table is kept at `<outdir>/failed/metadata/term_id_collisions.tsv` (the error message prints the path); with `warn` or `merge` it is written to `metadata/term_id_collisions.tsv` in the output. The table lists each conflicting identity, source metadata, row counts, and sample genes. The usual fix is to rename or prefix one source's term IDs.
 
 For legacy inputs where intentional merging is acceptable, the guard can be relaxed:
 
@@ -336,7 +345,7 @@ term_id_collisions:
   action: merge
 ```
 
-`merge` keeps the previous behavior: memberships with the same `term_id` are combined and the first term metadata used downstream wins. ALIEN still writes the collision audit table and adds a warning.
+`merge` (and `warn`) keep the previous behavior: memberships with the same `term_id` are combined and, in each namespace, the metadata of the term's first mapped membership is used downstream. ALIEN still writes the collision audit table and adds a warning.
 
 ## Targets
 
@@ -504,7 +513,11 @@ cfg = {
             "name": "human_gencode47_study_only",
             "type": "ensembl_gtf",
             "annotation": {"source": "GENCODE", "version": "47"},
-            "output_genes": {"path": "data/study/expression.tsv.gz", "id_column": "feature_id", "symbol_column": "gene_symbol"},
+            "output_genes": {
+                "path": "data/study/expression.tsv.gz",
+                "id_column": "feature_id",
+                "symbol_column": "gene_symbol",
+            },
         }
     ],
 }
@@ -544,7 +557,14 @@ redundancy:
   apply_per_family: true
 ```
 
-`exact_duplicate_removal: false` skips the exact-membership pass, and `apply_per_family: false` compares terms across all families in a namespace (the per-family `source_priority` lists are concatenated in family order). Terms with Jaccard similarity greater than `jaccard_cutoff` are treated as redundant. One representative is kept using `source_priority`, mapped term size, and deterministic name tie-breaks.
+`exact_duplicate_removal: false` skips the exact-membership pass, and `apply_per_family: false` compares terms across all families in a namespace (the per-family `source_priority` lists are concatenated in family order). Terms with Jaccard similarity strictly greater than `jaccard_cutoff` are treated as redundant. Representatives are chosen by `source_priority`, then larger mapped size, then names that do not start with a generic prefix ("regulation of", "process", ...), then shorter name, then term ID.
+
+`redundancy.linkage` controls how similar pairs become clusters:
+
+- `single` (default, the 0.1.x behaviour): similar terms are joined transitively. If A~B and B~C, all three form one cluster and one representative is kept, even when A and C are not similar to each other.
+- `representative`: terms are visited in representative order; a term is removed only when it is above the cutoff against a term that was already kept, which is recorded as its `representative_term_id`. No chaining, so more terms survive.
+
+The choice is recorded in provenance. Candidate pairs are found with a prefix-filter similarity join, so large families (tens of thousands of terms) filter in seconds.
 
 Source priority is configured by family:
 
@@ -563,7 +583,11 @@ ALIEN maps source symbols through audited human mapping resources:
 - NCBI Gene history/info rescue, enabled by default for configured legacy source tags.
 - Ensembl archive lookup, enabled by default for source Ensembl IDs absent from the target annotation, any configured target output genes/filter, and HGNC's current Ensembl IDs.
 
-Ambiguous mappings are dropped rather than guessed and are written to audit tables.
+For each membership and target the decision order is: configured non-gene token; source Ensembl ID already in the target; Ensembl archive replacement (for retired source IDs only); HGNC symbol resolution; annotation candidates for the resolved symbol (preferring output genes, then the primary annotation over fallbacks and output-gene symbol rows, then a unique protein-coding gene); the official HGNC Ensembl ID as a tie-breaker; NCBI Gene rescue (only for `ncbi_gene.allowed_source_tags`); otherwise the membership is classified as ambiguous, unmapped or not in the output genes.
+
+HGNC symbol resolution tries, in order: an exact current symbol, `gene_mapping.manual_symbol_repairs` (a repair never overrides an exact current symbol, but does override previous-symbol and alias matches), an unambiguous previous symbol, an ambiguous previous symbol, an ambiguous alias, an unambiguous alias (`use_hgnc_alias_mapping: false` skips both alias steps). Repairs apply to the `symbols` namespace too.
+
+Ambiguous mappings (previous symbols and aliases shared by several genes included) are dropped rather than guessed and are written to `metadata/ambiguous_gene_mappings.tsv.gz`.
 
 Disable these fallback layers explicitly when a build must avoid managed remote mapping resources:
 
@@ -577,35 +601,65 @@ ensembl_archive:
 
 ## Outputs
 
-Main GMT outputs:
+Every file and column is listed in [outputs.md](outputs.md), which is generated from the code. The most useful ones:
+
+- `gmt/<namespace>.gmt`: one GMT per namespace (`symbols` plus each target).
+- `metadata/source_manifest.tsv`: one row per resolved source collection with source tag, collection, URL and license note, term and member counts, and Enrichr resolution fields.
+- `metadata/term_manifest.tsv.gz`: one row per term and namespace with `size_after_mapping`, `kept`, `removed_reason` (`too_small`, `too_large`, `broad_disease_term`, `exact_duplicate`, `jaccard_duplicate` or `no_mapped_genes`), `representative_term_id` and `redundancy_cluster_id`. A term can be kept in one namespace and removed in another.
+- `metadata/source_provenance.json`: what the build read and how (versions, hashes, resources, settings).
+- `metadata/unmapped_genes.tsv.gz`, `ambiguous_gene_mappings.tsv.gz`, `dropped_non_gene_tokens.tsv.gz`, `ensembl_archive_audit.tsv.gz`, `ncbi_gene_rescue_audit.tsv.gz`: the mapping audit.
+- `qc/mapping_summary.tsv`, `qc/mapping_status_summary.tsv`, `qc/redundancy_summary.tsv`, `qc/target_namespace_summary.tsv`, `qc/warnings.txt`.
+
+`metadata/target_output_genes.tsv.gz` audits configured `output_genes`, including the input ID, stripped Ensembl ID, optional dataset-provided symbol, ID type, and whether the ID had annotation-helper metadata after primary annotation and metadata fallback rows were applied. Rows whose ID is not an Ensembl gene ID are kept with an empty `ensembl_gene_id` and counted in a warning. `metadata/target_metadata_fallbacks.tsv` audits fallback use per target. `qc/target_namespace_summary.tsv` summarizes `output_gene_source`, primary/fallback annotation helper sizes, annotation metadata coverage, and the number of target IDs missing annotation metadata.
+
+## Command-Line Reference
 
 ```text
-gmt/<target_namespace>.gmt
-gmt/symbols.gmt
+alien build CONFIG_OR_PRESET [--override FILE]... [--source-dir DIR] [--outdir DIR] [--workers N]
+            [--output-mode full|minimal|gmt] [--dry-run] [--force] [--force-download]
+            [--offline | --frozen] [--lock FILE]
+alien fetch CONFIG_OR_PRESET [--override FILE]... [--source-dir DIR] [--lock FILE] [--force-download]
+alien validate CONFIG_OR_PRESET [--override FILE]...
+alien verify OUTDIR
+alien config show [CONFIG_OR_PRESET] [--override FILE]...
+alien config schema
+alien presets
+alien --version
 ```
 
-Main audit outputs:
+Global options: `-v/--verbose` (debug logging and full tracebacks), `-q/--quiet` (warnings and errors only), `--log-file FILE`. `python -m alien` is equivalent to `alien`.
 
-```text
-metadata/effective_config.yml
-metadata/source_manifest.tsv
-metadata/term_manifest.tsv.gz
-metadata/target_metadata_fallbacks.tsv
-metadata/target_output_genes.tsv.gz
-metadata/target_gene_filter.tsv.gz
-metadata/gene_mapping_<target>.tsv.gz
-metadata/removed_terms_size_filter.tsv.gz
-metadata/removed_terms_redundancy.tsv.gz
-metadata/term_id_collisions.tsv
-metadata/unmapped_genes.tsv.gz
-metadata/ambiguous_gene_mappings.tsv.gz
-metadata/source_provenance.json
-qc/redundancy_summary.tsv
-qc/mapping_summary.tsv
-qc/target_namespace_summary.tsv
-qc/warnings.txt
+Exit codes: `0` success, `2` invalid configuration, `3` input data problem (missing or malformed source files, term-ID collisions, `alien verify` mismatches), `4` network or cache problem (download failed, offline resource missing, lock mismatch), `1` anything unexpected. Errors print one line; add `--verbose` for the traceback.
+
+## Python API
+
+```python
+from alien import build, fetch, load_config
+
+config = load_config("my-study.yml")  # a validated AlienConfig
+fetch("my-study.yml")  # writes alien.lock.json
+result = build("my-study.yml", frozen=True, workers=8, output_mode="minimal")
+result.gmt_paths["gtex_v11_gencode47"]  # Path to the GMT
+result.term_counts  # terms per namespace
+result.mapping_summary  # qc/mapping_summary.tsv as a DataFrame
 ```
 
-`metadata/source_manifest.tsv` is the source-level reproducibility table. It has one row per resolved source collection with source tag, collection/subcollection, source URL/license note, term/member counts, and Enrichr resolution fields when relevant. `metadata/term_manifest.tsv.gz` stays term-level: it records filtering/redundancy status and final per-namespace term sizes.
+`build()` accepts a preset name, a YAML path, a dict or an `AlienConfig`, plus keyword options `outdir`, `source_dir`, `workers`, `output_mode`, `overrides`, `dry_run`, `force`, `force_download`, `offline`, `frozen` and `lock`. The library logs to the `alien` logger and never configures logging itself.
 
-`metadata/target_output_genes.tsv.gz` audits configured `output_genes`, including the input ID, stripped Ensembl ID, optional dataset-provided symbol, ID type, and whether the ID had annotation-helper metadata after primary annotation and metadata fallback rows were applied. `metadata/target_metadata_fallbacks.tsv` audits fallback use per target. `qc/target_namespace_summary.tsv` summarizes `output_gene_source`, primary/fallback annotation helper sizes, annotation metadata coverage, and the number of target IDs missing annotation metadata.
+## Custom Source Types
+
+A project can add its own source type without forking ALIEN. Publish a function `load(options: dict, cache) -> pandas.DataFrame` that returns the canonical membership columns (at least `term_id` and `gene_symbol`) under the `alien.sources` entry-point group:
+
+```toml
+[project.entry-points."alien.sources"]
+internal_db = "my_package.alien_source:load"
+```
+
+and configure it:
+
+```yaml
+sources:
+  - type: plugin
+    plugin: internal_db
+    options: {release: "2026-03"}
+```
