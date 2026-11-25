@@ -6,6 +6,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from ..errors import ConfigError
 from . import loader
 from .loader import ConfigInput, load_config
 from .schema import AlienConfig
@@ -68,7 +69,7 @@ def resolve_preset(name: str) -> Preset:
         return _PRESET_BY_NAME[canonical]
     except KeyError:
         choices = sorted([preset.name for preset in PRESETS] + list(_PRESET_ALIASES))
-        raise ValueError(
+        raise ConfigError(
             f"Unknown ALIEN preset {name!r}. Available presets and aliases: {', '.join(choices)}"
         ) from None
 

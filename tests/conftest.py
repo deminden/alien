@@ -272,3 +272,14 @@ def hgnc_maps(rows: list[tuple[str, str, str, str]]) -> Any:
     return build_hgnc_maps(
         pd.DataFrame([{"symbol": s, "prev_symbol": p, "alias_symbol": a, "ensembl_gene_id": e} for s, p, a, e in rows])
     )
+
+
+@pytest.fixture(autouse=True)
+def _reset_alien_logger() -> Any:
+    """cli.main configures the 'alien' logger; restore it so caplog keeps working in later tests."""
+    import logging
+
+    logger = logging.getLogger("alien")
+    handlers, level, propagate = list(logger.handlers), logger.level, logger.propagate
+    yield
+    logger.handlers, logger.level, logger.propagate = handlers, level, propagate
