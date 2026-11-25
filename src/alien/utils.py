@@ -4,6 +4,7 @@ import gzip
 import json
 import logging
 import multiprocessing as mp
+import os
 import re
 import shutil
 import sys
@@ -15,6 +16,8 @@ import pandas as pd
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+
+from .io.tables import write_table
 
 LOGGER = logging.getLogger("alien")
 
@@ -39,7 +42,10 @@ def process_pool_context() -> mp.context.BaseContext:
 
 
 def utc_now() -> str:
-    return datetime.now(UTC).isoformat(timespec="seconds")
+    """Current UTC time, or SOURCE_DATE_EPOCH when set (reproducible builds)."""
+    epoch = os.environ.get("SOURCE_DATE_EPOCH", "").strip()
+    moment = datetime.fromtimestamp(int(epoch), UTC) if epoch.isdigit() else datetime.now(UTC)
+    return moment.isoformat(timespec="seconds")
 
 
 def ensure_dirs(*paths: Path) -> None:
@@ -72,8 +78,7 @@ def clean_field(value: Any) -> str:
 
 
 def write_tsv_gz(df: pd.DataFrame, path: Path) -> None:
-    ensure_dirs(path.parent)
-    df.to_csv(path, sep="\t", index=False, compression="gzip")
+    write_table(df, path)
 
 
 def parse_gmt(path: Path) -> list[dict[str, object]]:
