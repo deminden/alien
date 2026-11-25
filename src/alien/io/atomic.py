@@ -34,7 +34,7 @@ def atomic_write_text(path: Path, text: str) -> None:
 
 def dumps_json(obj: Any) -> str:
     """Deterministic JSON: sorted keys, two-space indent, trailing newline."""
-    return json.dumps(obj, indent=2, sort_keys=True, ensure_ascii=False, default=str) + "\n"
+    return json.dumps(obj, indent=2, sort_keys=True, ensure_ascii=True, default=str) + "\n"
 
 
 def atomic_write_json(path: Path, obj: Any) -> None:

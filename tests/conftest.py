@@ -108,3 +108,167 @@ def read_gmt(path: Path) -> dict[str, list[str]]:
         parts = line.split("\t")
         result[parts[0]] = parts[2:]
     return result
+
+
+# ----------------------------------------------------------------------------------------------- fake HTTP
+
+
+class FakeResponse:
+    def __init__(self, url: str, status: int, body: bytes, headers: dict[str, str] | None = None) -> None:
+        self.url, self.status_code, self.content = url, status, body
+        self.headers = headers or {"ETag": '"fixture"'}
+
+    def __enter__(self) -> FakeResponse:
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        return None
+
+    def raise_for_status(self) -> None:
+        import requests
+
+        if self.status_code >= 400:
+            raise requests.HTTPError(f"{self.status_code} for {self.url}")
+
+    def iter_content(self, chunk_size: int = 1024) -> Any:
+        for start in range(0, len(self.content), chunk_size):
+            yield self.content[start : start + chunk_size]
+
+    def json(self) -> Any:
+        import json
+
+        return json.loads(self.content.decode("utf-8"))
+
+    @property
+    def text(self) -> str:
+        return self.content.decode("utf-8")
+
+
+class FakeServer:
+    """Routes URL -> bytes, (status, bytes), an exception, or a callable(json_payload) for POST."""
+
+    def __init__(self) -> None:
+        self.routes: dict[str, Any] = {}
+        self.calls: list[tuple[str, str, Any]] = []
+
+    def respond(self, method: str, url: str, payload: Any = None) -> FakeResponse:
+        self.calls.append((method, url, payload))
+        route = self.routes.get(url)
+        if route is None:
+            return FakeResponse(url, 404, b"not found")
+        if isinstance(route, Exception):
+            raise route
+        if callable(route):
+            route = route(payload)
+        if isinstance(route, tuple):
+            return FakeResponse(url, route[0], route[1])
+        if isinstance(route, list | dict):
+            import json
+
+            route = json.dumps(route)
+        if isinstance(route, str):
+            route = route.encode("utf-8")
+        return FakeResponse(url, 200, route)
+
+    def urls(self, method: str = "GET") -> list[str]:
+        return [url for m, url, _ in self.calls if m == method]
+
+
+class FakeSession:
+    def __init__(self, server: FakeServer) -> None:
+        self.server = server
+        self.headers: dict[str, str] = {}
+
+    def __enter__(self) -> FakeSession:
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        return None
+
+    def get(self, url: str, **kwargs: Any) -> FakeResponse:
+        return self.server.respond("GET", url)
+
+    def post(self, url: str, json: Any = None, **kwargs: Any) -> FakeResponse:
+        return self.server.respond("POST", url, json)
+
+
+@pytest.fixture
+def fake_http(monkeypatch: pytest.MonkeyPatch) -> FakeServer:
+    from alien.io import http
+
+    server = FakeServer()
+    monkeypatch.setattr(http, "SESSION_FACTORY", lambda **kwargs: FakeSession(server))
+    return server
+
+
+# ----------------------------------------------------------------------------------------------- targets
+
+
+def annotation_frame(rows: list[dict[str, Any]]) -> pd.DataFrame:
+    from alien.schema import ANNOTATION_COLUMNS
+
+    defaults = {
+        "gencode_version": "v1",
+        "ensembl_gene_id_versioned": "",
+        "gene_biotype": "protein_coding",
+        "seqname": "chr1",
+        "start": "1",
+        "end": "2",
+        "strand": "+",
+        "source_gtf": "fixture.gtf",
+        "target_id_metadata_source": "annotation_gtf",
+        "is_in_output_genes": True,
+    }
+    return pd.DataFrame([{**defaults, **row} for row in rows], columns=list(ANNOTATION_COLUMNS))
+
+
+def make_target(name: str, rows: list[dict[str, Any]], output_ids: set[str] | None = None) -> Any:
+    from alien.model import GeneIdList, Target
+    from alien.resources.output_genes import empty_gene_id_list
+
+    annotation = annotation_frame(rows)
+    ids = frozenset(annotation["ensembl_gene_id"])
+    output = empty_gene_id_list()
+    if output_ids is not None:
+        table = pd.DataFrame(
+            {
+                "input_gene_id": sorted(output_ids),
+                "ensembl_gene_id": sorted(output_ids),
+                "gene_symbol": "",
+                "id_type": "ensembl_stable",
+            }
+        )
+        output = GeneIdList(frozenset(output_ids), table, "ensembl_stable")
+    return Target(name, annotation, "Fixture v1", Path("fixture.gtf"), output, empty_gene_id_list(), ids, ids)
+
+
+def membership(
+    term_id: str, gene: str, ensembl: str = "", source_tag: str = "REACTOME", family: str = "biology_process_pathway"
+) -> dict[str, str]:
+    return {
+        "term_id": term_id,
+        "original_name": term_id,
+        "display_name": term_id,
+        "description": "",
+        "source": "test",
+        "source_tag": source_tag,
+        "collection": "C2",
+        "subcollection": "",
+        "family": family,
+        "aspect": "pathway",
+        "db_version": "",
+        "source_url": "",
+        "source_license_note": "",
+        "gene_symbol": gene,
+        "gene_ensembl_from_source": ensembl,
+        "metadata_json": "{}",
+    }
+
+
+def hgnc_maps(rows: list[tuple[str, str, str, str]]) -> Any:
+    """rows: (symbol, previous symbols, alias symbols, Ensembl ID)."""
+    from alien.resources.hgnc import build_hgnc_maps
+
+    return build_hgnc_maps(
+        pd.DataFrame([{"symbol": s, "prev_symbol": p, "alias_symbol": a, "ensembl_gene_id": e} for s, p, a, e in rows])
+    )
