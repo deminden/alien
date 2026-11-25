@@ -1115,10 +1115,15 @@ def read_output_genes(
         rows.append(
             {
                 "input_gene_id": gene,
-                "ensembl_gene_id": stripped,
+                "ensembl_gene_id": stripped if row_id_type != "symbol" else "",
                 "gene_symbol": str(symbol).strip(),
                 "id_type": row_id_type,
             }
+        )
+    n_symbol_rows = id_types.count("symbol")
+    if n_symbol_rows and stable:
+        LOGGER.warning(
+            "%d output gene row(s) do not hold Ensembl gene IDs; they are kept in the audit table only.", n_symbol_rows
         )
     if genes and not stable:
         raise ValueError(

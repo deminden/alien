@@ -292,8 +292,8 @@ def mapping_summary(
             n_considered = max(0, n_original - n_non_gene)
             if namespace == "symbols":
                 n_mapped_raw = n_considered
-            too_small = _removed_count(removed_size, namespace, family, "too_small")
-            too_large = _removed_count(removed_size, namespace, family, "too_large")
+            too_small = _removed_count(removed_size, namespace, family, source_tag, "too_small")
+            too_large = _removed_count(removed_size, namespace, family, source_tag, "too_large")
             rows.append(
                 {
                     "target_namespace": namespace,
@@ -426,10 +426,15 @@ def _mapped_status_count(df: pd.DataFrame | None, namespace: str, family: str, s
     return int(df.loc[mask, "n_gene_members"].sum())
 
 
-def _removed_count(df: pd.DataFrame, namespace: str, family: str, reason: str) -> int:
+def _removed_count(df: pd.DataFrame, namespace: str, family: str, source_tag: str, reason: str) -> int:
     if df.empty:
         return 0
-    mask = df["target_namespace"].eq(namespace) & df["family"].eq(family) & df["reason"].eq(reason)
+    mask = (
+        df["target_namespace"].eq(namespace)
+        & df["family"].eq(family)
+        & df["source_tag"].eq(source_tag)
+        & df["reason"].eq(reason)
+    )
     return int(mask.sum())
 
 

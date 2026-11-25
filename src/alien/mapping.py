@@ -1044,7 +1044,7 @@ def _build_archive_resolver(source_dir: Path | None, cfg: dict) -> EnsemblArchiv
     archive_cfg = cfg.get("ensembl_archive", {})
     if not archive_cfg.get("enabled", True):
         return None
-    source_dir = source_dir or Path("data/gmt_sources")
+    source_dir = source_dir or Path("data/alien_sources")
     cache_path = source_dir / "ensembl_archive" / "archive_id_cache.json"
     ensure_dirs(cache_path.parent)
     return EnsemblArchiveResolver(

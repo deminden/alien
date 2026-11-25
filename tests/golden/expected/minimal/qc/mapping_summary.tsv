@@ -1,13 +1,13 @@
 target_namespace	family	source_tag	n_gene_members_original	n_non_gene_token_dropped	n_gene_members_considered_for_mapping	n_gene_members_mapped_raw	n_gene_members_mapped_unique	n_gene_members_collapsed_after_mapping	n_gene_members_unmapped	n_ambiguous	mapping_rate_raw	mapping_rate_unique	n_terms_lost_because_too_small	n_terms_lost_because_too_large
-symbols	biology_process_pathway	LOCAL	15	1	14	14	14	0	0	0	1.0	1.0	1	1
+symbols	biology_process_pathway	LOCAL	15	1	14	14	14	0	0	0	1.0	1.0	0	0
 symbols	biology_process_pathway	REACTOME	37	1	36	36	33	3	1	2	1.0	0.916667	1	1
 symbols	cancer_dependency_state	DEPMAP	10	0	10	10	10	0	6	0	1.0	1.0	0	0
 symbols	disease_phenotype	LOCALDIS	11	0	11	11	11	0	0	0	1.0	1.0	0	0
-fixture_annotation	biology_process_pathway	LOCAL	15	1	14	14	14	0	0	0	1.0	1.0	1	1
+fixture_annotation	biology_process_pathway	LOCAL	15	1	14	14	14	0	0	0	1.0	1.0	0	0
 fixture_annotation	biology_process_pathway	REACTOME	37	1	36	33	30	3	1	2	0.916667	0.833333	1	1
 fixture_annotation	cancer_dependency_state	DEPMAP	10	0	10	8	8	0	1	1	0.8	0.8	0	0
 fixture_annotation	disease_phenotype	LOCALDIS	11	0	11	11	11	0	0	0	1.0	1.0	0	0
-fixture_measured	biology_process_pathway	LOCAL	15	1	14	13	13	0	1	0	0.928571	0.928571	1	1
+fixture_measured	biology_process_pathway	LOCAL	15	1	14	13	13	0	1	0	0.928571	0.928571	0	0
 fixture_measured	biology_process_pathway	REACTOME	37	1	36	31	28	3	3	2	0.861111	0.777778	1	1
 fixture_measured	cancer_dependency_state	DEPMAP	10	0	10	7	7	0	2	1	0.7	0.7	0	0
 fixture_measured	disease_phenotype	LOCALDIS	11	0	11	11	11	0	0	0	1.0	1.0	0	0

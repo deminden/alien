@@ -55,8 +55,7 @@ def _removed_row(namespace: str, term_id: str, record: dict[str, Any], reason: s
         "original_name": meta.get("original_name", ""),
         "source_tag": meta.get("source_tag", ""),
         "original_size_symbols": len(record.get("original_genes", [])),
-        "mapped_size_before_output_genes": len(record.get("genes", [])),
-        "mapped_size_after_output_genes": len(record.get("genes", [])),
+        "mapped_size": len(record.get("genes", [])),
         "reason": reason,
     }
 
@@ -265,5 +264,5 @@ def _redundancy_removed(
         "representative_term_id": representative,
         "redundancy_cluster_id": cluster,
         "reason": reason,
-        "mapped_size_after_output_genes": size,
+        "mapped_size": size,
     }
