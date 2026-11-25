@@ -85,13 +85,7 @@ max-args = 6
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["PLR2004", "PLR0913", "PLR0917", "PLC0415", "E501"]
-# Grandfathered violations; each entry is deleted when its module is refactored.
-"src/alien/build.py" = ["E501", "PERF401", "PLR0913", "PLR0915", "PLR0917"]
-"src/alien/filtering.py" = ["C901", "PERF401", "PLR0912", "PLR0913", "PLR0917", "PLW2901"]
-"src/alien/mapping.py" = ["BLE001", "C901", "E501", "PLR0911", "PLR0912", "PLR0913", "PLR0915", "PLR0917"]
-"src/alien/reports.py" = ["B905", "BLE001", "E501", "PLR0913", "PLR0917", "RUF005", "SIM105"]
-"src/alien/sources.py" = ["B905", "C901", "BLE001", "E501", "PERF401", "PLC0415", "PLR0912", "PLR2004", "PLW2901", "RUF005", "SIM108", "SIM401"]
-"src/alien/utils.py" = ["PLR2004", "PLW2901", "RUF005"]
+"tests/legacy/**" = ["ALL"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -115,7 +109,3 @@ fail_under = 85
 show_missing = true
 skip_covered = true
 
-# Grandfathered strict-mode errors; each module is removed from this list when it is refactored.
-[[tool.mypy.overrides]]
-module = ["alien.build", "alien.filtering", "alien.mapping", "alien.reports", "alien.sources", "alien.utils"]
-ignore_errors = true

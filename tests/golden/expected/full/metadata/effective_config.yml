@@ -116,6 +116,7 @@ gene_mapping:
   non_gene_token_regex: []
   manual_symbol_repairs:
     E5-BROKEN: EEE5
+hgnc: {}
 ncbi_gene:
   enabled: true
   allowed_source_tags:

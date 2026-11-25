@@ -661,6 +661,39 @@
       "title": "GtfAttributes",
       "type": "object"
     },
+    "HgncConfig": {
+      "additionalProperties": false,
+      "description": "Where the HGNC complete set comes from. Pin ``archive_date`` (YYYY-MM-DD) for a dated monthly archive.",
+      "properties": {
+        "archive_date": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Archive Date"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        }
+      },
+      "title": "HgncConfig",
+      "type": "object"
+    },
     "MetadataFallbackSpec": {
       "additionalProperties": false,
       "properties": {
@@ -1208,6 +1241,39 @@
       "title": "OutputsConfig",
       "type": "object"
     },
+    "PluginSource": {
+      "additionalProperties": false,
+      "description": "A source provided by an installed package through the ``alien.sources`` entry-point group.",
+      "properties": {
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "options": {
+          "additionalProperties": true,
+          "default": {},
+          "title": "Options",
+          "type": "object"
+        },
+        "plugin": {
+          "minLength": 1,
+          "title": "Plugin",
+          "type": "string"
+        },
+        "type": {
+          "const": "plugin",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "plugin"
+      ],
+      "title": "PluginSource",
+      "type": "object"
+    },
     "ProjectConfig": {
       "additionalProperties": false,
       "properties": {
@@ -1585,6 +1651,13 @@
         "use_hgnc_alias_mapping": true
       }
     },
+    "hgnc": {
+      "$ref": "#/$defs/HgncConfig",
+      "default": {
+        "archive_date": null,
+        "url": null
+      }
+    },
     "ncbi_gene": {
       "$ref": "#/$defs/NcbiGeneConfig",
       "default": {
@@ -1680,6 +1753,7 @@
             "msigdb_cache": "#/$defs/MsigdbCacheSource",
             "msigdb_remote": "#/$defs/MsigdbRemoteSource",
             "msigdb_tsv": "#/$defs/MsigdbTsvSource",
+            "plugin": "#/$defs/PluginSource",
             "symbol_gmt": "#/$defs/SymbolGmtSource"
           },
           "propertyName": "type"
@@ -1702,6 +1776,9 @@
           },
           {
             "$ref": "#/$defs/EnrichrRemoteSource"
+          },
+          {
+            "$ref": "#/$defs/PluginSource"
           }
         ]
       },

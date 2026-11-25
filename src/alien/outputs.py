@@ -123,3 +123,29 @@ class StagedOutput:
 
     def discard(self) -> None:
         shutil.rmtree(self.staging, ignore_errors=True)
+
+
+def verify_output_dir(root: Path) -> list[str]:
+    """Problems found re-hashing ``root`` against its MANIFEST.json (empty when everything matches)."""
+    import json  # noqa: PLC0415
+
+    manifest_path = root / MANIFEST_NAME
+    if not manifest_path.exists():
+        return [f"{manifest_path} does not exist"]
+    try:
+        files = json.loads(manifest_path.read_text(encoding="utf-8"))["files"]
+    except (OSError, ValueError, KeyError) as exc:
+        return [f"{manifest_path} is unreadable: {exc}"]
+    problems = []
+    for rel, entry in sorted(files.items()):
+        path = root / rel
+        if not path.is_file():
+            problems.append(f"missing: {rel}")
+        elif path.stat().st_size != entry.get("size") or sha256_file(path) != entry.get("sha256"):
+            problems.append(f"changed: {rel}")
+    listed = set(files) | {MANIFEST_NAME}
+    for path in sorted(root.rglob("*")):
+        rel = path.relative_to(root).as_posix()
+        if path.is_file() and rel not in listed and not rel.startswith(f"{FAILED_DIR}/"):
+            problems.append(f"unexpected: {rel}")
+    return problems

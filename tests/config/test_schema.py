@@ -28,7 +28,7 @@ def _write(path: Path, data: dict[str, object]) -> Path:
         (
             {
                 "targets": [
-                    {"name": "a", "annotation": {"version": "47"}},
+                    {"name": "a", "annotation": {"source": "GENCODE", "version": "47"}},
                     {"name": "b", "annotation": {"versoin": "1"}},
                 ]
             },
@@ -52,7 +52,7 @@ def test_config_without_sources_is_rejected() -> None:
 
 
 def test_duplicate_target_names_are_rejected() -> None:
-    target = {"name": "same", "annotation": {"version": "47"}}
+    target = {"name": "same", "annotation": {"source": "GENCODE", "version": "47"}}
     with pytest.raises(ConfigError, match="repeated: same"):
         load_config({"sources": [SOURCE], "targets": [target, target]})
 
@@ -62,7 +62,11 @@ def test_term_id_collisions_shorthand() -> None:
 
 
 def test_deprecated_gene_id_aliases_warn_and_map(tmp_path: Path) -> None:
-    target = {"name": "t", "annotation": {"version": "47"}, "output_genes": {"file": "g.tsv", "gene_column": "id"}}
+    target = {
+        "name": "t",
+        "annotation": {"source": "GENCODE", "version": "47"},
+        "output_genes": {"file": "g.tsv", "gene_column": "id"},
+    }
     with pytest.warns(DeprecationWarning) as record:
         cfg = load_config(_write(tmp_path / "c.yml", {"sources": [SOURCE], "targets": [target]}))
     messages = " ".join(str(item.message) for item in record)

@@ -21,8 +21,8 @@ class SourceError(AlienError, ValueError):
     exit_code = 3
 
 
-class TermIdCollisionError(SourceError):
-    """Two sources produced the same term_id with different identities."""
+class TermIdCollisionError(SourceError, RuntimeError):
+    """Two sources produced the same term_id with different identities (a RuntimeError for 0.1.x callers)."""
 
 
 class ResourceError(AlienError, RuntimeError):

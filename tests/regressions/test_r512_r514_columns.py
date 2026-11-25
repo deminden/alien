@@ -33,21 +33,25 @@ def test_mapping_summary_counts_size_losses_per_source_tag(mini_world: MiniWorld
 
 
 def test_archive_cache_defaults_to_alien_sources(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from alien.mapping import _build_archive_resolver
+    from alien.cache import ResourceCache
+    from alien.config import load_config
+    from alien.resources.ensembl_archive import build_archive_resolver
 
     monkeypatch.chdir(tmp_path)
-    resolver = _build_archive_resolver(None, {"ensembl_archive": {"enabled": True}})
+    config = load_config({"sources": [{"type": "symbol_gmt", "path": "x.gmt"}]})
+    resolver = build_archive_resolver(config.ensembl_archive, ResourceCache(config.project.source_dir))
     assert resolver is not None
     assert resolver.cache_path == Path("data/alien_sources/ensembl_archive/archive_id_cache.json")
 
 
 def test_symbol_rows_in_output_genes_do_not_leak_into_ensembl_column(caplog: pytest.LogCaptureFixture) -> None:
-    from alien.sources import read_output_genes
+    from alien.config.schema import GeneIdSpec
+    from alien.resources.output_genes import read_gene_id_list
 
     with caplog.at_level(logging.WARNING, logger="alien"):
-        ids, table, _ = read_output_genes(None, ids=["ENSG00000000101.2", "TP53", "ENSG00000000102"])
-    assert ids == {"ENSG00000000101", "ENSG00000000102"}
-    symbol_row = table[table["input_gene_id"].eq("TP53")].iloc[0]
+        result = read_gene_id_list(GeneIdSpec(ids=["ENSG00000000101.2", "TP53", "ENSG00000000102"]))
+    assert result.ids == {"ENSG00000000101", "ENSG00000000102"}
+    symbol_row = result.table[result.table["input_gene_id"].eq("TP53")].iloc[0]
     assert symbol_row["ensembl_gene_id"] == ""
     assert symbol_row["id_type"] == "symbol"
     assert "1 output gene row" in caplog.text

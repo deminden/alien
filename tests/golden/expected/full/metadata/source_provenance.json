@@ -1,4 +1,5 @@
 {
+  "cache_mode": "online",
   "configured_sources": [
     {
       "aspect": "pathway",
@@ -103,24 +104,6 @@
       "role": "target:fixture_measured:output_genes",
       "sha256": "60a8be9bf2f35158c339a7a442f55a946c8d7d22fbf6ebd8b4bb9cd4feffeb0f",
       "size": 248
-    },
-    {
-      "path": "<ROOT>/sources/hgnc/hgnc_complete_set.txt",
-      "role": "HGNC",
-      "sha256": "8717e4330d881b71958dc2207ab2cc4838133cbdbfb468b9571b8d7e6c36fbd5",
-      "size": 457
-    },
-    {
-      "path": "<ROOT>/sources/ncbi_gene/Homo_sapiens.gene_info.gz",
-      "role": "NCBI_Gene",
-      "sha256": "b1a112c35e683833d1d60a964dc3abd63edc5fcf05eefce4ebc9df0276603889",
-      "size": 187
-    },
-    {
-      "path": "<ROOT>/sources/ncbi_gene/gene_history.gz",
-      "role": "NCBI_Gene",
-      "sha256": "8ea36aad53f884eaa72be86080fb1a96c0170aa82d40a17cbb0fb4e3c6d60a7f",
-      "size": 137
     }
   ],
   "output_schema_version": 2,
@@ -131,24 +114,29 @@
     "linkage": "single"
   },
   "resources": {
-    "Ensembl_archive": {
-      "endpoint": "https://rest.ensembl.org/archive/id",
-      "local_cache_file": "<ROOT>/sources/ensembl_archive/archive_id_cache.json"
+    "ensembl_archive:lookups": {
+      "path": "ensembl_archive/archive_id_cache.json",
+      "sha256": "f705ce5d57435f5e97dcb63c4c31369b902b15c43fec761752f86ff767aeb8c0",
+      "size": 286,
+      "url": "https://rest.ensembl.org/archive/id"
     },
-    "HGNC": {
-      "local_file": "<ROOT>/sources/hgnc/hgnc_complete_set.txt",
-      "urls": [
-        "https://ftp.ebi.ac.uk/pub/databases/genenames/hgnc/tsv/hgnc_complete_set.txt",
-        "https://storage.googleapis.com/public-download-files/hgnc/tsv/tsv/hgnc_complete_set.txt"
-      ]
+    "hgnc": {
+      "path": "hgnc/hgnc_complete_set.txt",
+      "sha256": "8717e4330d881b71958dc2207ab2cc4838133cbdbfb468b9571b8d7e6c36fbd5",
+      "size": 457,
+      "url": "https://ftp.ebi.ac.uk/pub/databases/genenames/hgnc/tsv/hgnc_complete_set.txt"
     },
-    "NCBI_Gene": {
-      "allowed_source_tags": [
-        "DEPMAP"
-      ],
-      "gene_history_url": "https://ftp.ncbi.nlm.nih.gov/gene/DATA/gene_history.gz",
-      "gene_info_url": "https://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz",
-      "use_gene_info_synonyms": true
+    "ncbi_gene:gene_history": {
+      "path": "ncbi_gene/gene_history.gz",
+      "sha256": "8ea36aad53f884eaa72be86080fb1a96c0170aa82d40a17cbb0fb4e3c6d60a7f",
+      "size": 137,
+      "url": "https://ftp.ncbi.nlm.nih.gov/gene/DATA/gene_history.gz"
+    },
+    "ncbi_gene:gene_info": {
+      "path": "ncbi_gene/Homo_sapiens.gene_info.gz",
+      "sha256": "b1a112c35e683833d1d60a964dc3abd63edc5fcf05eefce4ebc9df0276603889",
+      "size": 187,
+      "url": "https://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz"
     }
   },
   "tool": "ALIEN",
