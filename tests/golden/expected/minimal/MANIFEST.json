@@ -1,0 +1,22 @@
+{
+  "alien_version": "0.1.6",
+  "files": [
+    "gmt/fixture_annotation.gmt",
+    "gmt/fixture_measured.gmt",
+    "gmt/symbols.gmt",
+    "metadata/effective_config.yml",
+    "metadata/source_manifest.tsv",
+    "metadata/source_provenance.json",
+    "metadata/target_gene_filter.tsv.gz",
+    "metadata/target_metadata_fallbacks.tsv",
+    "metadata/target_output_genes.tsv.gz",
+    "metadata/term_manifest.tsv.gz",
+    "qc/mapping_summary.tsv",
+    "qc/redundancy_summary.tsv",
+    "qc/target_namespace_summary.tsv",
+    "qc/warnings.txt"
+  ],
+  "output_mode": "minimal",
+  "output_schema_version": 2,
+  "tool": "ALIEN"
+}

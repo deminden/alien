@@ -1,7 +1,6 @@
 project:
   name: alien
   source_dir: <ROOT>/sources
-  outdir: <ROOT>/out
 outputs:
   include_symbols: true
 term_id_collisions:

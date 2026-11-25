@@ -40,6 +40,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     build_parser.add_argument("--dry-run", action="store_true", help="Validate configuration and report planned output")
     build_parser.add_argument(
+        "--force", action="store_true", help="Replace --outdir even when it is not an earlier ALIEN build"
+    )
+    build_parser.add_argument(
         "--force-download", action="store_true", help="Refresh mapping-resource downloads and caches"
     )
 
@@ -63,7 +66,11 @@ def main(argv: list[str] | None = None) -> int:
             dry_run=args.dry_run,
             force_download=args.force_download,
             output_mode=args.output_mode,
+            force=args.force,
         )
+        if args.dry_run:
+            print("\n".join(result.plan))
+            return 0
         print(f"Wrote ALIEN outputs under {result.outdir}")
         if result.namespaces:
             print("Namespaces: " + ", ".join(result.namespaces))

@@ -1,0 +1,11 @@
+{
+  "alien_version": "0.1.6",
+  "files": [
+    "gmt/fixture_annotation.gmt",
+    "gmt/fixture_measured.gmt",
+    "gmt/symbols.gmt"
+  ],
+  "output_mode": "gmt",
+  "output_schema_version": 2,
+  "tool": "ALIEN"
+}

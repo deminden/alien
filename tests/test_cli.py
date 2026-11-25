@@ -11,7 +11,7 @@ def test_cli_uses_config_outdir_when_outdir_override_is_omitted(tmp_path, monkey
 
     def fake_build(**kwargs):
         call.update(kwargs)
-        return SimpleNamespace(outdir=Path("configured-out"), namespaces=("symbols",))
+        return SimpleNamespace(outdir=Path("configured-out"), namespaces=("symbols",), plan=())
 
     monkeypatch.setattr(cli, "build", fake_build)
 
@@ -28,7 +28,7 @@ def test_cli_outdir_argument_overrides_config_outdir(tmp_path, monkeypatch):
 
     def fake_build(**kwargs):
         call.update(kwargs)
-        return SimpleNamespace(outdir=override, namespaces=("symbols",))
+        return SimpleNamespace(outdir=override, namespaces=("symbols",), plan=())
 
     monkeypatch.setattr(cli, "build", fake_build)
 
@@ -45,7 +45,7 @@ def test_cli_accepts_positional_preset_with_overrides(tmp_path, monkeypatch):
 
     def fake_build(**kwargs):
         call.update(kwargs)
-        return SimpleNamespace(outdir=outdir, namespaces=("tcga_recount3_gencode29",))
+        return SimpleNamespace(outdir=outdir, namespaces=("tcga_recount3_gencode29",), plan=())
 
     monkeypatch.setattr(cli, "build", fake_build)
 
@@ -81,7 +81,7 @@ def test_cli_accepts_positional_config_path(tmp_path, monkeypatch):
 
     def fake_build(**kwargs):
         call.update(kwargs)
-        return SimpleNamespace(outdir=Path("configured-out"), namespaces=("symbols",))
+        return SimpleNamespace(outdir=Path("configured-out"), namespaces=("symbols",), plan=())
 
     monkeypatch.setattr(cli, "build", fake_build)
 
@@ -94,7 +94,7 @@ def test_cli_config_option_treats_value_as_path(monkeypatch):
 
     def fake_build(**kwargs):
         call.update(kwargs)
-        return SimpleNamespace(outdir=Path("configured-out"), namespaces=("symbols",))
+        return SimpleNamespace(outdir=Path("configured-out"), namespaces=("symbols",), plan=())
 
     monkeypatch.setattr(cli, "build", fake_build)
 

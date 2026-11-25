@@ -68,7 +68,7 @@ sources:
         encoding="utf-8",
     )
 
-    def fake_build_to_output_dir(cfg, output_dir, source_dir, worker_count, dry_run, force_download):
+    def fake_build_to_output_dir(cfg, output_dir, source_dir, worker_count, force_download, report_dir):
         captured.update({"cfg": cfg, "output_dir": output_dir, "source_dir": source_dir, "worker_count": worker_count})
         return BuildResult(
             outdir=output_dir, namespaces=("symbols",), n_source_memberships=1, n_source_terms=1, warnings=()
@@ -76,7 +76,7 @@ sources:
 
     monkeypatch.setattr(build_module, "_build_to_output_dir", fake_build_to_output_dir)
 
-    run_build(config=base, overrides=[overlay1, overlay2], outdir=outdir, source_dir=source_dir, workers=8)
+    result = run_build(config=base, overrides=[overlay1, overlay2], outdir=outdir, source_dir=source_dir, workers=8)
 
     assert captured["cfg"]["project"]["outdir"] == str(outdir)
     assert captured["cfg"]["project"]["source_dir"] == str(source_dir)
@@ -85,7 +85,9 @@ sources:
     assert captured["cfg"]["filtering"]["max_size_default"] == 77
     # Relative paths in an overlay file resolve against that file's directory.
     assert captured["cfg"]["sources"] == [{"type": "symbol_gmt", "path": str(tmp_path / "overlay2.gmt")}]
-    assert captured["output_dir"] == outdir
+    # The build runs in a hidden staging sibling that is swapped into place.
+    assert captured["output_dir"].parent == outdir.parent
+    assert result.outdir == outdir
     assert captured["source_dir"] == source_dir
     assert captured["worker_count"] == 8
 
@@ -98,7 +100,7 @@ def test_output_mode_gmt_copies_only_gmt_files(tmp_path, monkeypatch):
     result = run_build(outdir=outdir, output_mode="gmt")
 
     assert result.outdir == outdir
-    assert _files_under(outdir) == {"gmt/symbols.gmt"}
+    assert _files_under(outdir) == {"gmt/symbols.gmt", "MANIFEST.json"}
 
 
 def test_output_mode_minimal_copies_reproducibility_pack(tmp_path, monkeypatch):
@@ -109,11 +111,10 @@ def test_output_mode_minimal_copies_reproducibility_pack(tmp_path, monkeypatch):
     result = run_build(outdir=outdir, output_mode="minimal")
 
     assert result.outdir == outdir
-    assert _files_under(outdir) == MINIMAL_OUTPUTS
+    assert _files_under(outdir) == MINIMAL_OUTPUTS | {"MANIFEST.json"}
 
 
-def _fake_staged_build(cfg, output_dir, source_dir, worker_count, dry_run, force_download):
-    assert not dry_run
+def _fake_staged_build(cfg, output_dir, source_dir, worker_count, force_download, report_dir):
     for relative_path in MINIMAL_OUTPUTS | {"metadata/gene_symbol_master.tsv.gz", "qc/extra.tsv"}:
         path = output_dir / relative_path
         path.parent.mkdir(parents=True, exist_ok=True)

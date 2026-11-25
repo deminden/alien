@@ -19,7 +19,15 @@ from alien import build
 FIXTURE = Path(__file__).with_name("fixture")
 EXPECTED = Path(__file__).with_name("expected")
 UPDATE = os.environ.get("ALIEN_UPDATE_GOLDEN") == "1"
-VOLATILE_JSON_KEYS = {"created_at", "packages", "python_version", "platform", "alien_version", "git_describe"}
+VOLATILE_JSON_KEYS = {
+    "workers",
+    "created_at",
+    "packages",
+    "python_version",
+    "platform",
+    "alien_version",
+    "git_describe",
+}
 
 
 def _normalize_json(value: object) -> object:
@@ -30,31 +38,16 @@ def _normalize_json(value: object) -> object:
     return value
 
 
-def _drop_column(text: str, column: str) -> str:
-    lines = text.splitlines()
-    if not lines or column not in lines[0].split("\t"):
-        return text
-    index = lines[0].split("\t").index(column)
-    kept = ["\t".join(cell for i, cell in enumerate(line.split("\t")) if i != index) for line in lines]
-    return "\n".join(kept) + "\n"
-
-
 def _normalized_text(path: Path, root: Path) -> str:
     data = gzip.decompress(path.read_bytes()) if path.suffix == ".gz" else path.read_bytes()
     text = data.decode("utf-8").replace(str(root), "<ROOT>")
-    name = path.name[:-3] if path.name.endswith(".gz") else path.name
     text = re.sub(r"\bworkers: [0-9]+", "workers: <N>", text)
-    if name == "term_manifest.tsv":
-        text = _drop_column(text, "created_at")
     if path.name == "source_provenance.json":
         text = json.dumps(_normalize_json(json.loads(text)), indent=2, sort_keys=True) + "\n"
     if path.name == "MANIFEST.json":
         manifest = json.loads(text)
-        manifest["files"] = {
-            name: entry
-            for name, entry in manifest.get("files", {}).items()
-            if not name.endswith("source_provenance.json")
-        }
+        # Hashes depend on the temporary root embedded in some files; each file's content is compared on its own.
+        manifest["files"] = sorted(manifest.get("files", {}))
         text = json.dumps(manifest, indent=2, sort_keys=True) + "\n"
     return text
 

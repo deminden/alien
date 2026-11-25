@@ -421,7 +421,7 @@ def test_build_errors_and_writes_audit_for_conflicting_term_ids(tmp_path):
     with pytest.raises(RuntimeError, match="conflicting term/source identities"):
         build(config=cfg, outdir=outdir, workers=1)
 
-    audit_path = outdir / "metadata" / "term_id_collisions.tsv"
+    audit_path = outdir / "failed" / "metadata" / "term_id_collisions.tsv"
     assert audit_path.exists()
     audit = pd.read_csv(audit_path, sep="\t", dtype=str)
     assert audit["term_id"].unique().tolist() == ["SHARED_TERM"]

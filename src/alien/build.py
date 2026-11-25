@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-import shutil
-import tempfile
+import sys
 from collections.abc import Sequence
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -12,10 +11,14 @@ import pandas as pd
 import yaml
 
 from .config import finalize_config, load_config, merge_config, read_config_file
+from .dryrun import dry_run_plan
 from .filtering import apply_size_and_broad_filters, remove_redundancy
+from .io.atomic import atomic_write_text
 from .mapping import map_namespaces
+from .outputs import StagedOutput, prune_to_mode, write_manifest
 from .presets import is_preset_name, load_preset_config
 from .reports import (
+    OUTPUT_SCHEMA_VERSION,
     build_source_manifest,
     build_source_provenance,
     build_term_manifest,
@@ -45,6 +48,7 @@ from .utils import (
     write_gmt,
     write_tsv_gz,
 )
+from .version import __version__
 
 DEFAULT_OUTDIR = Path("data/alien_gmt")
 TERM_ID_IDENTITY_COLUMNS = [
@@ -71,6 +75,7 @@ class BuildResult:
     n_source_memberships: int
     n_source_terms: int
     warnings: tuple[str, ...]
+    plan: tuple[str, ...] = ()
 
 
 def build(
@@ -82,6 +87,7 @@ def build(
     force_download: bool = False,
     output_mode: str = "full",
     overrides: Sequence[str | Path | dict[str, Any]] | None = None,
+    force: bool = False,
 ) -> BuildResult:
     setup_logging()
     cfg = _coerce_config(config, overrides=overrides)
@@ -100,34 +106,33 @@ def build(
     output_dir = Path(cfg.get("project", {}).get("outdir", DEFAULT_OUTDIR))
     source_dir = Path(cfg.get("project", {}).get("source_dir", "data/alien_sources"))
 
-    if dry_run or mode == "full":
-        return _build_to_output_dir(
-            cfg,
-            output_dir=output_dir,
-            source_dir=source_dir,
-            worker_count=worker_count,
-            dry_run=dry_run,
-            force_download=force_download,
-        )
+    if dry_run:
+        plan = dry_run_plan(cfg, source_dir, output_dir, mode, worker_count)
+        for line in plan:
+            LOGGER.info("%s", line)
+        return BuildResult(output_dir, tuple(_configured_namespace_names(cfg)), 0, 0, (), tuple(plan))
 
-    with tempfile.TemporaryDirectory(prefix="alien-build-") as temp_dir:
-        staged_output_dir = Path(temp_dir) / "out"
-        staged_result = _build_to_output_dir(
+    staged = StagedOutput(output_dir, force=force)
+    try:
+        result = _build_to_output_dir(
             cfg,
-            output_dir=staged_output_dir,
+            output_dir=staged.staging,
             source_dir=source_dir,
             worker_count=worker_count,
-            dry_run=False,
             force_download=force_download,
+            report_dir=staged.failed_dir,
         )
-        _copy_staged_outputs(staged_output_dir, output_dir, mode)
-        return BuildResult(
-            outdir=output_dir,
-            namespaces=staged_result.namespaces,
-            n_source_memberships=staged_result.n_source_memberships,
-            n_source_terms=staged_result.n_source_terms,
-            warnings=staged_result.warnings,
-        )
+        prune_to_mode(staged.staging, mode)
+        write_manifest(staged.staging, mode=mode, alien_version=__version__, schema_version=OUTPUT_SCHEMA_VERSION)
+        staged.commit()
+    except BaseException:
+        if isinstance(sys.exc_info()[1], Exception):
+            failed = staged.fail()
+            LOGGER.error("Build failed; diagnostics kept under %s", failed)
+        else:
+            staged.discard()
+        raise
+    return replace(result, outdir=output_dir)
 
 
 def _build_to_output_dir(
@@ -135,18 +140,12 @@ def _build_to_output_dir(
     output_dir: Path,
     source_dir: Path,
     worker_count: int,
-    dry_run: bool,
     force_download: bool,
+    report_dir: Path,
 ) -> BuildResult:
     metadata_dir = output_dir / "metadata"
     qc_dir = output_dir / "qc"
     gmt_dir = output_dir / "gmt"
-
-    if dry_run:
-        LOGGER.info(
-            "Dry run: would build ALIEN GMT outputs under %s with %d worker process(es).", output_dir, worker_count
-        )
-        return BuildResult(output_dir, tuple(_configured_namespace_names(cfg)), 0, 0, tuple())
 
     ensure_dirs(metadata_dir, qc_dir, gmt_dir)
     _write_effective_config(cfg, metadata_dir / "effective_config.yml")
@@ -162,7 +161,7 @@ def _build_to_output_dir(
     LOGGER.info(
         "Loaded %d source gene memberships across %d terms", len(source_terms), source_terms["term_id"].nunique()
     )
-    _check_term_id_collisions(source_terms, metadata_dir, cfg, warnings)
+    _check_term_id_collisions(source_terms, metadata_dir, cfg, warnings, report_dir / "metadata")
 
     LOGGER.info("Loading mapping resources")
     hgnc_maps = load_hgnc(source_dir, force=force_download)
@@ -336,10 +335,15 @@ def _normalize_output_mode(output_mode: str) -> str:
     return mode
 
 
+def effective_config_text(cfg: dict[str, Any]) -> str:
+    """The effective config as YAML; project.outdir is omitted because the file lives inside it."""
+    safe = _yaml_safe_config(cfg)
+    safe.get("project", {}).pop("outdir", None)
+    return yaml.safe_dump(safe, sort_keys=False)
+
+
 def _write_effective_config(cfg: dict[str, Any], path: Path) -> None:
-    ensure_dirs(path.parent)
-    with path.open("w", encoding="utf-8") as handle:
-        yaml.safe_dump(_yaml_safe_config(cfg), handle, sort_keys=False)
+    atomic_write_text(path, effective_config_text(cfg))
 
 
 def _yaml_safe_config(value: Any) -> Any:
@@ -352,40 +356,6 @@ def _yaml_safe_config(value: Any) -> Any:
     if isinstance(value, tuple):
         return [_yaml_safe_config(item) for item in value]
     return value
-
-
-def _copy_staged_outputs(staged_output_dir: Path, final_output_dir: Path, mode: str) -> None:
-    relative_paths = _selected_output_paths(staged_output_dir, mode)
-    for relative_path in relative_paths:
-        source = staged_output_dir / relative_path
-        if not source.exists():
-            continue
-        destination = final_output_dir / relative_path
-        ensure_dirs(destination.parent)
-        shutil.copy2(source, destination)
-
-
-def _selected_output_paths(staged_output_dir: Path, mode: str) -> list[Path]:
-    paths = [path.relative_to(staged_output_dir) for path in sorted((staged_output_dir / "gmt").glob("*.gmt"))]
-    if mode == "gmt":
-        return paths
-    paths.extend(
-        Path(path)
-        for path in [
-            "metadata/effective_config.yml",
-            "metadata/source_manifest.tsv",
-            "metadata/source_provenance.json",
-            "metadata/term_manifest.tsv.gz",
-            "metadata/target_metadata_fallbacks.tsv",
-            "metadata/target_output_genes.tsv.gz",
-            "metadata/target_gene_filter.tsv.gz",
-            "qc/target_namespace_summary.tsv",
-            "qc/mapping_summary.tsv",
-            "qc/redundancy_summary.tsv",
-            "qc/warnings.txt",
-        ]
-    )
-    return paths
 
 
 def _configured_namespace_names(cfg: dict[str, Any]) -> list[str]:
@@ -406,6 +376,7 @@ def _check_term_id_collisions(
     metadata_dir: Path,
     cfg: dict[str, Any],
     warnings: list[str],
+    report_metadata_dir: Path,
 ) -> None:
     audit = _term_id_collision_audit(source_terms)
     if audit.empty:
@@ -426,14 +397,13 @@ def _check_term_id_collisions(
     audit.to_csv(audit_path, sep="\t", index=False)
     n_terms = int(audit["term_id"].nunique())
     n_signatures = len(audit)
-    message = (
-        f"Detected {n_signatures} conflicting term/source identities across {n_terms} term_id value(s); "
-        f"see {audit_path}."
-    )
+    message = f"Detected {n_signatures} conflicting term/source identities across {n_terms} term_id value(s)."
     if action == "error":
         raise RuntimeError(
-            f"{message} Rename or prefix the colliding term IDs, or set term_id_collisions.action explicitly."
+            f"{message} See {report_metadata_dir / audit_path.name}. Rename or prefix the colliding term IDs, "
+            "or set term_id_collisions.action explicitly."
         )
+    message = f"{message} See metadata/{audit_path.name}."
     warnings.append(f"{message} Continuing because term_id_collisions.action is {action!r}.")
     LOGGER.warning("%s Continuing because term_id_collisions.action is %r.", message, action)
 
