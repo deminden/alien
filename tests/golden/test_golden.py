@@ -21,6 +21,7 @@ EXPECTED = Path(__file__).with_name("expected")
 UPDATE = os.environ.get("ALIEN_UPDATE_GOLDEN") == "1"
 VOLATILE_JSON_KEYS = {
     "workers",
+    "config_sha256",
     "created_at",
     "packages",
     "python_version",

@@ -55,44 +55,94 @@
       "type": "ensembl_gtf"
     }
   ],
+  "input_files": [
+    {
+      "path": "<ROOT>/inputs/msigdb_like.tsv",
+      "role": "sources[0]",
+      "sha256": "e58a650d384789a7853a7c4271aa394bdf90972754a6b692e0680aec06280245",
+      "size": 950
+    },
+    {
+      "path": "<ROOT>/inputs/canonical.tsv",
+      "role": "sources[1]",
+      "sha256": "80756c16362e58aff0951489d92a73c26bc8b816374d5c44131f6e2071fcd862",
+      "size": 878
+    },
+    {
+      "path": "<ROOT>/inputs/local_pathways.gmt",
+      "role": "sources[2]",
+      "sha256": "2cce2a11f311af9956b81877aa3ab8aa75917cb5e7ba4e3dfe180a39bff6a56c",
+      "size": 137
+    },
+    {
+      "path": "<ROOT>/inputs/local_disease.gmt",
+      "role": "sources[3]",
+      "sha256": "7c83a8657f96a95f924d15fd2abc3d41198fdb4ad373ddea9d4911ce5fd3db63",
+      "size": 117
+    },
+    {
+      "path": "<ROOT>/inputs/genes.gtf",
+      "role": "target:fixture_annotation:annotation",
+      "sha256": "ebfaeb09be1195f7069c3c3bdf29e7a8524318b7bc9b261fc128aeb1a493998a",
+      "size": 2439
+    },
+    {
+      "path": "<ROOT>/inputs/genes.gtf",
+      "role": "target:fixture_measured:annotation",
+      "sha256": "ebfaeb09be1195f7069c3c3bdf29e7a8524318b7bc9b261fc128aeb1a493998a",
+      "size": 2439
+    },
+    {
+      "path": "<ROOT>/inputs/output_genes.tsv",
+      "role": "target:fixture_measured:output_genes",
+      "sha256": "60a8be9bf2f35158c339a7a442f55a946c8d7d22fbf6ebd8b4bb9cd4feffeb0f",
+      "size": 248
+    },
+    {
+      "path": "<ROOT>/sources/hgnc/hgnc_complete_set.txt",
+      "role": "HGNC",
+      "sha256": "8717e4330d881b71958dc2207ab2cc4838133cbdbfb468b9571b8d7e6c36fbd5",
+      "size": 457
+    },
+    {
+      "path": "<ROOT>/sources/ncbi_gene/Homo_sapiens.gene_info.gz",
+      "role": "NCBI_Gene",
+      "sha256": "b1a112c35e683833d1d60a964dc3abd63edc5fcf05eefce4ebc9df0276603889",
+      "size": 187
+    },
+    {
+      "path": "<ROOT>/sources/ncbi_gene/gene_history.gz",
+      "role": "NCBI_Gene",
+      "sha256": "8ea36aad53f884eaa72be86080fb1a96c0170aa82d40a17cbb0fb4e3c6d60a7f",
+      "size": 137
+    }
+  ],
   "output_schema_version": 2,
-  "reference_facts": {
-    "msigdb_target_release": "2026.1.Hs",
-    "official_v0_1_scope": "human gene sets with HGNC symbols and Ensembl target namespaces"
+  "redundancy": {
+    "apply_per_family": true,
+    "exact_duplicate_removal": true,
+    "jaccard_cutoff": 0.7,
+    "linkage": "single"
   },
-  "sources": {
+  "resources": {
     "Ensembl_archive": {
-      "license_note": "Ensembl REST archive stable-ID lookup; cached for reproducible reruns.",
-      "local_cache_file": "<ROOT>/sources/ensembl_archive/archive_id_cache.json",
-      "source_url": "https://rest.ensembl.org/archive/id"
+      "endpoint": "https://rest.ensembl.org/archive/id",
+      "local_cache_file": "<ROOT>/sources/ensembl_archive/archive_id_cache.json"
     },
     "HGNC": {
-      "license_note": "HGNC data license and attribution terms apply.",
-      "local_raw_file": "<ROOT>/sources/hgnc/hgnc_complete_set.txt",
-      "source_url": "https://ftp.ebi.ac.uk/pub/databases/genenames/hgnc/tsv/hgnc_complete_set.txt"
-    },
-    "MSigDB": {
-      "db_version": "",
-      "license_note": "MSigDB license and attribution terms apply.",
-      "local_raw_dir": "<ROOT>/sources/msigdb",
-      "source_url": "https://www.gsea-msigdb.org/gsea/msigdb",
-      "target_release": "2026.1.Hs"
+      "local_file": "<ROOT>/sources/hgnc/hgnc_complete_set.txt",
+      "urls": [
+        "https://ftp.ebi.ac.uk/pub/databases/genenames/hgnc/tsv/hgnc_complete_set.txt",
+        "https://storage.googleapis.com/public-download-files/hgnc/tsv/tsv/hgnc_complete_set.txt"
+      ]
     },
     "NCBI_Gene": {
+      "allowed_source_tags": [
+        "DEPMAP"
+      ],
       "gene_history_url": "https://ftp.ncbi.nlm.nih.gov/gene/DATA/gene_history.gz",
       "gene_info_url": "https://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz",
-      "license_note": "NCBI Gene history and gene info are used only as a lower-confidence audited rescue layer.",
-      "local_cache_file": "<ROOT>/sources/ncbi_gene/ncbi_gene_symbol_rescue.tsv.gz"
-    },
-    "Target_annotation__fixture_annotation": {
-      "annotation": "Fixture v1",
-      "license_note": "Target annotation GTF; used as a symbol/metadata helper unless it also defines the target ID set.",
-      "local_cache_file": "<ROOT>/inputs/genes.gtf"
-    },
-    "Target_annotation__fixture_measured": {
-      "annotation": "Fixture v1",
-      "license_note": "Target annotation GTF; used as a symbol/metadata helper unless it also defines the target ID set.",
-      "local_cache_file": "<ROOT>/inputs/genes.gtf"
+      "use_gene_info_synonyms": true
     }
   },
   "tool": "ALIEN",

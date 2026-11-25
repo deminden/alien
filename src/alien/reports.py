@@ -1,14 +1,30 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import platform
+import subprocess
+from importlib import metadata
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
-from .sources import gencode_annotation_url
+from .dryrun import LOCAL_SOURCE_TYPES
+from .outputs import sha256_file
+from .sources import (
+    ENRICHR_BASE_URL,
+    HGNC_FALLBACK_URLS,
+    HGNC_URL,
+    NCBI_GENE_HISTORY_URL,
+    NCBI_GENE_INFO_URL,
+    _msigdb_release_info,
+    _source_paths,
+)
 from .utils import ensure_dirs, utc_now, write_json
+from .version import __version__
+
+RUNTIME_PACKAGES = ("pandas", "pyarrow", "PyYAML", "rdata", "requests", "urllib3", "pydantic", "filelock")
 
 
 def build_source_provenance(
@@ -16,102 +32,137 @@ def build_source_provenance(
     source_dir: Path,
     targets: list[dict[str, Any]],
     warnings: list[str],
+    *,
+    workers: int = 1,
+    effective_config_text: str = "",
 ) -> dict[str, Any]:
-    # Record source versions and local cache paths.
-    msigdb_dir = source_dir / "msigdb"
-    db_version_path = msigdb_dir / "db_version.txt"
-    db_version = db_version_path.read_text(encoding="utf-8").strip() if db_version_path.exists() else ""
-    target_records = [
-        {
-            "name": target.get("name", ""),
-            "type": target.get("type", ""),
-            "annotation": target.get("annotation_label", ""),
-            "annotation_path": str(target.get("annotation_path") or target.get("annotation_gtf", "")),
-            "metadata_fallbacks": target.get("metadata_fallbacks", []),
-            "output_genes_path": str(target.get("output_source_path") or ""),
-            "output_genes_id_column": str(target.get("output_id_column") or ""),
-            "output_genes_symbol_column": str(target.get("output_symbol_column") or ""),
-            "gene_filter_path": str(target.get("filter_source_path") or ""),
-            "gene_filter_column": str(target.get("filter_source_column") or ""),
-        }
-        for target in targets
-    ]
-    sources = {
-        "MSigDB": {
-            "target_release": "2026.1.Hs",
-            "db_version": db_version,
-            "source_url": "https://www.gsea-msigdb.org/gsea/msigdb",
-            "local_raw_dir": str(msigdb_dir),
-            "license_note": "MSigDB license and attribution terms apply.",
-        },
-        "HGNC": {
-            "source_url": "https://ftp.ebi.ac.uk/pub/databases/genenames/hgnc/tsv/hgnc_complete_set.txt",
-            "local_raw_file": str(source_dir / "hgnc" / "hgnc_complete_set.txt"),
-            "license_note": "HGNC data license and attribution terms apply.",
-        },
-        "NCBI_Gene": {
-            "gene_info_url": "https://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz",
-            "gene_history_url": "https://ftp.ncbi.nlm.nih.gov/gene/DATA/gene_history.gz",
-            "local_cache_file": str(source_dir / "ncbi_gene" / "ncbi_gene_symbol_rescue.tsv.gz"),
-            "license_note": "NCBI Gene history and gene info are used only as a lower-confidence audited rescue layer.",
-        },
-        "Ensembl_archive": {
-            "source_url": "https://rest.ensembl.org/archive/id",
-            "local_cache_file": str(source_dir / "ensembl_archive" / "archive_id_cache.json"),
-            "license_note": "Ensembl REST archive stable-ID lookup; cached for reproducible reruns.",
-        },
-    }
-    sources.update(_target_annotation_sources(targets))
+    """Record what this build actually read and how, assembled from the run rather than constants."""
     return {
-        "created_at": utc_now(),
         "tool": "ALIEN",
+        "alien_version": __version__,
+        "git_describe": _git_describe(),
         "output_schema_version": OUTPUT_SCHEMA_VERSION,
+        "created_at": utc_now(),
         "python_version": platform.python_version(),
+        "platform": platform.platform(),
         "packages": _python_packages(),
+        "config_sha256": hashlib.sha256(effective_config_text.encode("utf-8")).hexdigest(),
         "configured_sources": cfg.get("sources", []),
-        "configured_targets": target_records,
-        "sources": sources,
-        "reference_facts": {
-            "msigdb_target_release": "2026.1.Hs",
-            "official_v0_1_scope": "human gene sets with HGNC symbols and Ensembl target namespaces",
+        "configured_targets": [_target_record(target) for target in targets],
+        "input_files": _input_files(cfg, source_dir, targets),
+        "resources": _resources(cfg, source_dir),
+        "redundancy": {
+            "jaccard_cutoff": cfg.get("redundancy", {}).get("jaccard_cutoff"),
+            "linkage": cfg.get("redundancy", {}).get("linkage", "single"),
+            "exact_duplicate_removal": cfg.get("redundancy", {}).get("exact_duplicate_removal", True),
+            "apply_per_family": cfg.get("redundancy", {}).get("apply_per_family", True),
         },
-        "warnings": warnings,
+        "workers": workers,
+        "warnings": list(warnings),
     }
 
 
-def _target_annotation_sources(targets: list[dict[str, Any]]) -> dict[str, dict[str, str]]:
-    records: dict[str, dict[str, str]] = {}
+def _target_record(target: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "name": target.get("name", ""),
+        "type": target.get("type", ""),
+        "annotation": target.get("annotation_label", ""),
+        "annotation_path": str(target.get("annotation_path") or target.get("annotation_gtf", "")),
+        "metadata_fallbacks": target.get("metadata_fallbacks", []),
+        "output_genes_path": str(target.get("output_source_path") or ""),
+        "output_genes_id_column": str(target.get("output_id_column") or ""),
+        "output_genes_symbol_column": str(target.get("output_symbol_column") or ""),
+        "gene_filter_path": str(target.get("filter_source_path") or ""),
+        "gene_filter_column": str(target.get("filter_source_column") or ""),
+    }
+
+
+def _file_record(role: str, path: Path) -> dict[str, Any]:
+    record: dict[str, Any] = {"role": role, "path": str(path)}
+    if path.is_file():
+        record.update({"sha256": sha256_file(path), "size": path.stat().st_size})
+    return record
+
+
+def _input_files(cfg: dict[str, Any], source_dir: Path, targets: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    for index, spec in enumerate(cfg.get("sources", [])):
+        if spec.get("enabled", True) and spec.get("type") in LOCAL_SOURCE_TYPES:
+            records += [_file_record(f"sources[{index}]", path) for path in _source_paths(spec, source_dir)]
     for target in targets:
-        label = str(target.get("annotation_label", "")).strip()
-        path = str(target.get("annotation_path") or target.get("annotation_gtf", ""))
-        if not label and not path:
-            continue
-        key = f"Target_annotation__{target.get('name', 'unnamed')}"
-        record = {
-            "annotation": label,
-            "local_cache_file": path,
-            "license_note": "Target annotation GTF; used as a symbol/metadata helper unless it also defines the target ID set.",
-        }
-        if label.startswith("GENCODE v"):
-            version = label.replace("GENCODE v", "", 1)
-            try:
-                record["source_url"] = gencode_annotation_url(version)
-            except ValueError:
-                pass
-        records[key] = record
+        name = str(target.get("name", ""))
+        if target.get("annotation_path"):
+            records.append(_file_record(f"target:{name}:annotation", Path(target["annotation_path"])))
         for fallback in target.get("metadata_fallbacks", []):
-            fallback_label = str(fallback.get("annotation", "")).strip()
-            fallback_path = str(fallback.get("annotation_path", "")).strip()
-            fallback_index = fallback.get("fallback_index", "")
-            fallback_key = f"Target_metadata_fallback__{target.get('name', 'unnamed')}__{fallback_index}"
-            records[fallback_key] = {
-                "annotation": fallback_label,
-                "local_cache_file": fallback_path,
-                "mode": str(fallback.get("mode", "")),
-                "n_rows_added": str(fallback.get("n_rows_added", "")),
-                "license_note": "Target metadata fallback GTF; used only to annotate output IDs missing from the primary annotation.",
-            }
+            role = f"target:{name}:metadata_fallback_{fallback.get('fallback_index', '')}"
+            records.append(_file_record(role, Path(str(fallback.get("annotation_path", "")))))
+        for key, role in [("output_source_path", "output_genes"), ("filter_source_path", "gene_filter")]:
+            if target.get(key):
+                records.append(_file_record(f"target:{name}:{role}", Path(target[key])))
+    records.append(_file_record("HGNC", source_dir / "hgnc" / "hgnc_complete_set.txt"))
+    if cfg.get("ncbi_gene", {}).get("enabled", False):
+        records += [
+            _file_record("NCBI_Gene", source_dir / "ncbi_gene" / name)
+            for name in ["Homo_sapiens.gene_info.gz", "gene_history.gz"]
+        ]
     return records
+
+
+def _resources(cfg: dict[str, Any], source_dir: Path) -> dict[str, Any]:
+    resources: dict[str, Any] = {
+        "HGNC": {
+            "urls": [HGNC_URL, *HGNC_FALLBACK_URLS],
+            "local_file": str(source_dir / "hgnc" / "hgnc_complete_set.txt"),
+        }
+    }
+    ncbi = cfg.get("ncbi_gene", {})
+    if ncbi.get("enabled", False):
+        resources["NCBI_Gene"] = {
+            "gene_info_url": ncbi.get("gene_info_url", NCBI_GENE_INFO_URL),
+            "gene_history_url": ncbi.get("gene_history_url", NCBI_GENE_HISTORY_URL),
+            "allowed_source_tags": ncbi.get("allowed_source_tags", []),
+            "use_gene_info_synonyms": ncbi.get("use_gene_info_synonyms", True),
+        }
+    archive = cfg.get("ensembl_archive", {})
+    if archive.get("enabled", True):
+        resources["Ensembl_archive"] = {
+            "endpoint": archive.get("endpoint", ""),
+            "local_cache_file": str(source_dir / "ensembl_archive" / "archive_id_cache.json"),
+        }
+    sources = [spec for spec in cfg.get("sources", []) if spec.get("enabled", True)]
+    msigdb = [spec for spec in sources if spec.get("type") == "msigdb_remote"]
+    if msigdb:
+        resources["MSigDB"] = [
+            {
+                "version": str(spec.get("version", "")),
+                "db_species": str(spec.get("db_species", "HS")),
+                "collection": str(spec.get("collection", "")),
+                "subcollection": str(spec.get("subcollection", "")),
+                **{key: _msigdb_release_info(spec)[key] for key in ("zip_url", "zip_md5", "zip_name")},
+            }
+            for spec in msigdb
+        ]
+    if any(spec.get("type") == "enrichr_remote" for spec in sources):
+        resources["Enrichr"] = {"source_url": ENRICHR_BASE_URL}
+    return resources
+
+
+def _git_describe() -> str:
+    root = Path(__file__).resolve().parents[2]
+    if not (root / ".git").exists():
+        return ""
+    try:
+        result = subprocess.run(
+            ["git", "describe", "--always", "--dirty", "--tags"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return result.stdout.strip()
 
 
 def write_provenance(obj: dict[str, Any], path: Path) -> None:
@@ -439,11 +490,10 @@ def _removed_count(df: pd.DataFrame, namespace: str, family: str, source_tag: st
 
 
 def _python_packages() -> dict[str, str]:
-    packages = {}
-    for package in ["pandas", "pyarrow", "yaml", "requests"]:
+    packages: dict[str, str] = {}
+    for package in RUNTIME_PACKAGES:
         try:
-            mod = __import__(package)
-            packages[package] = getattr(mod, "__version__", "unknown")
-        except Exception:
-            packages[package] = "unavailable"
+            packages[package] = metadata.version(package)
+        except metadata.PackageNotFoundError:
+            packages[package] = "not installed"
     return packages

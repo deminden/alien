@@ -289,7 +289,9 @@ def _build_to_output_dir(
         qc_dir / "target_namespace_summary.tsv", sep="\t", index=False
     )
     mapping_status_summary.to_csv(qc_dir / "mapping_status_summary.tsv", sep="\t", index=False)
-    provenance = build_source_provenance(cfg, source_dir, targets, warnings)
+    provenance = build_source_provenance(
+        cfg, source_dir, targets, warnings, workers=worker_count, effective_config_text=effective_config_text(cfg)
+    )
     write_provenance(provenance, metadata_dir / "source_provenance.json")
     write_qc(
         qc_dir,
