@@ -409,12 +409,6 @@ def _msigdb_remote_source_tag(value: object) -> str:
     return sanitize_id(tail).upper()
 
 
-def _msigdb_remote_row_source_tag(row: pd.Series) -> str:
-    subcollection = str(row.get("gs_subcollection", "") or "").strip()
-    collection = str(row.get("gs_collection", "") or "").strip()
-    return _msigdb_remote_source_tag(subcollection or collection or "MSIGDB")
-
-
 def _family_for_msigdb_tag(tag: str) -> str:
     return MSIGDB_SOURCES.get(tag, ("", "", "biology_process_pathway", ""))[2]
 
@@ -805,30 +799,6 @@ def write_gene_symbol_master(hgnc_maps: dict[str, object], out_path: Path) -> No
     raw = hgnc_maps.get("raw")
     if isinstance(raw, pd.DataFrame):
         write_tsv_gz(raw, out_path)
-
-
-def load_gencode(
-    source_dir: Path,
-    version: str,
-    supplied_gtf: Path | None = None,
-    force: bool = False,
-) -> pd.DataFrame:
-    # Backward-compatible helper for human GENCODE annotation releases.
-    version = normalize_gencode_version(version)
-    if supplied_gtf:
-        path = supplied_gtf
-    else:
-        path = source_dir / "gencode" / f"gencode.v{version}.annotation.gtf.gz"
-        url = gencode_annotation_url(version)
-        try:
-            download_file(url, path, force=force)
-        except Exception as exc:
-            raise RuntimeError(
-                f"Could not download GENCODE v{version} from {url}. "
-                "Supply an annotation_gtf path in the target config if the release URL changed."
-            ) from exc
-    LOGGER.info("Parsing GENCODE v%s genes.", version)
-    return parse_gtf_genes(path, version)
 
 
 def load_ensembl_gtf_target(

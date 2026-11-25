@@ -71,10 +71,6 @@ def clean_field(value: Any) -> str:
     return re.sub(r"[\t\r\n]+", " ", text).strip()
 
 
-def read_tsv(path: Path, **kwargs: Any) -> pd.DataFrame:
-    return pd.read_csv(path, sep="\t", dtype=str, keep_default_na=False, **kwargs)
-
-
 def write_tsv_gz(df: pd.DataFrame, path: Path) -> None:
     ensure_dirs(path.parent)
     df.to_csv(path, sep="\t", index=False, compression="gzip")

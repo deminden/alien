@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from pathlib import Path
 from typing import Any
 
 DEFAULT_CONFIG: dict[str, Any] = {
@@ -140,7 +139,3 @@ DEFAULT_CONFIG: dict[str, Any] = {
 
 def default_config() -> dict[str, Any]:
     return deepcopy(DEFAULT_CONFIG)
-
-
-def package_default_config_path() -> Path:
-    return Path(__file__).with_name("default_config.yml")

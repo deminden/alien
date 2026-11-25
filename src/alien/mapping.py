@@ -824,10 +824,6 @@ def _non_gene_matcher(cfg: dict):
     return is_non_gene
 
 
-def _is_non_gene_token(value: object, cfg: dict) -> bool:
-    return _non_gene_matcher(cfg)(value)
-
-
 def _non_gene_row(namespace: str, row: dict[str, Any], input_gene: object, reason: str) -> dict[str, object]:
     return {
         "target_namespace": namespace,
@@ -895,10 +891,6 @@ def _ambiguous_row(
         "possible_ensembl_ids": ",".join(sorted(set(ensembl))),
         "action": action,
     }
-
-
-def mapping_json(obj: object) -> str:
-    return json.dumps(obj, sort_keys=True)
 
 
 class EnsemblArchiveResolver:
