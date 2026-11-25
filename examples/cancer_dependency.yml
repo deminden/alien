@@ -1,52 +1,8 @@
-project:
-  # Download/cache root for MSigDB, Enrichr, HGNC, GENCODE, NCBI, and conversion helpers.
-  source_dir: ../data/alien_sources
-  # Output root. ALIEN writes gmt/, metadata/, and qc/ subfolders here.
-  outdir: ../results/alien_outputs/cancer_dependency
-
-outputs:
-  include_symbols: false
-
-sources:
-  - type: msigdb_remote
-    version: "2026.1"
-    db_species: HS
-    collection: C9
-  - type: msigdb_remote
-    version: "2026.1"
-    db_species: HS
-    collection: C6
-  - type: msigdb_remote
-    version: "2026.1"
-    db_species: HS
-    collection: C4
-    subcollection: 3CA
-    family: cancer_dependency_state
-    aspect: cancer_signature
-  - type: msigdb_remote
-    version: "2026.1"
-    db_species: HS
-    collection: C4
-    subcollection: CGN
-    family: cancer_dependency_state
-    aspect: cancer_signature
-  - type: enrichr_remote
-    libraries:
-      - name: DepMap
-        match: "DepMap.*(CRISPR|Dependency)|DepMap"
-        source_tag: DEPMAP
-        family: cancer_dependency_state
-        aspect: dependency_signature
-      - name: Cancer Cell Line Encyclopedia
-        match: "^Cancer_Cell_Line_Encyclopedia$|Cancer.*Cell.*Line.*Encyclopedia"
-        source_tag: CCLE
-        family: cancer_dependency_state
-        aspect: cancer_signature
-      - name: NCI-60
-        match: "^NCI-60_Cancer_Cell_Lines$|NCI-60"
-        source_tag: NCI60
-        family: cancer_dependency_state
-        aspect: cancer_signature
+# Study-specific build on top of the bundled `cancer_dependency` preset.
+# Everything except the targets comes from the preset (see `alien config show cancer_dependency`).
+# Paths below are relative to this file; the preset's cache and output paths stay relative to the
+# working directory, so run this from the repository root.
+extends: cancer_dependency
 
 targets:
   - name: tcga_recount3_gencode29
@@ -61,26 +17,3 @@ targets:
     output_genes:
       path: ../data/recount3/tcga_gencode_v29_output_genes.tsv.gz
       id_column: Ensembl_gene_ID
-
-filtering:
-  min_size_default: 10
-  max_size_default: 500
-  max_size_cancer: 500
-
-redundancy:
-  exact_duplicate_removal: true
-  jaccard_cutoff: 0.85
-  apply_per_family: true
-
-source_priority:
-  cancer_dependency_state:
-    - C9
-    - C6
-    - 3CA
-    - CGN
-    - DEPMAP
-    - CCLE
-    - NCI60
-
-runtime:
-  workers: 16

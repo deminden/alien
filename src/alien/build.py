@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 from collections.abc import Sequence
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from copy import deepcopy
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
@@ -10,13 +11,12 @@ from typing import Any
 import pandas as pd
 import yaml
 
-from .config import finalize_config, load_config, merge_config, read_config_file
+from .config import AlienConfig, ConfigInput, is_preset_name, preset_path, read_layer, validate_layers
 from .dryrun import dry_run_plan
 from .filtering import apply_size_and_broad_filters, remove_redundancy
 from .io.atomic import atomic_write_text
 from .mapping import map_namespaces
 from .outputs import StagedOutput, prune_to_mode, write_manifest
-from .presets import is_preset_name, load_preset_config
 from .reports import (
     OUTPUT_SCHEMA_VERSION,
     build_source_manifest,
@@ -79,38 +79,31 @@ class BuildResult:
 
 
 def build(
-    config: str | Path | dict[str, Any] | None = None,
+    config: ConfigInput | AlienConfig | None = None,
     outdir: str | Path | None = None,
     source_dir: str | Path | None = None,
     workers: int | None = None,
     dry_run: bool = False,
     force_download: bool = False,
-    output_mode: str = "full",
-    overrides: Sequence[str | Path | dict[str, Any]] | None = None,
+    output_mode: str | None = None,
+    overrides: Sequence[ConfigInput] | None = None,
     force: bool = False,
 ) -> BuildResult:
     setup_logging()
-    cfg = _coerce_config(config, overrides=overrides)
-    cli_override: dict[str, Any] = {}
-    if source_dir is not None:
-        cli_override.setdefault("project", {})["source_dir"] = str(source_dir)
-    if outdir is not None:
-        cli_override.setdefault("project", {})["outdir"] = str(outdir)
-    if workers is not None:
-        cli_override.setdefault("runtime", {})["workers"] = workers
-    if cli_override:
-        cfg = finalize_config(merge_config(cfg, cli_override))
-
-    mode = _normalize_output_mode(output_mode)
-    worker_count = _worker_count(cfg)
-    output_dir = Path(cfg.get("project", {}).get("outdir", DEFAULT_OUTDIR))
-    source_dir = Path(cfg.get("project", {}).get("source_dir", "data/alien_sources"))
+    model = resolve_build_config(
+        config, overrides=overrides, outdir=outdir, source_dir=source_dir, workers=workers, output_mode=output_mode
+    )
+    cfg = model.model_dump(mode="json", exclude_none=True)
+    mode = model.outputs.mode
+    worker_count = model.runtime.workers
+    output_dir = model.project.outdir
+    source_dir = model.project.source_dir
 
     if dry_run:
         plan = dry_run_plan(cfg, source_dir, output_dir, mode, worker_count)
         for line in plan:
             LOGGER.info("%s", line)
-        return BuildResult(output_dir, tuple(_configured_namespace_names(cfg)), 0, 0, (), tuple(plan))
+        return BuildResult(output_dir, tuple(model.namespaces()), 0, 0, (), tuple(plan))
 
     staged = StagedOutput(output_dir, force=force)
     try:
@@ -314,63 +307,47 @@ def _build_to_output_dir(
     )
 
 
-def _coerce_config(
-    config: str | Path | dict[str, Any] | None,
-    overrides: Sequence[str | Path | dict[str, Any]] | None = None,
-) -> dict[str, Any]:
-    if config is None or isinstance(config, Path):
-        return load_config(config, overrides=overrides)
-    if isinstance(config, str):
-        if is_preset_name(config):
-            return load_preset_config(config, overrides=overrides)
-        return load_config(config, overrides=overrides)
-    cfg = merge_config(load_config(None), config)
-    for override in overrides or []:
-        cfg = merge_config(cfg, override if isinstance(override, dict) else read_config_file(override))
-    return finalize_config(cfg)
+def resolve_build_config(
+    config: ConfigInput | AlienConfig | None = None,
+    *,
+    overrides: Sequence[ConfigInput] | None = None,
+    outdir: str | Path | None = None,
+    source_dir: str | Path | None = None,
+    workers: int | None = None,
+    output_mode: str | None = None,
+) -> AlienConfig:
+    """Validate the layered config for a build: config or preset, overrides, then explicit arguments."""
+    layers: list[dict[str, Any]] = []
+    if isinstance(config, AlienConfig):
+        layers.append(config.model_dump(mode="json", exclude_none=True))
+    elif isinstance(config, str) and is_preset_name(config):
+        layers.append(read_layer(preset_path(config), resolve_relative_paths=False))
+    elif config is not None:
+        layers.append(read_layer(config))
+    layers.extend(read_layer(override) for override in overrides or [])
+    explicit: dict[str, Any] = {}
+    if source_dir is not None:
+        explicit.setdefault("project", {})["source_dir"] = str(source_dir)
+    if outdir is not None:
+        explicit.setdefault("project", {})["outdir"] = str(outdir)
+    if workers is not None:
+        explicit.setdefault("runtime", {})["workers"] = workers
+    if output_mode is not None:
+        explicit.setdefault("outputs", {})["mode"] = str(output_mode).strip().lower()
+    layers.append(explicit)
+    return validate_layers(layers)
 
 
-def _normalize_output_mode(output_mode: str) -> str:
-    mode = str(output_mode).strip().lower()
-    if mode not in {"full", "minimal", "gmt"}:
-        raise ValueError("output_mode must be one of: full, minimal, gmt")
-    return mode
-
-
-def effective_config_text(cfg: dict[str, Any]) -> str:
-    """The effective config as YAML; project.outdir is omitted because the file lives inside it."""
-    safe = _yaml_safe_config(cfg)
-    safe.get("project", {}).pop("outdir", None)
+def effective_config_text(cfg: dict[str, Any], *, keep_outdir: bool = False) -> str:
+    """The effective config as YAML; project.outdir is omitted (by default) because the file lives inside it."""
+    safe = deepcopy(cfg)
+    if not keep_outdir:
+        safe.get("project", {}).pop("outdir", None)
     return yaml.safe_dump(safe, sort_keys=False)
 
 
 def _write_effective_config(cfg: dict[str, Any], path: Path) -> None:
     atomic_write_text(path, effective_config_text(cfg))
-
-
-def _yaml_safe_config(value: Any) -> Any:
-    if isinstance(value, Path):
-        return str(value)
-    if isinstance(value, dict):
-        return {key: _yaml_safe_config(item) for key, item in value.items()}
-    if isinstance(value, list):
-        return [_yaml_safe_config(item) for item in value]
-    if isinstance(value, tuple):
-        return [_yaml_safe_config(item) for item in value]
-    return value
-
-
-def _configured_namespace_names(cfg: dict[str, Any]) -> list[str]:
-    names = ["symbols"] if cfg.get("outputs", {}).get("include_symbols", True) else []
-    names.extend(str(target["name"]) for target in cfg.get("targets", []))
-    return names
-
-
-def _worker_count(cfg: dict[str, Any]) -> int:
-    workers = int(cfg.get("runtime", {}).get("workers", 1) or 1)
-    if workers < 1:
-        raise ValueError("workers must be a positive integer")
-    return workers
 
 
 def _check_term_id_collisions(
@@ -383,16 +360,7 @@ def _check_term_id_collisions(
     audit = _term_id_collision_audit(source_terms)
     if audit.empty:
         return
-    options = cfg.get("term_id_collisions", {})
-    if isinstance(options, str):
-        action = options
-    elif isinstance(options, dict):
-        action = str(options.get("action", "error"))
-    else:
-        raise ValueError("term_id_collisions must be a mapping or one of: error, warn, merge")
-    action = action.lower().strip()
-    if action not in {"error", "warn", "merge"}:
-        raise ValueError("term_id_collisions.action must be one of: error, warn, merge")
+    action = str(cfg["term_id_collisions"]["action"])
     audit = audit.assign(action=action)
     audit_path = metadata_dir / "term_id_collisions.tsv"
     ensure_dirs(audit_path.parent)
@@ -477,18 +445,6 @@ def _prepare_targets(
     for target in cfg.get("targets", []):
         name = str(target["name"])
         target_type = str(target.get("type", "ensembl_gtf"))
-        if target_type != "ensembl_gtf":
-            raise ValueError(f"Target {name} has unsupported type {target_type!r}.")
-        if "restrict_to" in target:
-            raise ValueError(
-                f"Target {name} uses unsupported key 'restrict_to'; use 'output_genes' or 'gene_filter' instead."
-            )
-        if "gene_universe" in target:
-            raise ValueError(f"Target {name} uses unsupported key 'gene_universe'; use 'output_genes' instead.")
-        if "output_ids" in target:
-            raise ValueError(f"Target {name} uses unsupported key 'output_ids'; use 'output_genes' instead.")
-        if not _empty_config_value(target.get("output_genes")) and not _empty_config_value(target.get("gene_filter")):
-            raise ValueError(f"Target {name} must define only one of output_genes or gene_filter.")
         output_path, output_id_column, output_symbol_column, output_genes_inline = _target_gene_id_spec(
             target.get("output_genes"), "output_genes"
         )

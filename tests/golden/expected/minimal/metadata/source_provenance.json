@@ -3,17 +3,22 @@
     {
       "aspect": "pathway",
       "collection": "C2",
+      "enabled": true,
       "family": "biology_process_pathway",
       "path": "<ROOT>/inputs/msigdb_like.tsv",
       "source_tag": "REACTOME",
+      "symbol_column": "gene_symbol",
+      "term_name_column": "gs_name",
       "type": "msigdb_tsv"
     },
     {
+      "enabled": true,
       "path": "<ROOT>/inputs/canonical.tsv",
       "type": "canonical_tsv"
     },
     {
       "aspect": "pathway",
+      "enabled": true,
       "family": "biology_process_pathway",
       "path": "<ROOT>/inputs/local_pathways.gmt",
       "source": "Local pathways",
@@ -22,6 +27,7 @@
     },
     {
       "aspect": "phenotype",
+      "enabled": true,
       "family": "disease_phenotype",
       "path": "<ROOT>/inputs/local_disease.gmt",
       "source": "Local disease",

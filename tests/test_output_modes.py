@@ -4,6 +4,8 @@ from pathlib import Path
 from alien import BuildResult
 from alien import build as run_build
 
+_MIN_CONFIG = {"sources": [{"type": "symbol_gmt", "path": "unused.gmt"}]}
+
 MINIMAL_OUTPUTS = {
     "gmt/symbols.gmt",
     "metadata/effective_config.yml",
@@ -84,7 +86,9 @@ sources:
     assert captured["cfg"]["filtering"]["min_size_default"] == 2
     assert captured["cfg"]["filtering"]["max_size_default"] == 77
     # Relative paths in an overlay file resolve against that file's directory.
-    assert captured["cfg"]["sources"] == [{"type": "symbol_gmt", "path": str(tmp_path / "overlay2.gmt")}]
+    assert captured["cfg"]["sources"] == [
+        {"type": "symbol_gmt", "path": str(tmp_path / "overlay2.gmt"), "enabled": True}
+    ]
     # The build runs in a hidden staging sibling that is swapped into place.
     assert captured["output_dir"].parent == outdir.parent
     assert result.outdir == outdir
@@ -97,7 +101,7 @@ def test_output_mode_gmt_copies_only_gmt_files(tmp_path, monkeypatch):
     outdir = tmp_path / "final"
     monkeypatch.setattr(build_module, "_build_to_output_dir", _fake_staged_build)
 
-    result = run_build(outdir=outdir, output_mode="gmt")
+    result = run_build(config=_MIN_CONFIG, outdir=outdir, output_mode="gmt")
 
     assert result.outdir == outdir
     assert _files_under(outdir) == {"gmt/symbols.gmt", "MANIFEST.json"}
@@ -108,7 +112,7 @@ def test_output_mode_minimal_copies_reproducibility_pack(tmp_path, monkeypatch):
     outdir = tmp_path / "final"
     monkeypatch.setattr(build_module, "_build_to_output_dir", _fake_staged_build)
 
-    result = run_build(outdir=outdir, output_mode="minimal")
+    result = run_build(config=_MIN_CONFIG, outdir=outdir, output_mode="minimal")
 
     assert result.outdir == outdir
     assert _files_under(outdir) == MINIMAL_OUTPUTS | {"MANIFEST.json"}

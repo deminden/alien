@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
-from .build import build
-from .presets import is_preset_name, list_presets
+from .build import build, effective_config_text, resolve_build_config
+from .config import AlienConfig, is_preset_name, list_presets
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -14,6 +15,13 @@ def main(argv: list[str] | None = None) -> int:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     subparsers.add_parser("presets", help="List bundled ALIEN build presets")
+
+    config_parser = subparsers.add_parser("config", help="Inspect configuration")
+    config_sub = config_parser.add_subparsers(dest="config_command", required=True)
+    show_parser = config_sub.add_parser("show", help="Print the effective configuration as YAML")
+    show_parser.add_argument("config_or_preset", nargs="?", help="Bundled preset name/alias or YAML configuration file")
+    show_parser.add_argument("--override", type=Path, action="append", default=[], help="YAML overlay; repeatable")
+    config_sub.add_parser("schema", help="Print the configuration JSON Schema")
 
     build_parser = subparsers.add_parser("build", help="Build audited combined GMT files")
     build_parser.add_argument(
@@ -35,7 +43,7 @@ def main(argv: list[str] | None = None) -> int:
     build_parser.add_argument(
         "--output-mode",
         choices=["full", "minimal", "gmt"],
-        default="full",
+        default=None,
         help="Which outputs to keep after the build",
     )
     build_parser.add_argument("--dry-run", action="store_true", help="Validate configuration and report planned output")
@@ -50,6 +58,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "presets":
         _print_presets()
         return 0
+
+    if args.command == "config":
+        return _config_command(args)
 
     if args.command == "build":
         if args.config is not None and args.config_or_preset is not None:
@@ -77,6 +88,16 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     parser.error(f"Unknown command: {args.command}")
     return 2
+
+
+def _config_command(args: argparse.Namespace) -> int:
+    if args.config_command == "schema":
+        print(json.dumps(AlienConfig.model_json_schema(), indent=2, sort_keys=True))
+        return 0
+    config = _resolve_config_or_preset(args.config_or_preset) if args.config_or_preset else None
+    model = resolve_build_config(config, overrides=args.override)
+    print(effective_config_text(model.model_dump(mode="json", exclude_none=True), keep_outdir=True), end="")
+    return 0
 
 
 def _positive_int(value: str) -> int:

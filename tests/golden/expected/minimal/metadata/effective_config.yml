@@ -3,29 +3,36 @@ project:
   source_dir: <ROOT>/sources
 outputs:
   include_symbols: true
+  mode: minimal
 term_id_collisions:
   action: error
 sources:
-- type: msigdb_tsv
+- enabled: true
   path: <ROOT>/inputs/msigdb_like.tsv
   source_tag: REACTOME
-  collection: C2
   family: biology_process_pathway
   aspect: pathway
-- type: canonical_tsv
+  collection: C2
+  type: msigdb_tsv
+  term_name_column: gs_name
+  symbol_column: gene_symbol
+- enabled: true
   path: <ROOT>/inputs/canonical.tsv
-- type: symbol_gmt
+  type: canonical_tsv
+- enabled: true
   path: <ROOT>/inputs/local_pathways.gmt
   source: Local pathways
   source_tag: LOCAL
   family: biology_process_pathway
   aspect: pathway
-- type: symbol_gmt
+  type: symbol_gmt
+- enabled: true
   path: <ROOT>/inputs/local_disease.gmt
   source: Local disease
   source_tag: LOCALDIS
   family: disease_phenotype
   aspect: phenotype
+  type: symbol_gmt
 targets:
 - name: fixture_annotation
   type: ensembl_gtf
@@ -33,12 +40,30 @@ targets:
     source: Fixture
     version: '1'
     path: <ROOT>/inputs/genes.gtf
+    attributes:
+      gene_id:
+      - gene_id
+      gene_name:
+      - gene_name
+      gene_biotype:
+      - gene_type
+      - gene_biotype
+    metadata_fallbacks: []
 - name: fixture_measured
   type: ensembl_gtf
   annotation:
     source: Fixture
     version: '1'
     path: <ROOT>/inputs/genes.gtf
+    attributes:
+      gene_id:
+      - gene_id
+      gene_name:
+      - gene_name
+      gene_biotype:
+      - gene_type
+      - gene_biotype
+    metadata_fallbacks: []
   output_genes:
     path: <ROOT>/inputs/output_genes.tsv
     id_column: feature
@@ -66,6 +91,7 @@ redundancy:
   exact_duplicate_removal: true
   jaccard_cutoff: 0.7
   apply_per_family: true
+  linkage: single
 source_priority:
   biology_process_pathway:
   - REACTOME
@@ -104,7 +130,7 @@ ensembl_archive:
   connect_timeout_seconds: 30
   timeout_seconds: 120
   retry_attempts: 3
-  retry_backoff_seconds: 5
+  retry_backoff_seconds: 5.0
   unresolved_print_limit: 20
 runtime:
   workers: <N>

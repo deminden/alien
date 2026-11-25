@@ -14,8 +14,8 @@ from .sources import (
     _source_paths,
     gencode_annotation_url,
     normalize_gencode_version,
-    sanitize_id,
 )
+from .utils import sanitize_id
 
 LOCAL_SOURCE_TYPES = {"canonical_tsv", "msigdb_tsv", "symbol_gmt", "enrichr_gmt"}
 

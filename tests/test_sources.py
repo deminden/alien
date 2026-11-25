@@ -3,10 +3,12 @@ import hashlib
 import zipfile
 
 import pandas as pd
+import pytest
 import rdata
 
 from alien import sources
 from alien.config import load_config
+from alien.errors import ConfigError
 from alien.sources import (
     gencode_annotation_url,
     load_ensembl_gtf_target,
@@ -237,13 +239,11 @@ targets: []
 
     cfg = load_config(config)
 
-    assert "signature" in cfg["gene_mapping"]["non_gene_tokens"]
-    assert "^syndrome$" in cfg["filtering"]["broad_disease_regex"]
+    assert "signature" in cfg.gene_mapping.non_gene_tokens
+    assert "disease" in cfg.gene_mapping.non_gene_tokens
+    assert "^syndrome$" in cfg.filtering.broad_disease_regex
 
 
-def test_default_config_uses_remote_msigdb():
-    cfg = load_config()
-
-    assert cfg["sources"][0]["type"] == "msigdb_remote"
-    assert cfg["sources"][0]["version"] == "2026.1"
-    assert cfg["sources"][0]["collection"] == "C2"
+def test_config_without_sources_is_an_error():
+    with pytest.raises(ConfigError, match="at least one source"):
+        load_config()

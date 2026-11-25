@@ -25,6 +25,7 @@ classifiers = [
 dependencies = [
   "pandas>=3.0",
   "pyarrow>=24.0",
+  "pydantic>=2.6",
   "PyYAML>=6.0",
   "rdata>=1.0",
   "requests>=2.33",
@@ -56,7 +57,7 @@ Issues = "https://github.com/deminden/alien/issues"
 where = ["src"]
 
 [tool.setuptools.package-data]
-alien = ["default_config.yml", "presets/*.yml"]
+alien = ["config/presets/*.yml", "py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -86,7 +87,6 @@ max-args = 6
 "tests/**" = ["PLR2004", "PLR0913", "PLR0917", "PLC0415", "E501"]
 # Grandfathered violations; each entry is deleted when its module is refactored.
 "src/alien/build.py" = ["E501", "PERF401", "PLR0913", "PLR0915", "PLR0917"]
-"src/alien/config.py" = ["E501"]
 "src/alien/filtering.py" = ["C901", "PERF401", "PLR0912", "PLR0913", "PLR0917", "PLW2901"]
 "src/alien/mapping.py" = ["BLE001", "C901", "E501", "PLR0911", "PLR0912", "PLR0913", "PLR0915", "PLR0917"]
 "src/alien/reports.py" = ["B905", "BLE001", "E501", "PLR0913", "PLR0917", "RUF005", "SIM105"]

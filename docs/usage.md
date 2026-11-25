@@ -90,6 +90,48 @@ targets:
       id_column: Ensembl_gene_ID
 ```
 
+## Configuration Layers, Validation and Migration
+
+A build's configuration is assembled from layers, lowest first:
+
+1. Built-in defaults (defined once, on the typed configuration models).
+2. The `extends:` chain of the config file. `extends:` names a bundled preset or another YAML file (relative to the declaring file); chains may be nested and loops are rejected.
+3. The config file or preset itself.
+4. Each `--override` file (or `overrides=[...]` entry) in order.
+5. Explicit arguments: `--source-dir`, `--outdir`, `--workers`, `--output-mode`.
+
+Mappings merge recursively and lists replace. Four keys extend a list instead of replacing it and are applied after merging: `gene_mapping.extra_non_gene_tokens`, `gene_mapping.extra_non_gene_token_regex`, `filtering.extra_broad_disease_regex`, and `source_priority.extra.<family>`.
+
+Every option is validated. Unknown keys and out-of-range values fail with the YAML path of the offending entry, for example `targets[1].annotation.versoin: unknown option (check the spelling)`. A config must define at least one source. `alien config show [PRESET|FILE] [--override FILE ...]` prints the effective configuration; `alien config schema` prints the JSON Schema, which is also committed as [config.schema.json](config.schema.json) for editor completion (for example with the YAML language server: `# yaml-language-server: $schema=https://raw.githubusercontent.com/deminden/alien/main/docs/config.schema.json`).
+
+`outputs.mode` (`full`, `minimal` or `gmt`) sets the output mode; `--output-mode` overrides it.
+
+### Migration from 0.1.x
+
+| Old key | New key | Status |
+|---|---|---|
+| `targets[].annotation_gtf` | `targets[].annotation.path` | deprecated, accepted with a warning; removed in 0.3 |
+| `targets[].gencode_version` | `targets[].annotation.source: GENCODE` + `annotation.version` | deprecated, accepted with a warning; removed in 0.3 |
+| `output_genes.file` / `gene_filter.file` | `.path` | deprecated; removed in 0.3 |
+| `output_genes.column` / `.gene_column` / `.field` | `.id_column` | deprecated; removed in 0.3 |
+| `output_genes.gene_symbol_column` | `.symbol_column` | deprecated; removed in 0.3 |
+| `output_genes.genes` | `.ids` | deprecated; removed in 0.3 |
+| `redundancy.apply_after_output_gene_projection` | none (always true) | removed, rejected |
+| `redundancy.nested_overlap_filter` | none (never implemented) | removed, rejected |
+| `filtering.remove_empty_after_output_gene_projection` | `filtering.min_size_default` | removed, rejected |
+| `gene_mapping.strip_ensembl_version` | none (always stripped) | removed, rejected |
+| `gene_mapping.allow_ambiguous_alias_mapping` | none (ambiguous aliases are always dropped and audited) | removed, rejected |
+| `gene_mapping.prefer_gencode_exact_gene_name` | none (always preferred) | removed, rejected |
+| `gene_mapping.prefer_current_hgnc_symbol` | none (always preferred) | removed, rejected |
+| `gene_mapping.drop_unmapped_from_ensg_gmt` | none (always dropped) | removed, rejected |
+| `ensembl_archive.unresolved_example_threshold` | `ensembl_archive.unresolved_print_limit` | removed, rejected |
+| default MSigDB C2 source and `local_symbolic_libraries/*.gmt` glob | explicit `sources:` | removed; a config with no sources is an error |
+| `--output-mode` only | `outputs.mode` | new; the flag still overrides |
+| none | `extends:` | new |
+| none | `redundancy.linkage` (`single` or `representative`) | new; default `single` keeps 0.1.x results |
+
+`load_config()` and `load_preset_config()` now return a typed `AlienConfig` (attribute access, `model_dump()` for a dict) instead of a plain dict.
+
 ## Minimal Config
 
 ```yaml

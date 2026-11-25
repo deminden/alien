@@ -1,0 +1,1730 @@
+{
+  "$defs": {
+    "AnnotationSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "attributes": {
+          "$ref": "#/$defs/GtfAttributes",
+          "default": {
+            "gene_biotype": [
+              "gene_type",
+              "gene_biotype"
+            ],
+            "gene_id": [
+              "gene_id"
+            ],
+            "gene_name": [
+              "gene_name"
+            ]
+          }
+        },
+        "file_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "File Name"
+        },
+        "metadata_fallbacks": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/MetadataFallbackSpec"
+          },
+          "title": "Metadata Fallbacks",
+          "type": "array"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Path"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Version"
+        }
+      },
+      "title": "AnnotationSpec",
+      "type": "object"
+    },
+    "CanonicalTsvSource": {
+      "additionalProperties": false,
+      "description": "A table already in ALIEN's canonical membership layout (needs term_id and gene_symbol).",
+      "properties": {
+        "aspect": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Aspect"
+        },
+        "collection": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Collection"
+        },
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "family": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Family"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Path"
+        },
+        "paths": {
+          "anyOf": [
+            {
+              "items": {
+                "format": "path",
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Paths"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source"
+        },
+        "source_tag": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Tag"
+        },
+        "subcollection": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Subcollection"
+        },
+        "type": {
+          "const": "canonical_tsv",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "CanonicalTsvSource",
+      "type": "object"
+    },
+    "EnrichrLibrary": {
+      "additionalProperties": false,
+      "properties": {
+        "aspect": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Aspect"
+        },
+        "family": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Family"
+        },
+        "match": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Match"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "source_tag": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Tag"
+        }
+      },
+      "title": "EnrichrLibrary",
+      "type": "object"
+    },
+    "EnrichrRemoteSource": {
+      "additionalProperties": false,
+      "properties": {
+        "aspect": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Aspect"
+        },
+        "cache_dir": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cache Dir"
+        },
+        "dataset_statistics_endpoint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dataset Statistics Endpoint"
+        },
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "family": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Family"
+        },
+        "force": {
+          "default": false,
+          "title": "Force",
+          "type": "boolean"
+        },
+        "libraries": {
+          "items": {
+            "$ref": "#/$defs/EnrichrLibrary"
+          },
+          "minItems": 1,
+          "title": "Libraries",
+          "type": "array"
+        },
+        "library_download_endpoint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Library Download Endpoint"
+        },
+        "source_tag": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Tag"
+        },
+        "timeout_seconds": {
+          "default": 120,
+          "minimum": 1,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        },
+        "type": {
+          "const": "enrichr_remote",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "libraries"
+      ],
+      "title": "EnrichrRemoteSource",
+      "type": "object"
+    },
+    "EnsemblArchiveConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "batch_size": {
+          "default": 50,
+          "minimum": 1,
+          "title": "Batch Size",
+          "type": "integer"
+        },
+        "connect_timeout_seconds": {
+          "default": 30,
+          "minimum": 1,
+          "title": "Connect Timeout Seconds",
+          "type": "integer"
+        },
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "endpoint": {
+          "default": "https://rest.ensembl.org/archive/id",
+          "title": "Endpoint",
+          "type": "string"
+        },
+        "retry_attempts": {
+          "default": 3,
+          "minimum": 1,
+          "title": "Retry Attempts",
+          "type": "integer"
+        },
+        "retry_backoff_seconds": {
+          "default": 5,
+          "minimum": 0.0,
+          "title": "Retry Backoff Seconds",
+          "type": "number"
+        },
+        "timeout_seconds": {
+          "default": 120,
+          "minimum": 1,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        },
+        "unresolved_print_limit": {
+          "default": 20,
+          "minimum": 0,
+          "title": "Unresolved Print Limit",
+          "type": "integer"
+        }
+      },
+      "title": "EnsemblArchiveConfig",
+      "type": "object"
+    },
+    "FilteringConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "broad_disease_regex": {
+          "default": [
+            "^disease$",
+            "^diseases$",
+            "^cancer$",
+            "^neoplasm$",
+            "^neoplasms$",
+            "^malignant neoplasm$",
+            "^malignant neoplasms$",
+            "^carcinoma$",
+            "^tumor$",
+            "^tumour$",
+            "^genetic disease$",
+            "^genetic disorder$"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "title": "Broad Disease Regex",
+          "type": "array"
+        },
+        "drop_broad_disease_terms": {
+          "default": true,
+          "title": "Drop Broad Disease Terms",
+          "type": "boolean"
+        },
+        "max_size_cancer": {
+          "default": 500,
+          "minimum": 1,
+          "title": "Max Size Cancer",
+          "type": "integer"
+        },
+        "max_size_default": {
+          "default": 500,
+          "minimum": 1,
+          "title": "Max Size Default",
+          "type": "integer"
+        },
+        "max_size_disease": {
+          "default": 500,
+          "minimum": 1,
+          "title": "Max Size Disease",
+          "type": "integer"
+        },
+        "min_size_default": {
+          "default": 10,
+          "minimum": 0,
+          "title": "Min Size Default",
+          "type": "integer"
+        }
+      },
+      "title": "FilteringConfig",
+      "type": "object"
+    },
+    "GeneIdSpec": {
+      "additionalProperties": false,
+      "description": "A list of Ensembl gene IDs, inline (ids) or read from a file column (path + id_column).",
+      "properties": {
+        "id_column": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id Column"
+        },
+        "ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ids"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Path"
+        },
+        "symbol_column": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Symbol Column"
+        }
+      },
+      "title": "GeneIdSpec",
+      "type": "object"
+    },
+    "GeneMappingConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "manual_symbol_repairs": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "title": "Manual Symbol Repairs",
+          "type": "object"
+        },
+        "non_gene_token_regex": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Non Gene Token Regex",
+          "type": "array"
+        },
+        "non_gene_tokens": {
+          "default": [
+            "disease",
+            "diseases",
+            "phenotype",
+            "phenotypes",
+            "group",
+            "groups"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "title": "Non Gene Tokens",
+          "type": "array"
+        },
+        "preserve_unmapped_symbols_in_symbol_gmt": {
+          "default": true,
+          "title": "Preserve Unmapped Symbols In Symbol Gmt",
+          "type": "boolean"
+        },
+        "use_hgnc_alias_mapping": {
+          "default": true,
+          "title": "Use Hgnc Alias Mapping",
+          "type": "boolean"
+        }
+      },
+      "title": "GeneMappingConfig",
+      "type": "object"
+    },
+    "GtfAttributes": {
+      "additionalProperties": false,
+      "properties": {
+        "gene_biotype": {
+          "default": [
+            "gene_type",
+            "gene_biotype"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "title": "Gene Biotype",
+          "type": "array"
+        },
+        "gene_id": {
+          "default": [
+            "gene_id"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "title": "Gene Id",
+          "type": "array"
+        },
+        "gene_name": {
+          "default": [
+            "gene_name"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "title": "Gene Name",
+          "type": "array"
+        }
+      },
+      "title": "GtfAttributes",
+      "type": "object"
+    },
+    "MetadataFallbackSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "attributes": {
+          "$ref": "#/$defs/GtfAttributes",
+          "default": {
+            "gene_biotype": [
+              "gene_type",
+              "gene_biotype"
+            ],
+            "gene_id": [
+              "gene_id"
+            ],
+            "gene_name": [
+              "gene_name"
+            ]
+          }
+        },
+        "file_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "File Name"
+        },
+        "mode": {
+          "const": "fill_missing_output_metadata",
+          "default": "fill_missing_output_metadata",
+          "title": "Mode",
+          "type": "string"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Path"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Version"
+        }
+      },
+      "title": "MetadataFallbackSpec",
+      "type": "object"
+    },
+    "MsigdbCacheSource": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "include_c4_cm": {
+          "default": false,
+          "title": "Include C4 Cm",
+          "type": "boolean"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Path"
+        },
+        "type": {
+          "const": "msigdb_cache",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "MsigdbCacheSource",
+      "type": "object"
+    },
+    "MsigdbRelease": {
+      "additionalProperties": false,
+      "properties": {
+        "summary_rds": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Summary Rds"
+        },
+        "zip_md5": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Zip Md5"
+        },
+        "zip_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Zip Name"
+        },
+        "zip_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Zip Sha256"
+        },
+        "zip_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Zip Url"
+        }
+      },
+      "title": "MsigdbRelease",
+      "type": "object"
+    },
+    "MsigdbRemoteSource": {
+      "additionalProperties": false,
+      "properties": {
+        "aspect": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Aspect"
+        },
+        "cache_dir": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cache Dir"
+        },
+        "collection": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Collection"
+        },
+        "db_species": {
+          "default": "HS",
+          "title": "Db Species",
+          "type": "string"
+        },
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "family": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Family"
+        },
+        "force": {
+          "default": false,
+          "title": "Force",
+          "type": "boolean"
+        },
+        "release": {
+          "$ref": "#/$defs/MsigdbRelease",
+          "default": {
+            "summary_rds": null,
+            "zip_md5": null,
+            "zip_name": null,
+            "zip_sha256": null,
+            "zip_url": null
+          }
+        },
+        "subcollection": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Subcollection"
+        },
+        "timeout_seconds": {
+          "default": 600,
+          "minimum": 1,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        },
+        "type": {
+          "const": "msigdb_remote",
+          "title": "Type",
+          "type": "string"
+        },
+        "version": {
+          "default": "2026.1",
+          "title": "Version",
+          "type": "string"
+        },
+        "zip_md5": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Zip Md5"
+        },
+        "zip_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Zip Url"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "MsigdbRemoteSource",
+      "type": "object"
+    },
+    "MsigdbTsvSource": {
+      "additionalProperties": false,
+      "description": "An msigdbr-like long table with term-name and gene-symbol columns.",
+      "properties": {
+        "aspect": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Aspect"
+        },
+        "collection": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Collection"
+        },
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "family": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Family"
+        },
+        "gene_id_column": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Gene Id Column"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Path"
+        },
+        "paths": {
+          "anyOf": [
+            {
+              "items": {
+                "format": "path",
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Paths"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source"
+        },
+        "source_tag": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Tag"
+        },
+        "subcollection": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Subcollection"
+        },
+        "symbol_column": {
+          "default": "gene_symbol",
+          "title": "Symbol Column",
+          "type": "string"
+        },
+        "term_name_column": {
+          "default": "gs_name",
+          "title": "Term Name Column",
+          "type": "string"
+        },
+        "type": {
+          "const": "msigdb_tsv",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "MsigdbTsvSource",
+      "type": "object"
+    },
+    "NcbiGeneConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "allowed_source_tags": {
+          "default": [
+            "CCLE",
+            "NCI60",
+            "DEPMAP"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Source Tags",
+          "type": "array"
+        },
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "gene_history_url": {
+          "default": "https://ftp.ncbi.nlm.nih.gov/gene/DATA/gene_history.gz",
+          "title": "Gene History Url",
+          "type": "string"
+        },
+        "gene_info_url": {
+          "default": "https://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz",
+          "title": "Gene Info Url",
+          "type": "string"
+        },
+        "use_gene_info_synonyms": {
+          "default": true,
+          "title": "Use Gene Info Synonyms",
+          "type": "boolean"
+        }
+      },
+      "title": "NcbiGeneConfig",
+      "type": "object"
+    },
+    "OutputsConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "include_symbols": {
+          "default": true,
+          "title": "Include Symbols",
+          "type": "boolean"
+        },
+        "mode": {
+          "default": "full",
+          "enum": [
+            "full",
+            "minimal",
+            "gmt"
+          ],
+          "title": "Mode",
+          "type": "string"
+        }
+      },
+      "title": "OutputsConfig",
+      "type": "object"
+    },
+    "ProjectConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "default": "alien",
+          "title": "Name",
+          "type": "string"
+        },
+        "outdir": {
+          "default": "data/alien_gmt",
+          "format": "path",
+          "title": "Outdir",
+          "type": "string"
+        },
+        "source_dir": {
+          "default": "data/alien_sources",
+          "format": "path",
+          "title": "Source Dir",
+          "type": "string"
+        }
+      },
+      "title": "ProjectConfig",
+      "type": "object"
+    },
+    "RedundancyConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "apply_per_family": {
+          "default": true,
+          "title": "Apply Per Family",
+          "type": "boolean"
+        },
+        "exact_duplicate_removal": {
+          "default": true,
+          "title": "Exact Duplicate Removal",
+          "type": "boolean"
+        },
+        "jaccard_cutoff": {
+          "default": 0.85,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Jaccard Cutoff",
+          "type": "number"
+        },
+        "linkage": {
+          "default": "single",
+          "enum": [
+            "single",
+            "representative"
+          ],
+          "title": "Linkage",
+          "type": "string"
+        }
+      },
+      "title": "RedundancyConfig",
+      "type": "object"
+    },
+    "RuntimeConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "workers": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Workers",
+          "type": "integer"
+        }
+      },
+      "title": "RuntimeConfig",
+      "type": "object"
+    },
+    "SymbolGmtSource": {
+      "additionalProperties": false,
+      "description": "A GMT whose members are gene symbols (local or Enrichr-style).",
+      "properties": {
+        "aspect": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Aspect"
+        },
+        "collection": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Collection"
+        },
+        "db_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Db Version"
+        },
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "family": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Family"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Path"
+        },
+        "paths": {
+          "anyOf": [
+            {
+              "items": {
+                "format": "path",
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Paths"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source"
+        },
+        "source_license_note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source License Note"
+        },
+        "source_tag": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Tag"
+        },
+        "source_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Url"
+        },
+        "subcollection": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Subcollection"
+        },
+        "term_prefix": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Term Prefix"
+        },
+        "type": {
+          "enum": [
+            "symbol_gmt",
+            "enrichr_gmt"
+          ],
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "SymbolGmtSource",
+      "type": "object"
+    },
+    "TargetSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "annotation": {
+          "$ref": "#/$defs/AnnotationSpec"
+        },
+        "gene_filter": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GeneIdSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "output_genes": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GeneIdSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "type": {
+          "const": "ensembl_gtf",
+          "default": "ensembl_gtf",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "annotation"
+      ],
+      "title": "TargetSpec",
+      "type": "object"
+    },
+    "TermIdCollisionsConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "default": "error",
+          "enum": [
+            "error",
+            "warn",
+            "merge"
+          ],
+          "title": "Action",
+          "type": "string"
+        }
+      },
+      "title": "TermIdCollisionsConfig",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The complete, validated configuration for one build.",
+  "properties": {
+    "ensembl_archive": {
+      "$ref": "#/$defs/EnsemblArchiveConfig",
+      "default": {
+        "batch_size": 50,
+        "connect_timeout_seconds": 30,
+        "enabled": true,
+        "endpoint": "https://rest.ensembl.org/archive/id",
+        "retry_attempts": 3,
+        "retry_backoff_seconds": 5.0,
+        "timeout_seconds": 120,
+        "unresolved_print_limit": 20
+      }
+    },
+    "filtering": {
+      "$ref": "#/$defs/FilteringConfig",
+      "default": {
+        "broad_disease_regex": [
+          "^disease$",
+          "^diseases$",
+          "^cancer$",
+          "^neoplasm$",
+          "^neoplasms$",
+          "^malignant neoplasm$",
+          "^malignant neoplasms$",
+          "^carcinoma$",
+          "^tumor$",
+          "^tumour$",
+          "^genetic disease$",
+          "^genetic disorder$"
+        ],
+        "drop_broad_disease_terms": true,
+        "max_size_cancer": 500,
+        "max_size_default": 500,
+        "max_size_disease": 500,
+        "min_size_default": 10
+      }
+    },
+    "gene_mapping": {
+      "$ref": "#/$defs/GeneMappingConfig",
+      "default": {
+        "manual_symbol_repairs": {},
+        "non_gene_token_regex": [],
+        "non_gene_tokens": [
+          "disease",
+          "diseases",
+          "phenotype",
+          "phenotypes",
+          "group",
+          "groups"
+        ],
+        "preserve_unmapped_symbols_in_symbol_gmt": true,
+        "use_hgnc_alias_mapping": true
+      }
+    },
+    "ncbi_gene": {
+      "$ref": "#/$defs/NcbiGeneConfig",
+      "default": {
+        "allowed_source_tags": [
+          "CCLE",
+          "NCI60",
+          "DEPMAP"
+        ],
+        "enabled": true,
+        "gene_history_url": "https://ftp.ncbi.nlm.nih.gov/gene/DATA/gene_history.gz",
+        "gene_info_url": "https://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz",
+        "use_gene_info_synonyms": true
+      }
+    },
+    "outputs": {
+      "$ref": "#/$defs/OutputsConfig",
+      "default": {
+        "include_symbols": true,
+        "mode": "full"
+      }
+    },
+    "project": {
+      "$ref": "#/$defs/ProjectConfig",
+      "default": {
+        "name": "alien",
+        "outdir": "data/alien_gmt",
+        "source_dir": "data/alien_sources"
+      }
+    },
+    "redundancy": {
+      "$ref": "#/$defs/RedundancyConfig",
+      "default": {
+        "apply_per_family": true,
+        "exact_duplicate_removal": true,
+        "jaccard_cutoff": 0.85,
+        "linkage": "single"
+      }
+    },
+    "runtime": {
+      "$ref": "#/$defs/RuntimeConfig",
+      "default": {
+        "workers": 1
+      }
+    },
+    "source_priority": {
+      "additionalProperties": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "default": {
+        "biology_function_location": [
+          "GOMF",
+          "GOCC"
+        ],
+        "biology_process_pathway": [
+          "REACTOME",
+          "WIKIPATHWAYS",
+          "KEGG_MEDICUS",
+          "GOBP"
+        ],
+        "cancer_dependency_state": [
+          "C9",
+          "C6",
+          "C4_3CA",
+          "C4_CGN",
+          "C4_CM",
+          "DEPMAP",
+          "CCLE",
+          "NCI60"
+        ],
+        "disease_phenotype": [
+          "HPO",
+          "DISGENET",
+          "CLINVAR",
+          "GWAS_CATALOG",
+          "JENSEN_DISEASES_CURATED",
+          "JENSEN_DISEASES_EXPERIMENTAL",
+          "JENSEN_DISEASES_TEXTMINING"
+        ]
+      },
+      "title": "Source Priority",
+      "type": "object"
+    },
+    "sources": {
+      "items": {
+        "discriminator": {
+          "mapping": {
+            "canonical_tsv": "#/$defs/CanonicalTsvSource",
+            "enrichr_gmt": "#/$defs/SymbolGmtSource",
+            "enrichr_remote": "#/$defs/EnrichrRemoteSource",
+            "msigdb_cache": "#/$defs/MsigdbCacheSource",
+            "msigdb_remote": "#/$defs/MsigdbRemoteSource",
+            "msigdb_tsv": "#/$defs/MsigdbTsvSource",
+            "symbol_gmt": "#/$defs/SymbolGmtSource"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/SymbolGmtSource"
+          },
+          {
+            "$ref": "#/$defs/MsigdbTsvSource"
+          },
+          {
+            "$ref": "#/$defs/CanonicalTsvSource"
+          },
+          {
+            "$ref": "#/$defs/MsigdbCacheSource"
+          },
+          {
+            "$ref": "#/$defs/MsigdbRemoteSource"
+          },
+          {
+            "$ref": "#/$defs/EnrichrRemoteSource"
+          }
+        ]
+      },
+      "title": "Sources",
+      "type": "array"
+    },
+    "targets": {
+      "items": {
+        "$ref": "#/$defs/TargetSpec"
+      },
+      "title": "Targets",
+      "type": "array"
+    },
+    "term_id_collisions": {
+      "$ref": "#/$defs/TermIdCollisionsConfig",
+      "default": {
+        "action": "error"
+      }
+    }
+  },
+  "required": [
+    "sources"
+  ],
+  "title": "AlienConfig",
+  "type": "object"
+}

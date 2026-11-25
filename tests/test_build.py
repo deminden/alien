@@ -132,7 +132,7 @@ def test_restrict_to_key_is_not_supported(tmp_path):
         "ensembl_archive": {"enabled": False},
     }
 
-    with pytest.raises(ValueError, match="use 'output_genes' or 'gene_filter' instead"):
+    with pytest.raises(ValueError, match="use output_genes or gene_filter"):
         build(config=cfg, outdir=tmp_path / "out", workers=1)
 
 
@@ -160,7 +160,7 @@ def test_gene_universe_key_is_not_supported(tmp_path):
         "ensembl_archive": {"enabled": False},
     }
 
-    with pytest.raises(ValueError, match="use 'output_genes' instead"):
+    with pytest.raises(ValueError, match="use output_genes"):
         build(config=cfg, outdir=tmp_path / "out", workers=1)
 
 
@@ -188,7 +188,7 @@ def test_output_ids_key_is_not_supported(tmp_path):
         "ensembl_archive": {"enabled": False},
     }
 
-    with pytest.raises(ValueError, match="use 'output_genes' instead"):
+    with pytest.raises(ValueError, match="use output_genes"):
         build(config=cfg, outdir=tmp_path / "out", workers=1)
 
 
