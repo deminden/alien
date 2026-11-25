@@ -20,5 +20,5 @@ def test_pypi_readme_uses_tagged_github_example_links():
     root = Path(__file__).resolve().parents[2]
     text = (root / "README-PYPI.md").read_text(encoding="utf-8")
 
-    assert "https://github.com/deminden/alien/tree/v0.1.6/examples/" in text
-    assert "https://github.com/deminden/alien/blob/v0.1.6/docs/usage.md" in text
+    assert "https://github.com/deminden/alien/tree/v0.2.0/examples/" in text
+    assert "https://github.com/deminden/alien/blob/v0.2.0/docs/usage.md" in text

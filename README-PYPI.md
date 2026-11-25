@@ -24,11 +24,25 @@ Run ALIEN with a YAML config:
 alien build config.yml --workers 16
 ```
 
-The config controls which source libraries are used, which target namespace is written, where downloaded resources are cached (`project.source_dir`), and where outputs are written (`project.outdir`). The main outputs are:
+The config controls which source libraries are used, which target namespace is written, where downloaded resources are cached (`project.source_dir`), and where outputs are written (`project.outdir`). Check a config before a long build with `alien validate config.yml` or `alien build config.yml --dry-run`. The main outputs are:
 
 - `gmt/<target_namespace>.gmt`: combined GMT for each configured target namespace.
 - `metadata/`: source manifests, term manifests, gene mapping audits, filtering logs, and provenance.
 - `qc/`: collection, mapping, redundancy, target coverage, and warning summaries.
+- `MANIFEST.json`: every output file with its sha256; `alien verify OUTDIR` checks it.
+
+Every output file and column is described in [docs/outputs.md](https://github.com/deminden/alien/blob/v0.2.0/docs/outputs.md).
+
+## Reproducible builds
+
+Remote resources (HGNC, NCBI Gene, GENCODE, MSigDB, Enrichr) change over time. Pin them once and rebuild without network access:
+
+```bash
+alien fetch config.yml           # downloads what the config needs and writes alien.lock.json beside it
+alien build config.yml --frozen  # offline; fails if any cached file differs from the lock
+```
+
+Builds are byte-for-byte reproducible apart from the provenance timestamp (which honours `SOURCE_DATE_EPOCH`), and caches are safe to share between concurrent builds.
 
 ## Presets
 
@@ -48,7 +62,7 @@ Available preset aliases:
 
 By default they write against the full GENCODE v47 (matching GTEx).
 
-Override any part of a preset with an overlay YAML:
+Override any part of a preset with an overlay YAML, or start your own config with `extends: pathways` (see `alien config show pathways` for everything a preset sets):
 
 ```bash
 alien build cancer --override tcga-recount3.yml
@@ -56,9 +70,9 @@ alien build cancer --override tcga-recount3.yml
 
 Overlay mappings deep-merge; lists such as `targets` and `sources` replace the previous list. For TCGA-restricted output, the key input is an output-gene list such as `data/recount3/tcga_gencode_v29_output_genes.tsv.gz` and `data/recount3/human.gene_sums.G029.gtf.gz` as a metadata fallback.
 
-Examples with hardcoded study paths are in [examples/](https://github.com/deminden/alien/tree/v0.1.6/examples/). Report walkthroughs are in [examples/analysis/sex_contrast/gtex_thyroid/analysis.md](https://github.com/deminden/alien/blob/v0.1.6/examples/analysis/sex_contrast/gtex_thyroid/analysis.md) and [examples/analysis/sex_contrast/tcga_lung/analysis.md](https://github.com/deminden/alien/blob/v0.1.6/examples/analysis/sex_contrast/tcga_lung/analysis.md).
+Examples with hardcoded study paths are in [examples/](https://github.com/deminden/alien/tree/v0.2.0/examples/). Report walkthroughs are in [examples/analysis/sex_contrast/gtex_thyroid/analysis.md](https://github.com/deminden/alien/blob/v0.2.0/examples/analysis/sex_contrast/gtex_thyroid/analysis.md) and [examples/analysis/sex_contrast/tcga_lung/analysis.md](https://github.com/deminden/alien/blob/v0.2.0/examples/analysis/sex_contrast/tcga_lung/analysis.md).
 
-See [docs/usage.md](https://github.com/deminden/alien/blob/v0.1.6/docs/usage.md) for overlay examples, output modes, and the full configuration reference.
+See [docs/usage.md](https://github.com/deminden/alien/blob/v0.2.0/docs/usage.md) for overlay examples, output modes, and the full configuration reference.
 
 ## How It Works
 
@@ -94,7 +108,7 @@ redundancy:
   jaccard_cutoff: 0.85
 ```
 
-Within each redundant cluster, ALIEN keeps one representative using the configured source priority, then term size and name-based tie-breaks.
+Within each redundant cluster, ALIEN keeps one representative using the configured source priority, then term size and name-based tie-breaks. `redundancy.linkage: representative` avoids chaining (A~B~C) by removing a term only when it is similar to a kept, better-ranked term.
 
 Source priority is configured per term family and controls which library wins when redundant terms overlap. For example, pathway terms can prefer `REACTOME` over broader ontology-derived terms:
 
@@ -103,17 +117,19 @@ source_priority:
   biology_process_pathway: [REACTOME, WIKIPATHWAYS, KEGG_MEDICUS, GOBP]
 ```
 
-See [docs/usage.md](https://github.com/deminden/alien/blob/v0.1.6/docs/usage.md) for the full configuration reference.
+See [docs/usage.md](https://github.com/deminden/alien/blob/v0.2.0/docs/usage.md) for the full configuration reference.
 
 ## Source Inputs
 
-ALIEN 0.1.6 supports managed MSigDB and Enrichr download/cache sources and local file sources:
+ALIEN supports managed MSigDB and Enrichr download/cache sources and local file sources:
 
 - `msigdb_remote`: a Python downloader/reader for configured MSigDB release archives, with normalized Parquet caches for repeated builds.
 - `enrichr_remote`: a Python downloader/reader for Enrichr libraries by public library name.
 - `symbol_gmt`: a GMT file whose members are gene symbols.
+- `msigdb_tsv` and `canonical_tsv`: local tables.
+- `plugin`: a source type provided by another installed package through the `alien.sources` entry-point group.
 
-Additional source metadata fields are documented in [docs/usage.md](https://github.com/deminden/alien/blob/v0.1.6/docs/usage.md).
+Additional source metadata fields are documented in [docs/usage.md](https://github.com/deminden/alien/blob/v0.2.0/docs/usage.md).
 
 ## Python usage
 
@@ -121,7 +137,8 @@ Additional source metadata fields are documented in [docs/usage.md](https://gith
 from alien import build
 
 result = build("config.yml", workers=16)
-print(result.namespaces)
+print(result.namespaces, result.term_counts)
+print(result.gmt_paths["human_gencode49"])
 ```
 
 Preset names and config dictionaries work too:
@@ -140,14 +157,14 @@ sources:
     collection: C2
 ```
 
-This stores the configured MSigDB release archive under `project.source_dir/msigdb_remote/` by default, or a source-level `cache_dir` override when provided. ALIEN verifies the archive by MD5, extracts the matching RDS files, and writes normalized Parquet memberships for later builds.
+This stores the configured MSigDB release archive under `project.source_dir/msigdb_remote/` by default, or a source-level `cache_dir` override when provided. ALIEN verifies the archive checksum, extracts the matching RDS files, and writes normalized Parquet memberships for later builds.
 
 Remote caches are reused by default. ALIEN also caches normalized MSigDB memberships and prepared NCBI rescue maps, so repeated large builds avoid expensive source-format conversion. Use `alien build --force-download` or per-source `force: true` to refresh managed downloads such as MSigDB, Enrichr, GENCODE, HGNC, and NCBI resources. For publication configs, prefer exact Enrichr library names and keep `metadata/source_manifest.tsv` with the released GMTs. Enabled sources are always required; use `enabled: false` to exclude a source deliberately.
 
 ## Scope
 
-The 0.1.6 release officially supports human gene sets using HGNC symbols, Python MSigDB and Enrichr cache integration, optimized repeated-build caches, and Ensembl-style target namespaces. The code is organized so broader namespace integrations can be added later without tying the package to any single downstream analysis project.
+ALIEN officially supports human gene sets using HGNC symbols, Python MSigDB and Enrichr cache integration, optimized repeated-build caches, and Ensembl-style target namespaces. The code is organized so broader namespace integrations can be added later without tying the package to any single downstream analysis project.
 
 ## Contributing
 
-Contributions are welcome. Useful areas include additional tests, documentation, source adapters, target namespace adapters, mapping-audit improvements, curated filtering/source-priority defaults, and validation against established gene-set resources. See [docs/development.md](https://github.com/deminden/alien/blob/v0.1.6/docs/development.md) for development setup and current future plans.
+Contributions are welcome. Useful areas include additional tests, documentation, source adapters, target namespace adapters, mapping-audit improvements, curated filtering/source-priority defaults, and validation against established gene-set resources. See [CONTRIBUTING.md](https://github.com/deminden/alien/blob/v0.2.0/CONTRIBUTING.md), [docs/development.md](https://github.com/deminden/alien/blob/v0.2.0/docs/development.md) and [docs/architecture.md](https://github.com/deminden/alien/blob/v0.2.0/docs/architecture.md).

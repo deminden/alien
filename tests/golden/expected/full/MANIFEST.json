@@ -1,5 +1,5 @@
 {
-  "alien_version": "0.1.6",
+  "alien_version": "0.2.0",
   "files": [
     "gmt/fixture_annotation.gmt",
     "gmt/fixture_measured.gmt",

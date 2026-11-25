@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bioalien"
-version = "0.1.6"
+version = "0.2.0"
 description = "Audited Library Integration for External Namespaces"
 readme = "README-PYPI.md"
 requires-python = ">=3.12"
@@ -15,10 +15,12 @@ authors = [
 ]
 keywords = ["gmt", "gene sets", "ensembl", "hgnc", "bioinformatics"]
 classifiers = [
-  "Development Status :: 3 - Alpha",
+  "Development Status :: 4 - Beta",
   "Intended Audience :: Science/Research",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Typing :: Typed",
   "Operating System :: OS Independent",
   "Topic :: Scientific/Engineering :: Bio-Informatics",
 ]
@@ -54,6 +56,8 @@ alien = "alien.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/deminden/alien"
+Documentation = "https://github.com/deminden/alien/blob/main/docs/usage.md"
+Changelog = "https://github.com/deminden/alien/blob/main/CHANGELOG.md"
 Issues = "https://github.com/deminden/alien/issues"
 
 [tool.setuptools.packages.find]
@@ -108,7 +112,7 @@ source = ["alien"]
 branch = false
 
 [tool.coverage.report]
-fail_under = 85
+fail_under = 90
 show_missing = true
 skip_covered = true
 

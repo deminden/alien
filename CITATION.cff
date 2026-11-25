@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use ALIEN in your work, please cite it as below."
+title: "ALIEN: Audited Library Integration for External Namespaces"
+type: software
+authors:
+  - family-names: Demin
+    given-names: Denis
+repository-code: "https://github.com/deminden/alien"
+url: "https://pypi.org/project/bioalien/"
+license: MIT
+version: 0.2.0
+keywords:
+  - gene sets
+  - GMT
+  - HGNC
+  - Ensembl
+  - bioinformatics
