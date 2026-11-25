@@ -214,6 +214,7 @@ def map_symbols(
     output: dict[str, dict[str, Any]] = {}
     non_gene = non_gene if non_gene is not None else []
     preserve = cfg.get("gene_mapping", {}).get("preserve_unmapped_symbols_in_symbol_gmt", True)
+    manual_repairs = cfg.get("gene_mapping", {}).get("manual_symbol_repairs", {}) or {}
     is_non_gene = _non_gene_matcher(cfg)
     resolve_cache: dict[str, tuple[str, str, list[str]]] = {}
     for row in _term_records(term_df):
@@ -223,12 +224,14 @@ def map_symbols(
             continue
         resolved = resolve_cache.get(gene_symbol)
         if resolved is None:
-            resolved = resolve_current_symbol(gene_symbol, hgnc_maps, use_alias=_use_alias(cfg))
+            resolved = resolve_current_symbol(gene_symbol, hgnc_maps, manual_repairs, use_alias=_use_alias(cfg))
             resolve_cache[gene_symbol] = resolved
         symbol, status, matches = resolved
-        if status == "ambiguous_alias":
+        if status in AMBIGUOUS_SYMBOL_STAGES:
             ambiguous.append(
-                _ambiguous_row("symbols", row, row["gene_symbol"], "hgnc_alias_symbol", matches, [], "drop_alias")
+                _ambiguous_row(
+                    "symbols", row, row["gene_symbol"], AMBIGUOUS_SYMBOL_STAGES[status], matches, [], "drop_alias"
+                )
             )
             if not preserve:
                 continue
@@ -316,10 +319,10 @@ def map_ensembl(
             resolved = resolve_current_symbol(gene_symbol, hgnc_maps, manual_repairs, use_alias=_use_alias(cfg))
             resolve_cache[gene_symbol] = resolved
         current_symbol, status, matches = resolved
-        if status == "ambiguous_alias":
+        if status in AMBIGUOUS_SYMBOL_STAGES:
             _count_status(mapping_status, namespace, row, "ambiguous_drop")
             ambiguous.append(
-                _ambiguous_row(namespace, row, row["gene_symbol"], "hgnc_alias_symbol", matches, [], "drop")
+                _ambiguous_row(namespace, row, row["gene_symbol"], AMBIGUOUS_SYMBOL_STAGES[status], matches, [], "drop")
             )
             if archive_checked:
                 archive_audit.append(
@@ -562,22 +565,30 @@ def resolve_current_symbol(
     manual_repairs = manual_repairs or {}
     current = hgnc_maps.get("current", {})
     previous = hgnc_maps.get("previous", {})
+    ambiguous = hgnc_maps.get("ambiguous", {})
+    ambiguous_previous = ambiguous.get("previous", {})
     alias = hgnc_maps.get("alias", {}) if use_alias else {}
-    ambiguous_alias = hgnc_maps.get("ambiguous", {}).get("alias", {}) if use_alias else {}
+    ambiguous_alias = ambiguous.get("alias", {}) if use_alias else {}
     if symbol in current:
         return str(current[symbol]), "exact_current_symbol", [str(current[symbol])]
-    if symbol in previous:
-        return str(previous[symbol]), "hgnc_previous_symbol", [str(previous[symbol])]
-    if symbol in ambiguous_alias:
-        return "", "ambiguous_alias", list(ambiguous_alias[symbol])
-    if symbol in alias:
-        return str(alias[symbol]), "hgnc_alias_symbol", [str(alias[symbol])]
+    # A curated repair outranks every history or alias lookup, but never an exact current symbol.
     if symbol in manual_repairs:
         repaired = str(manual_repairs[symbol]).strip()
         if repaired in current:
             return repaired, "manual_symbol_repair", [repaired]
         return "", "unmapped", [repaired]
+    if symbol in previous:
+        return str(previous[symbol]), "hgnc_previous_symbol", [str(previous[symbol])]
+    if symbol in ambiguous_previous:
+        return "", "ambiguous_previous", list(ambiguous_previous[symbol])
+    if symbol in ambiguous_alias:
+        return "", "ambiguous_alias", list(ambiguous_alias[symbol])
+    if symbol in alias:
+        return str(alias[symbol]), "hgnc_alias_symbol", [str(alias[symbol])]
     return "", "unmapped", []
+
+
+AMBIGUOUS_SYMBOL_STAGES = {"ambiguous_alias": "hgnc_alias_symbol", "ambiguous_previous": "hgnc_previous_symbol"}
 
 
 def _gencode_symbol_index(gencode: pd.DataFrame) -> dict[str, list[dict[str, str]]]:

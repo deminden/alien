@@ -13,13 +13,13 @@
   },
   {
     "family": "biology_process_pathway",
-    "max_size": 7,
+    "max_size": 6,
     "median_size": 4.5,
     "min_size": 3,
     "n_terms_after_redundancy": 4,
     "n_terms_after_size_filter": 5,
     "n_terms_before_filter": 7,
-    "n_unique_genes": 16,
+    "n_unique_genes": 15,
     "source_tag": "REACTOME",
     "target_namespace": "symbols"
   },
