@@ -33,7 +33,8 @@ def test_fetch_writes_lock_and_frozen_build_succeeds_offline(project: Path) -> N
         "hgnc",
         "ncbi_gene:gene_info",
         "ncbi_gene:gene_history",
-        "ensembl_archive:lookups",
+        "ensembl_archive:lookups:fixture_annotation",
+        "ensembl_archive:lookups:fixture_measured",
     }
     assert lock["resources"]["hgnc"]["sha256"] == file_sha256(project / "sources" / "hgnc" / "hgnc_complete_set.txt")
     result = build(config, frozen=True)
@@ -124,3 +125,25 @@ def test_concurrent_fetches_share_one_download(tmp_path: Path, fake_http: object
     assert {p.read_bytes() for p in paths} == {b"payload"}
     assert fake_http.urls() == ["https://example.test/r.txt"]  # type: ignore[attr-defined]
     assert not list(tmp_path.glob(".r.txt.*.part"))
+
+
+def test_frozen_build_survives_unrelated_additions_to_the_shared_archive_cache(project: Path) -> None:
+    """The archive lookup cache is shared between projects; only the lookups a build reads are pinned."""
+    config = project / "config.yml"
+    fetch(config)
+    cache_file = project / "sources" / "ensembl_archive" / "archive_id_cache.json"
+    lookups = json.loads(cache_file.read_text(encoding="utf-8"))
+    lookups["ENSG00000999999"] = {"query_id": "ENSG00000999999", "found": False, "checked_release": 115}
+    cache_file.write_text(json.dumps(lookups), encoding="utf-8")
+    assert build(config, frozen=True).namespaces
+
+
+def test_frozen_build_fails_when_a_lookup_it_reads_changes(project: Path) -> None:
+    config = project / "config.yml"
+    fetch(config)
+    cache_file = project / "sources" / "ensembl_archive" / "archive_id_cache.json"
+    lookups = json.loads(cache_file.read_text(encoding="utf-8"))
+    lookups["ENSG00000000099"]["possible_replacement"] = ["ENSG00000000001"]
+    cache_file.write_text(json.dumps(lookups), encoding="utf-8")
+    with pytest.raises(ResourceError, match="re-run `alien fetch`"):
+        build(config, frozen=True)

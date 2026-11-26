@@ -35,6 +35,7 @@ from .schema import (
     NCBI_AUDIT_COLUMNS,
     NON_GENE_COLUMNS,
     OUTPUT_SCHEMA_VERSION,
+    SYMBOL_RESCUE_COLUMNS,
     UNMAPPED_COLUMNS,
 )
 from .sources import check_term_id_collisions, load_source_memberships
@@ -204,6 +205,7 @@ def _report_tables(
         "metadata/removed_terms_size_filter.tsv.gz": (filtered.removed_size, None),
         "metadata/removed_terms_redundancy.tsv.gz": (filtered.removed_redundancy, None),
         "metadata/unmapped_genes.tsv.gz": (mapping.unmapped, UNMAPPED_COLUMNS),
+        "metadata/symbol_rescues.tsv.gz": (mapping.symbol_rescues, SYMBOL_RESCUE_COLUMNS),
         "metadata/dropped_non_gene_tokens.tsv.gz": (mapping.non_gene, NON_GENE_COLUMNS),
         "metadata/ambiguous_gene_mappings.tsv.gz": (mapping.ambiguous, AMBIGUOUS_COLUMNS),
         "metadata/ensembl_archive_audit.tsv.gz": (mapping.archive_audit, ARCHIVE_AUDIT_COLUMNS),
@@ -234,7 +236,7 @@ def _run(model: AlienConfig, outdir: Path, report_dir: Path, cache: ResourceCach
 
     memberships = load_source_memberships(model, cache)
     LOGGER.info("Loaded %d memberships across %d terms", len(memberships), memberships["term_id"].nunique())
-    check_term_id_collisions(memberships, model.term_id_collisions.action, metadata, report_dir, warnings)
+    memberships = check_term_id_collisions(memberships, model.term_id_collisions.action, metadata, report_dir, warnings)
 
     LOGGER.info("Loading mapping resources")
     hgnc_table = load_hgnc_table(cache, model.hgnc)

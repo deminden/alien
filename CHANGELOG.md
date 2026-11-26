@@ -37,6 +37,56 @@ Hardening release: correct audit trail, reproducible and pinnable builds, typed 
 - A custom MSigDB `release.zip_url` inherited the built-in archive name and checksum.
 - Extracting a release archive could write outside its directory (zip-slip).
 
+### Fixed (output review)
+
+- GMT and Enrichr term names were sanitized before they were stored, so `original_name` and `display_name` held the term ID instead of the source spelling, two names that differ only in punctuation or non-ASCII letters were merged without a collision report, and multi-word `broad_disease_regex` patterns never matched. Names are now kept as written; names that sanitize to one `term_id` go through `term_id_collisions` (kept apart by renaming by default, see below). A name listed twice in one GMT is logged.
+- Symbols that differ from HGNC only in letter case (`C1ORF112` for `C1orf112`) were unmapped. They are now resolved after every exact match fails and reported with the new mapping status `hgnc_case_insensitive_symbol`; ties are written to `ambiguous_gene_mappings.tsv.gz`. Set `gene_mapping.case_insensitive_symbols: false` for the old behaviour.
+- GMT members with a numeric weight (`TP53,1.0`) were unmapped; the weight is now dropped.
+- `--frozen` failed after any other build added lookups to the shared Ensembl archive cache. The lock now pins, per target, a digest of the lookups that target reads (`ensembl_archive:lookups:<target>`); lock files written before this change need one `alien fetch`.
+- Refusing to overwrite a directory that is not an ALIEN build exits with code 2 instead of reporting an unexpected error.
+- Derived Parquet caches (GTF gene tables, MSigDB summaries and memberships) are written atomically.
+- A `;` inside a GMT description value is written as `,` so the `key=value;...` format stays parseable.
+
+### Changed (gene-set lists)
+
+From the 2026-11-26 review of real builds (GENCODE v47, all presets).
+
+- **Presets.** `cancer_dependency` is replaced by `cancer_programs` (MSigDB C6, C4 3CA, C9; aliases `cancer` and
+  `cancer_dependency`) and the opt-in `cell_line_signatures` (DepMap, CCLE, NCI-60; alias `cell_lines`). The old preset
+  was 70% per-cell-line terms (85% with C4:CGN); in the TCGA lung example 72% of its terms were significant and the
+  top hits were haematopoietic cell lines (immune infiltration) and GNF2 proliferation neighbourhoods. C4:CGN is no
+  longer bundled. `pathways` now starts with MSigDB Hallmark, which also leads its source priority.
+- **Collisions.** `term_id_collisions.action` defaults to `rename`: when two source names sanitize to one term ID, the
+  first keeps it and the other gets a stable `__<hash>` suffix; `term_id_collisions.tsv` gains `resolved_term_id`. With
+  the previous `error` default the bundled `disease_phenotype` preset failed (DisGeNET `beta Thalassemia` and
+  `beta^+^ Thalassemia`).
+- **Term exclusions.** New `filtering.exclude_terms`: named rules remove terms by name before size filtering, with
+  reason `excluded_term` and the rule in the new `exclusion_rule` column of `removed_terms_size_filter`. Bundled rules:
+  KEGG MEDICUS `VARIANT`/`PATHOGEN` pathways (254 terms), pathways named after one pathogen (Reactome 55,
+  WikiPathways 41), HPO onset/inheritance/course modifiers (45), DisGeNET animal-model terms (22).
+- **Broad disease terms.** The default `broad_disease_regex` also removes top-level Disease Ontology classes
+  ("immune system disease", "disease of cellular proliferation"), generic processes ("inflammation", "neoplasm
+  metastasis") and top-level HPO organ-system categories; names are also matched with underscores read as spaces, so
+  the patterns reach MSigDB HPO names. The `disease_phenotype` preset no longer overrides the list (95 terms removed
+  instead of 13).
+- **Short aliases.** For text-mined sources (`gene_mapping.short_alias_source_tags`, default DISGENET and Jensen
+  text-mining) alias-only matches shorter than `gene_mapping.min_alias_length` (4) are rejected with reason
+  `short_alias_rejected`: `HCC` in liver-cancer terms had become HYCC1, `CCT` FLVCR2, `NT3` SORT1. The disease preset
+  keeps the two checked exceptions `HRX` and `ST2` as manual repairs.
+- **Legacy mitochondrial names.** `ND1`..`ND6`, `ND4L`, `CYTB`, `ATP6`, `ATP8`, `COX3`, `RNR1/2` and the tRNA codes
+  (`TRNK`, `TRNL1`, ...) map to their `MT-` genes (status `mitochondrial_legacy_symbol`, option
+  `gene_mapping.mitochondrial_legacy_symbols`). `TRNP` was mapped to the unrelated alias target TRNP1 and `ND1` was
+  ambiguous; `COX1`/`COX2` stay ambiguous (PTGS1/PTGS2).
+- **Spreadsheet dates.** `1-Sep`, `MAR-6` and similar are repaired to SEPTIN/MARCHF genes (status `excel_date_symbol`,
+  option `gene_mapping.excel_date_symbols`); `1-Mar`/`2-Mar` stay ambiguous with MTARC1/MTARC2.
+- **`LOC<GeneID>` tokens** are resolved through the NCBI Gene ID they encode, following replaced IDs (status
+  `ncbi_gene_id`, for every source because it is an ID lookup). CCLE mapping rises from 91.3% to 96.7%.
+- **Audit.** New `metadata/symbol_rescues.tsv.gz`: each distinct token mapped by anything other than a source Ensembl
+  ID or an exact current symbol, with its status, symbol, Ensembl ID and how many memberships and terms it reached.
+- C4 3CA/CGN/CM and Hallmark sets loaded with `msigdb_remote` get their family and aspect without an explicit
+  `family:`; the default `source_priority` lists the tags the remote loader produces (`3CA`, `CGN`, `CM`, `H`).
+- Output schema version 3.
+
 ### Changed (resources)
 
 - HGNC downloads come from HGNC's Google Cloud Storage bucket first; the EBI FTP path, which now returns 404, is a fallback.

@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final
 
+from .errors import OutputDirectoryError
 from .io.atomic import atomic_dir_swap, atomic_write_json, unique_sibling
 from .schema import OUTPUT_FILES
 
@@ -21,10 +22,6 @@ MINIMAL_FILES: Final = tuple(
     for output in OUTPUT_FILES
     if "minimal" in output.modes and not output.path.startswith("gmt/") and output.path != "MANIFEST.json"
 )
-
-
-class OutputDirectoryError(RuntimeError):
-    """The output directory cannot be used safely."""
 
 
 def sha256_file(path: Path) -> str:

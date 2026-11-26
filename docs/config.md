@@ -44,7 +44,7 @@ Four keys append to a list instead of replacing it: `gene_mapping.extra_non_gene
 
 | Option | Type | Default | Description |
 |---|---|---|---|
-| `action` | `error` \| `warn` \| `merge` | `"error"` | What to do when one `term_id` carries conflicting source metadata: `error` stops, `warn` and `merge` combine the memberships and write an audit table. |
+| `action` | `rename` \| `error` \| `warn` \| `merge` | `"rename"` | What to do when one `term_id` carries conflicting source metadata (two source terms whose names sanitize to the same ID): `rename` keeps both, the first in sorted identity order keeps the ID and each other one gets a stable `__<hash>` suffix; `error` stops; `warn` and `merge` combine the memberships. Every case is written to `metadata/term_id_collisions.tsv`. |
 
 ## `filtering`
 
@@ -55,7 +55,8 @@ Four keys append to a list instead of replacing it: `gene_mapping.extra_non_gene
 | `max_size_disease` | integer | `500` | Upper size limit for the `disease_phenotype` family. |
 | `max_size_cancer` | integer | `500` | Upper size limit for the `cancer_dependency_state` family. |
 | `drop_broad_disease_terms` | boolean | `true` | Remove disease terms whose name matches `broad_disease_regex` (such as "cancer" or "disease"). |
-| `broad_disease_regex` | list[string] | see `alien config show` | Case-insensitive patterns for broad disease term names; `extra_broad_disease_regex` appends to the defaults. |
+| `broad_disease_regex` | list[string] | see `alien config show` | Case-insensitive patterns for broad disease term names; `extra_broad_disease_regex` appends to the defaults. Names are also tried with underscores read as spaces, so `^abnormality of the eye$` matches `HP_ABNORMALITY_OF_THE_EYE`. |
+| `exclude_terms` | map[string, mapping] | see `alien config show` | Named rules that remove terms by name before size filtering (reason `excluded_term`, rule name recorded in `removed_terms_size_filter`). Rules merge by name: `{rule: {enabled: false}}` turns one off, a new name adds one. |
 
 ## `redundancy`
 
@@ -71,6 +72,11 @@ Four keys append to a list instead of replacing it: `gene_mapping.extra_non_gene
 | Option | Type | Default | Description |
 |---|---|---|---|
 | `use_hgnc_alias_mapping` | boolean | `true` | Resolve source symbols through HGNC alias symbols (unambiguous aliases only). |
+| `min_alias_length` | integer | `4` | For sources in `short_alias_source_tags`, alias-only matches (HGNC alias, case-insensitive alias and NCBI synonym) need at least this many characters. In text-mined libraries short aliases are mostly abbreviations (`HCC` is hepatocellular carcinoma, not HYCC1; `CCT`, `NT3`, `EOS`); rejected tokens are listed in `unmapped_genes` with reason `short_alias_rejected` and the alias match. |
+| `short_alias_source_tags` | list[string] | `["DISGENET", "JENSEN_DISEASES_TEXTMINING"]` | Source tags whose alias matches must reach `min_alias_length` (text-mined libraries); `*` applies the rule to every source. |
+| `mitochondrial_legacy_symbols` | boolean | `true` | Map legacy mitochondrial-genome names (`ND1`, `CYTB`, `ATP6`, `TRNK`, `TRNL1`, ...) to their `MT-` genes before alias lookup. `COX1` and `COX2` stay ambiguous (they are also aliases of PTGS1 and PTGS2). |
+| `excel_date_symbols` | boolean | `true` | Repair gene names that spreadsheets turned into dates (`1-Sep` -> SEPTIN1, `6-MAR` -> MARCHF6); `1-Mar` and `2-Mar` stay ambiguous (MARCHF1/MTARC1, MARCHF2/MTARC2). |
+| `case_insensitive_symbols` | boolean | `true` | When no exact current, previous or alias symbol matches, look the symbol up again ignoring letter case (`C1ORF112` finds `C1orf112`); such members get the mapping status `hgnc_case_insensitive_symbol`. |
 | `preserve_unmapped_symbols_in_symbol_gmt` | boolean | `true` | Keep source symbols that HGNC cannot resolve in `symbols.gmt` (they are always dropped from Ensembl namespaces). |
 | `non_gene_tokens` | list[string] | see `alien config show` | Member names that are not genes (such as "disease") and are dropped with an audit row; `extra_non_gene_tokens` appends. |
 | `non_gene_token_regex` | list[string] | `[]` | Patterns for non-gene member names; `extra_non_gene_token_regex` appends. |
@@ -117,11 +123,23 @@ Four keys append to a list instead of replacing it: `gene_mapping.extra_non_gene
 A mapping from family to the ordered list of source tags. Defaults:
 
 ```yaml
-biology_process_pathway: [REACTOME, WIKIPATHWAYS, KEGG_MEDICUS, GOBP]
+biology_process_pathway: [H, REACTOME, WIKIPATHWAYS, KEGG_MEDICUS, GOBP]
 biology_function_location: [GOMF, GOCC]
 disease_phenotype: [HPO, DISGENET, CLINVAR, GWAS_CATALOG, JENSEN_DISEASES_CURATED, JENSEN_DISEASES_EXPERIMENTAL, JENSEN_DISEASES_TEXTMINING]
-cancer_dependency_state: [C9, C6, C4_3CA, C4_CGN, C4_CM, DEPMAP, CCLE, NCI60]
+cancer_dependency_state: [3CA, C4_3CA, C6, C9, CGN, C4_CGN, CM, C4_CM, DEPMAP, CCLE, NCI60]
+cell_line_signature: [DEPMAP, CCLE, NCI60]
 ```
+
+## `filtering.exclude_terms`
+
+Bundled exclusion rules. Each removes matching terms of the listed source tags before size filtering; the removal is recorded as `excluded_term` with the rule name in `metadata/removed_terms_size_filter`. Turn one off with `filtering: {exclude_terms: {<rule>: {enabled: false}}}`.
+
+| Rule | Source tags | What it removes |
+|---|---|---|
+| `kegg_medicus_variant_and_pathogen` | `KEGG_MEDICUS` | KEGG MEDICUS mutant-variant and pathogen versions of reference pathways (host genes only, near-copies of the REFERENCE pathway). |
+| `pathogen_specific_pathways` | `REACTOME`, `WIKIPATHWAYS`, `KEGG_MEDICUS`, `KEGG_LEGACY`, `BIOCARTA`, `PID` | Pathways named after one pathogen; they list host machinery (ribosome, interferon, actin) that other terms already cover. |
+| `hpo_modifiers` | `HPO` | HPO modifier and inheritance terms (onset, course, mode of inheritance, age of death): they describe how a phenotype presents, not a phenotype. |
+| `experimental_disease_models` | `DISGENET` | Animal-model and transplantable tumour-line terms in text-mined disease libraries. |
 
 ## `sources`
 

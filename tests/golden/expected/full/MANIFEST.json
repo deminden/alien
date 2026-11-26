@@ -16,6 +16,7 @@
     "metadata/removed_terms_size_filter.tsv.gz",
     "metadata/source_manifest.tsv",
     "metadata/source_provenance.json",
+    "metadata/symbol_rescues.tsv.gz",
     "metadata/target_gene_filter.tsv.gz",
     "metadata/target_metadata_fallbacks.tsv",
     "metadata/target_output_genes.tsv.gz",
@@ -33,6 +34,6 @@
     "qc/warnings.txt"
   ],
   "output_mode": "full",
-  "output_schema_version": 2,
+  "output_schema_version": 3,
   "tool": "ALIEN"
 }

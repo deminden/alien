@@ -27,7 +27,7 @@ default_gmt <- paste(
     "results/alien_outputs/pathways/gmt/tcga_recount3_gencode29.gmt",
     "results/alien_outputs/disease_phenotype/gmt/tcga_recount3_gencode29.gmt",
     "results/alien_outputs/function_location/gmt/tcga_recount3_gencode29.gmt",
-    "results/alien_outputs/cancer_dependency/gmt/tcga_recount3_gencode29.gmt"
+    "results/alien_outputs/cancer_programs/gmt/tcga_recount3_gencode29.gmt"
   ),
   collapse = ","
 )
@@ -36,7 +36,7 @@ default_build_gmt_configs <- paste(
     "examples/pathways.yml",
     "examples/disease_phenotype.yml",
     "examples/function_location.yml",
-    "examples/cancer_dependency.yml"
+    "examples/cancer_programs.yml"
   ),
   collapse = ","
 )
@@ -346,8 +346,9 @@ plot_theme_specs <- list(
     theme_spec("immune and antigen presentation", "IMMUN|ANTIGEN|MHC|B_CELL|B CELL|T_CELL|T CELL|LYMPHOID|LEUKOCYTE|CYTOKINE"),
     theme_spec("ribosomal and mitochondrial programs", "RRNA|RIBOSOM|MITOCHON|TRANSLATION|OXIDATIVE|RESPIRATORY_CHAIN|RESPIRATORY CHAIN")
   ),
-  cancer_dependency = list(
-    theme_spec("lung cancer cell lines", "LUNG|NCIH|NCI_H|LUDLU|RERFLC|DMS454")
+  cancer_programs = list(
+    theme_spec("tumour programmes (3CA metaprograms)", "3CA"),
+    theme_spec("oncogenic signatures (KRAS, EGFR, MYC)", "KRAS|EGFR|MYC|ERBB2|RAF")
   )
 )
 for (gmt_path in gmt_paths) {

@@ -37,7 +37,7 @@ def test_retries_cached_errors_and_saves_atomically(tmp_path: Path, fake_http: F
     assert [payload["id"] for _, _, payload in fake_http.calls if payload] == [["ENSG_ERROR", "ENSG_NEW"]]
     on_disk = json.loads(resolver.cache_path.read_text(encoding="utf-8"))
     assert on_disk["ENSG_ERROR"]["found"] is True and on_disk["ENSG_NEW"]["found"] is True
-    assert "ensembl_archive:lookups" in resolver.resources.used
+    assert resolver.resources.used["ensembl_archive:lookups"]["n_records"] == 3
 
 
 def test_splits_failed_batches(tmp_path: Path, fake_http: FakeServer) -> None:

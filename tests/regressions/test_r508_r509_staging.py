@@ -19,6 +19,7 @@ def _colliding_config(mini_world: MiniWorld) -> dict[str, object]:
         {"type": "symbol_gmt", "path": str(gmt_a), "source_tag": "LOCAL", "term_prefix": "X", "collection": "a"},
         {"type": "symbol_gmt", "path": str(gmt_b), "source_tag": "LOCAL", "term_prefix": "X", "collection": "b"},
     ]
+    cfg["term_id_collisions"] = {"action": "error"}
     return cfg
 
 

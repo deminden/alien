@@ -6,6 +6,6 @@
     "gmt/symbols.gmt"
   ],
   "output_mode": "gmt",
-  "output_schema_version": 2,
+  "output_schema_version": 3,
   "tool": "ALIEN"
 }

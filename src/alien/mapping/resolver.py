@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from typing import Any, Final
@@ -14,13 +15,16 @@ from typing import Any, Final
 from ..model import AnnotationCandidate, MappingStatus, ensembl_stable_id
 from ..resources.ensembl_archive import archive_target_matches, unresolved_status
 from ..resources.hgnc import HgncMaps
+from ..resources.ncbi import ID_STAGE as NCBI_ID_STAGE
+from ..resources.ncbi import RESCUE_STATUSES as NCBI_RESCUE_STATUSES
 from ..resources.ncbi import STAGES as NCBI_STAGES
 from ..resources.ncbi import NcbiMaps, NcbiRecord
-from .symbols import AMBIGUOUS_STAGES, SYMBOL_STATUSES, SymbolResolution, resolve_symbol
+from .symbols import AMBIGUOUS_STAGES, SHORT_ALIAS, SYMBOL_STATUSES, SymbolOptions, SymbolResolution, resolve_symbol
 
 MappingKey = tuple[str, str, bool]  # (gene symbol, stable source Ensembl ID, NCBI rescue allowed)
 CANDIDATE_PRIORITY: Final = {"annotation_gtf": 0, "metadata_fallback": 1, "output_genes": 2, "HGNC": 3}
 PROTEIN_CODING: Final = "protein_coding"
+_LOC_GENE_ID: Final = re.compile(r"^LOC([0-9]+)$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,7 +40,7 @@ class NcbiRescue:
 
     @property
     def rescued(self) -> bool:
-        return self.status in NCBI_STAGES
+        return self.status in NCBI_RESCUE_STATUSES
 
     @property
     def checked(self) -> bool:
@@ -87,6 +91,14 @@ class MappingContext:
     repairs: Mapping[str, str]
     use_alias: bool
     is_non_gene: Callable[[object], bool]
+    case_insensitive: bool = False
+    symbol_options: SymbolOptions | None = None
+
+    @property
+    def options(self) -> SymbolOptions:
+        if self.symbol_options is not None:
+            return self.symbol_options
+        return SymbolOptions(use_alias=self.use_alias, case_insensitive=self.case_insensitive)
 
 
 @dataclass(slots=True)
@@ -161,12 +173,37 @@ def _ncbi_candidate(
     return chosen, unique
 
 
+def ncbi_gene_id_rescue(symbol_raw: str, ctx: MappingContext) -> NcbiRescue:
+    """``LOC<GeneID>``: the gene that NCBI GeneID is now (following one replacement), mapped to a target ID."""
+    match = _LOC_GENE_ID.match(symbol_raw.strip())
+    if match is None or not ctx.ncbi:
+        return NOT_CHECKED
+    record, state = ctx.ncbi.by_gene_id(match.group(1))
+    if record is None:
+        return NcbiRescue(f"{NCBI_ID_STAGE}_{state}", NCBI_ID_STAGE)
+    chosen, candidates = _ncbi_candidate(record, ctx)
+    base = NcbiRescue(
+        NCBI_ID_STAGE,
+        NCBI_ID_STAGE,
+        record.current_symbol,
+        record.current_gene_ids,
+        record.ensembl_gene_ids,
+        (record.current_symbol,),
+        tuple(sorted({c.ensembl_gene_id for c in candidates})),
+    )
+    if chosen is not None:
+        return replace(base, ensembl_gene_id=chosen.ensembl_gene_id)
+    return replace(base, status=f"ambiguous_{NCBI_ID_STAGE}" if candidates else f"{NCBI_ID_STAGE}_not_in_output_genes")
+
+
 def ncbi_rescue(symbol_raw: str, allowed: bool, ctx: MappingContext) -> NcbiRescue:
     """NCBI Gene history, then gene_info synonyms; only after HGNC failed and only for allowed sources."""
     symbol = symbol_raw.strip()
     if not symbol or not ctx.ncbi or not allowed:
         return NOT_CHECKED
     for stage in NCBI_STAGES:
+        if stage == "ncbi_gene_info_synonym" and len(symbol) < ctx.options.min_alias_length:
+            continue
         if symbol in ctx.ncbi.ambiguous.get(stage, {}):
             return NcbiRescue(f"ambiguous_{stage}", stage, possible_symbols=tuple(ctx.ncbi.ambiguous[stage][symbol]))
         record = ctx.ncbi.stages.get(stage, {}).get(symbol)
@@ -194,7 +231,7 @@ Step = Callable[[_State, MappingContext], MappingOutcome | None]
 
 
 def _symbol_resolution(state: _State, ctx: MappingContext) -> MappingOutcome | None:
-    resolution = resolve_symbol(state.key[0], ctx.hgnc, ctx.repairs, use_alias=ctx.use_alias)
+    resolution = resolve_symbol(state.key[0], ctx.hgnc, ctx.repairs, options=ctx.options)
     state.resolution = resolution
     if resolution.is_ambiguous:
         detail = AmbiguousDetail(AMBIGUOUS_STAGES[resolution.status], resolution.candidates, (), "drop")
@@ -229,10 +266,26 @@ def _hgnc_tiebreak(state: _State, ctx: MappingContext) -> MappingOutcome | None:
     return MappingOutcome(MappingStatus.HGNC_ENSEMBL_TIEBREAK, chosen.ensembl_gene_id, state.resolution.symbol)
 
 
+def _ncbi_gene_id(state: _State, ctx: MappingContext) -> MappingOutcome | None:
+    """``LOC<GeneID>`` tokens: an ID lookup, so it runs for every source, not only NCBI-allowed ones."""
+    if not state.pending:
+        return None
+    rescue = ncbi_gene_id_rescue(state.key[0], ctx)
+    if rescue.checked:
+        state.rescue = rescue
+    if not rescue.rescued:
+        return None
+    return MappingOutcome(
+        MappingStatus.NCBI_GENE_ID, rescue.ensembl_gene_id, rescue.current_symbol, ncbi=(rescue, "rescued")
+    )
+
+
 def _ncbi_rescue(state: _State, ctx: MappingContext) -> MappingOutcome | None:
     if not state.pending:
         return None
-    state.rescue = ncbi_rescue(state.key[0], state.key[2], ctx)
+    rescue = ncbi_rescue(state.key[0], state.key[2], ctx)
+    if rescue.checked or not state.rescue.checked:
+        state.rescue = rescue
     if not state.rescue.rescued:
         return None
     return MappingOutcome(
@@ -265,15 +318,22 @@ def _failure(state: _State, ctx: MappingContext) -> MappingOutcome:
             MappingStatus.AMBIGUOUS_DROP, failure=state.pending, ambiguous=detail, ncbi=(rescue, "ambiguous_drop")
         )
     matches = resolution.candidates if resolution else ()
+    reason = SHORT_ALIAS if resolution is not None and resolution.status == SHORT_ALIAS else "unmapped_symbol"
     return MappingOutcome(
         MappingStatus.UNMAPPED_DROP,
         failure=state.pending,
-        unmapped=UnmappedDetail("", "unmapped_symbol", matches),
+        unmapped=UnmappedDetail("", reason, matches),
         ncbi=(rescue, "unmapped_drop") if rescue.checked else None,
     )
 
 
-SYMBOL_STEPS: Final[tuple[Step, ...]] = (_symbol_resolution, _annotation_candidate, _hgnc_tiebreak, _ncbi_rescue)
+SYMBOL_STEPS: Final[tuple[Step, ...]] = (
+    _symbol_resolution,
+    _annotation_candidate,
+    _hgnc_tiebreak,
+    _ncbi_gene_id,
+    _ncbi_rescue,
+)
 
 
 def _archive_check(key: MappingKey, ctx: MappingContext) -> tuple[dict[str, Any], list[str]] | None:

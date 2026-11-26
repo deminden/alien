@@ -17,6 +17,6 @@
     "qc/warnings.txt"
   ],
   "output_mode": "minimal",
-  "output_schema_version": 2,
+  "output_schema_version": 3,
   "tool": "ALIEN"
 }

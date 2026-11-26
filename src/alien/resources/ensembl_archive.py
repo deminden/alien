@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 from collections.abc import Iterable
@@ -18,6 +19,8 @@ from ..model import ensembl_stable_id
 LOGGER = logging.getLogger("alien")
 CACHE_KEY: Final = "ensembl_archive:lookups"
 TRUE_VALUES: Final = frozenset({"1", "true", "True"})
+#: Bookkeeping fields that do not change what a lookup means for mapping.
+UNPINNED_FIELDS: Final = frozenset({"checked_release"})
 
 
 def normalize_archive_record(stable_id: str, item: dict[str, Any]) -> dict[str, Any]:
@@ -123,7 +126,7 @@ class EnsemblArchiveResolver:
         missing += self._stale(stable_ids)
         if not missing:
             LOGGER.info("Ensembl archive audit%s: %d problematic IDs already cached", label, len(stable_ids))
-            self.resources.record_file(CACHE_KEY, self.config.endpoint, self.cache_path)
+            self._pin(stable_ids, namespace)
             return
         if self.resources.frozen:
             raise ResourceError(
@@ -146,7 +149,17 @@ class EnsemblArchiveResolver:
             )
             self._fetch_batch(batch)
             self._save()
-        self.resources.record_file(CACHE_KEY, self.config.endpoint, self.cache_path)
+        self._pin(stable_ids, namespace)
+
+    def _pin(self, stable_ids: list[str], namespace: str) -> None:
+        """Pin the lookups this namespace uses. The cache file is shared and grows, so its own hash is not pinned."""
+        records = {
+            stable_id: {key: value for key, value in self.lookup(stable_id).items() if key not in UNPINNED_FIELDS}
+            for stable_id in sorted(set(stable_ids))
+        }
+        digest = hashlib.sha256(json.dumps(records, sort_keys=True, default=str).encode("utf-8")).hexdigest()
+        key = f"{CACHE_KEY}:{namespace}" if namespace else CACHE_KEY
+        self.resources.record_content(key, self.config.endpoint, self.cache_path, digest, len(records))
 
     def _fetch_batch(self, stable_ids: list[str]) -> None:
         try:

@@ -1,0 +1,19 @@
+# Study-specific build on top of the bundled `cancer_programs` preset.
+# Everything except the targets comes from the preset (see `alien config show cancer_programs`).
+# Paths below are relative to this file; the preset's cache and output paths stay relative to the
+# working directory, so run this from the repository root.
+extends: cancer_programs
+
+targets:
+  - name: tcga_recount3_gencode29
+    type: ensembl_gtf
+    annotation:
+      source: GENCODE
+      version: "29"
+      metadata_fallbacks:
+        - source: recount3
+          version: G029
+          path: ../data/recount3/human.gene_sums.G029.gtf.gz
+    output_genes:
+      path: ../data/recount3/tcga_gencode_v29_output_genes.tsv.gz
+      id_column: Ensembl_gene_ID

@@ -14,7 +14,7 @@ from ..cache import ResourceCache, derived_cache_path, file_sha256
 from ..config.schema import AnnotationFile, TargetSpec
 from ..errors import ConfigError, ResourceError
 from ..io.gtf import parse_gtf_genes
-from ..io.tables import write_table
+from ..io.tables import write_parquet, write_table
 from ..model import GeneIdList, Target, sanitize_term_id
 from ..schema import ANNOTATION_COLUMNS
 from .output_genes import read_gene_id_list
@@ -85,8 +85,7 @@ def parse_gtf_cached(path: Path, version: str, spec: AnnotationFile, cache: Reso
         LOGGER.info("Parsing annotation genes from %s.", path)
         frame = parse_gtf_genes(path, version, attributes)
         with cache.file_lock(cache_path):
-            cache_path.parent.mkdir(parents=True, exist_ok=True)
-            frame.to_parquet(cache_path, index=False)
+            write_parquet(frame, cache_path)
     frame["source_gtf"] = str(path)
     return frame
 

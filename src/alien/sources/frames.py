@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 
@@ -10,6 +11,8 @@ import pandas as pd
 from ..io.gmt import parse_gmt
 from ..model import sanitize_term_id
 from ..schema import CANONICAL_COLUMNS
+
+LOGGER = logging.getLogger("alien")
 
 
 def empty_memberships() -> pd.DataFrame:
@@ -36,15 +39,26 @@ def column_or(raw: pd.DataFrame, name: str, default: str = "") -> pd.Series:
 def rows_from_gmt(path: Path, term_prefix: str, constants: Mapping[str, str]) -> pd.DataFrame:
     """One canonical row per (term, gene) of a symbol GMT; term IDs are ``<prefix>__<sanitized name>``."""
     rows: list[dict[str, str]] = []
+    seen: dict[str, int] = {}
     for record in parse_gmt(path):
+        name = record.name or record.term_id
+        seen[name] = seen.get(name, 0) + 1
         term_id = f"{term_prefix}__{sanitize_term_id(record.term_id)}"
         base = {
             **constants,
             "term_id": term_id,
-            "original_name": record.term_id,
-            "display_name": record.term_id,
+            "original_name": name,
+            "display_name": name,
             "description": record.description,
             "gene_ensembl_from_source": "",
         }
         rows.extend({**base, "gene_symbol": gene} for gene in record.genes)
+    repeated = sorted(name for name, count in seen.items() if count > 1)
+    if repeated:
+        LOGGER.warning(
+            "%s lists %d term name(s) more than once; their members are combined (first: %s).",
+            path,
+            len(repeated),
+            repeated[0],
+        )
     return pd.DataFrame(rows, columns=list(CANONICAL_COLUMNS))

@@ -52,20 +52,16 @@ filtering:
   min_size_default: 10
   max_size_default: 500
   max_size_disease: 500
+  # Broad categories ("disease", top-level Disease Ontology and HPO organ-system classes) are removed with the
+  # built-in filtering.broad_disease_regex; add more with extra_broad_disease_regex.
   drop_broad_disease_terms: true
-  broad_disease_regex:
-    - "^disease$"
-    - "^diseases$"
-    - "^cancer$"
-    - "^neoplasm$"
-    - "^neoplasms$"
-    - "^malignant neoplasm$"
-    - "^malignant neoplasms$"
-    - "^carcinoma$"
-    - "^tumor$"
-    - "^tumour$"
-    - "^genetic disease$"
-    - "^genetic disorder$"
+
+gene_mapping:
+  # Short aliases from the text-mined DisGeNET library are rejected (min_alias_length); these two were checked
+  # against the terms that use them and are kept: HRX in leukaemia terms is KMT2A, ST2 (sST2) is IL1RL1 (IL33R).
+  manual_symbol_repairs:
+    HRX: KMT2A
+    ST2: IL33R
 
 redundancy:
   exact_duplicate_removal: true

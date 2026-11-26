@@ -43,5 +43,12 @@ def write_table(frame: pd.DataFrame, path: Path, columns: Sequence[str] | None =
     atomic_write_bytes(path, gzip_bytes(data) if path.name.endswith(".gz") else data)
 
 
+def write_parquet(frame: pd.DataFrame, path: Path) -> None:
+    """Write a derived-cache Parquet file atomically, so a concurrent reader never sees a partial file."""
+    buffer = io.BytesIO()
+    frame.to_parquet(buffer, index=False)
+    atomic_write_bytes(path, buffer.getvalue())
+
+
 def read_table(path: Path) -> pd.DataFrame:
     return pd.read_csv(path, sep="\t", dtype=str, keep_default_na=False)

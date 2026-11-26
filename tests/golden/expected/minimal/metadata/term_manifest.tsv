@@ -5,12 +5,12 @@ DEP_ONE	fixture_measured	DEP_ONE	DEP_ONE	cancer_dependency_state	dependency	DepM
 DEP_TWO	symbols	DEP_TWO	DEP_TWO	cancer_dependency_state	dependency	DepMapFixture	DEPMAP	canonical					5	5	True		DEP_TWO	
 DEP_TWO	fixture_annotation	DEP_TWO	DEP_TWO	cancer_dependency_state	dependency	DepMapFixture	DEPMAP	canonical					5	3	True		DEP_TWO	
 DEP_TWO	fixture_measured	DEP_TWO	DEP_TWO	cancer_dependency_state	dependency	DepMapFixture	DEPMAP	canonical					5	3	True		DEP_TWO	
-LOCALDIS__Other_syndrome	symbols	Other_syndrome	Other_syndrome	disease_phenotype	phenotype	Local disease	LOCALDIS	local_disease					4	4	True		LOCALDIS__Other_syndrome	
-LOCALDIS__Other_syndrome	fixture_annotation	Other_syndrome	Other_syndrome	disease_phenotype	phenotype	Local disease	LOCALDIS	local_disease					4	4	True		LOCALDIS__Other_syndrome	
-LOCALDIS__Other_syndrome	fixture_measured	Other_syndrome	Other_syndrome	disease_phenotype	phenotype	Local disease	LOCALDIS	local_disease					4	4	True		LOCALDIS__Other_syndrome	
-LOCALDIS__Specific_syndrome	symbols	Specific_syndrome	Specific_syndrome	disease_phenotype	phenotype	Local disease	LOCALDIS	local_disease					4	4	False	exact_duplicate	LOCALDIS__Other_syndrome	symbols:disease_phenotype:exact:LOCALDIS__Other_syndrome
-LOCALDIS__Specific_syndrome	fixture_annotation	Specific_syndrome	Specific_syndrome	disease_phenotype	phenotype	Local disease	LOCALDIS	local_disease					4	4	False	exact_duplicate	LOCALDIS__Other_syndrome	fixture_annotation:disease_phenotype:exact:LOCALDIS__Other_syndrome
-LOCALDIS__Specific_syndrome	fixture_measured	Specific_syndrome	Specific_syndrome	disease_phenotype	phenotype	Local disease	LOCALDIS	local_disease					4	4	False	exact_duplicate	LOCALDIS__Other_syndrome	fixture_measured:disease_phenotype:exact:LOCALDIS__Other_syndrome
+LOCALDIS__Other_syndrome	symbols	Other syndrome	Other syndrome	disease_phenotype	phenotype	Local disease	LOCALDIS	local_disease					4	4	True		LOCALDIS__Other_syndrome	
+LOCALDIS__Other_syndrome	fixture_annotation	Other syndrome	Other syndrome	disease_phenotype	phenotype	Local disease	LOCALDIS	local_disease					4	4	True		LOCALDIS__Other_syndrome	
+LOCALDIS__Other_syndrome	fixture_measured	Other syndrome	Other syndrome	disease_phenotype	phenotype	Local disease	LOCALDIS	local_disease					4	4	True		LOCALDIS__Other_syndrome	
+LOCALDIS__Specific_syndrome	symbols	Specific syndrome	Specific syndrome	disease_phenotype	phenotype	Local disease	LOCALDIS	local_disease					4	4	False	exact_duplicate	LOCALDIS__Other_syndrome	symbols:disease_phenotype:exact:LOCALDIS__Other_syndrome
+LOCALDIS__Specific_syndrome	fixture_annotation	Specific syndrome	Specific syndrome	disease_phenotype	phenotype	Local disease	LOCALDIS	local_disease					4	4	False	exact_duplicate	LOCALDIS__Other_syndrome	fixture_annotation:disease_phenotype:exact:LOCALDIS__Other_syndrome
+LOCALDIS__Specific_syndrome	fixture_measured	Specific syndrome	Specific syndrome	disease_phenotype	phenotype	Local disease	LOCALDIS	local_disease					4	4	False	exact_duplicate	LOCALDIS__Other_syndrome	fixture_measured:disease_phenotype:exact:LOCALDIS__Other_syndrome
 LOCALDIS__disease	symbols	disease	disease	disease_phenotype	phenotype	Local disease	LOCALDIS	local_disease					3	3	False	broad_disease_term	LOCALDIS__disease	
 LOCALDIS__disease	fixture_annotation	disease	disease	disease_phenotype	phenotype	Local disease	LOCALDIS	local_disease					3	3	False	broad_disease_term	LOCALDIS__disease	
 LOCALDIS__disease	fixture_measured	disease	disease	disease_phenotype	phenotype	Local disease	LOCALDIS	local_disease					3	3	False	broad_disease_term	LOCALDIS__disease	

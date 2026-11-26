@@ -142,6 +142,20 @@ def render() -> str:
         *(f"{family}: [{', '.join(tags)}]" for family, tags in schema.DEFAULT_SOURCE_PRIORITY.items()),
         "```",
         "",
+        "## `filtering.exclude_terms`",
+        "",
+        "Bundled exclusion rules. Each removes matching terms of the listed source tags before size filtering; "
+        "the removal is recorded as `excluded_term` with the rule name in `metadata/removed_terms_size_filter`. "
+        "Turn one off with `filtering: {exclude_terms: {<rule>: {enabled: false}}}`.",
+        "",
+        "| Rule | Source tags | What it removes |",
+        "|---|---|---|",
+        *(
+            f"| `{name}` | {', '.join(f'`{tag}`' for tag in rule['source_tags']) or 'all'} | "
+            f"{rule['description'].replace('|', '\\|')} |"
+            for name, rule in schema.DEFAULT_EXCLUDE_TERMS.items()
+        ),
+        "",
         "## `sources`",
         "",
         f"Each entry is selected by `type`: {', '.join(f'`{t}`' for t in SOURCE_TYPES)}. "

@@ -8,6 +8,7 @@ options: {...}}``.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from importlib.metadata import entry_points
 from pathlib import Path
@@ -76,7 +77,9 @@ def term_id_collision_audit(memberships: pd.DataFrame) -> pd.DataFrame:
     """Rows describing each distinct identity behind a term_id that more than one identity uses."""
     columns = [column for column in TERM_ID_IDENTITY_COLUMNS if column in memberships.columns]
     audit_columns = [
-        c for c in TERM_ID_COLLISION_COLUMNS if c != "action" and (c in columns or c not in TERM_ID_IDENTITY_COLUMNS)
+        c
+        for c in TERM_ID_COLLISION_COLUMNS
+        if c not in ("action", "resolved_term_id") and (c in columns or c not in TERM_ID_IDENTITY_COLUMNS)
     ]
     working = (
         memberships.reindex(columns=list(dict.fromkeys(["term_id", "gene_symbol", *columns]))).fillna("").astype(str)
@@ -102,14 +105,57 @@ def term_id_collision_audit(memberships: pd.DataFrame) -> pd.DataFrame:
     return grouped[audit_columns]
 
 
+def _suffix(values: list[str]) -> str:
+    return hashlib.sha1("\x1f".join(values).encode("utf-8")).hexdigest()[:8]
+
+
+def _renamed_ids(audit: pd.DataFrame) -> list[str]:
+    """New term IDs: the first identity of each colliding ID keeps it, the others get ``__<hash>`` of their source
+    tag and original name (all identity fields when those two do not tell them apart)."""
+    columns = [c for c in TERM_ID_IDENTITY_COLUMNS if c in audit.columns]
+    short = [
+        _suffix([str(row.get("source_tag", "")), str(row.get("original_name", ""))]) for row in audit.to_dict("records")
+    ]
+    full = [_suffix([str(row.get(c, "")) for c in columns]) for row in audit.to_dict("records")]
+    renamed: list[str] = []
+    for index, (term_id, identity) in enumerate(zip(audit["term_id"], audit["collision_identity_id"], strict=True)):
+        if int(identity) == 1:
+            renamed.append(str(term_id))
+            continue
+        same_term = audit["term_id"] == term_id
+        clash = sum(1 for s in [short[i] for i in audit.index[same_term]] if s == short[index]) > 1
+        renamed.append(f"{term_id}__{full[index] if clash else short[index]}")
+    return renamed
+
+
+def _apply_renames(memberships: pd.DataFrame, audit: pd.DataFrame) -> pd.DataFrame:
+    columns = [c for c in TERM_ID_IDENTITY_COLUMNS if c in audit.columns and c in memberships.columns]
+    changes = audit[audit["resolved_term_id"] != audit["term_id"]]
+    if changes.empty:
+        return memberships
+    keys = ["term_id", *columns]
+    lookup = changes[[*keys, "resolved_term_id"]].astype(str)
+    working = memberships.reset_index(drop=True)
+    probe = working.reindex(columns=keys).fillna("").astype(str)
+    merged = probe.merge(lookup, on=keys, how="left")
+    new_ids = merged["resolved_term_id"].fillna("")
+    working = working.copy()
+    working["term_id"] = working["term_id"].where(new_ids.eq("").to_numpy(), new_ids.to_numpy())
+    return working
+
+
 def check_term_id_collisions(
     memberships: pd.DataFrame, action: str, metadata_dir: Path, report_metadata_dir: Path, warnings: list[str]
-) -> None:
-    """Write term_id_collisions.tsv when term IDs collide; raise for action 'error', else warn."""
+) -> pd.DataFrame:
+    """Write term_id_collisions.tsv when term IDs collide; rename, raise or warn per ``action``.
+
+    Returns the memberships, with colliding identities given distinct term IDs for action ``rename``.
+    """
     audit = term_id_collision_audit(memberships)
     if audit.empty:
-        return
+        return memberships
     audit = audit.assign(action=action)
+    audit["resolved_term_id"] = _renamed_ids(audit) if action == "rename" else audit["term_id"]
     name = "term_id_collisions.tsv"
     write_table(audit, metadata_dir / name)
     message = (
@@ -118,12 +164,17 @@ def check_term_id_collisions(
     )
     if action == "error":
         raise TermIdCollisionError(
-            f"{message} See {report_metadata_dir / name}. Rename or prefix the colliding term IDs, "
-            "or set term_id_collisions.action explicitly."
+            f"{message} See {report_metadata_dir / name}. Use term_id_collisions.action 'rename' to keep both, "
+            "rename or prefix the colliding term IDs, or choose 'warn'/'merge' to combine them."
         )
+    if action == "rename":
+        renamed = int((audit["resolved_term_id"] != audit["term_id"]).sum())
+        LOGGER.info("%s Kept them apart by renaming %d; see metadata/%s.", message, renamed, name)
+        return _apply_renames(memberships, audit)
     message = f"{message} See metadata/{name}."
     warnings.append(f"{message} Continuing because term_id_collisions.action is {action!r}.")
     LOGGER.warning("%s Continuing because term_id_collisions.action is %r.", message, action)
+    return memberships
 
 
 _MOVED = {

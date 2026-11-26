@@ -182,16 +182,21 @@ class ResourceCache:
         if not self.frozen:
             self.lock.resources[key] = entry
 
-    def record_file(self, key: str, url: str, dest: Path, upstream_version: str = "") -> None:
-        """Pin a cache file ALIEN writes itself (for example the Ensembl archive lookup cache)."""
-        if not dest.exists():
-            return
-        digest = file_sha256(dest)
+    def record_content(self, key: str, url: str, dest: Path, digest: str, n_records: int) -> None:
+        """Pin the records a build read from a cache file that other builds also add to.
+
+        ``digest`` covers only those records, so the pin survives unrelated additions to the file.
+        """
         if self.frozen:
             pinned = self.lock.resources.get(key)
-            if pinned is None or pinned.get("sha256") != digest:
-                raise ResourceError(f"{key}: {dest} differs from {self.lock.path}; re-run `alien fetch`.")
-        self._record(key, {"url": url, "sha256": digest, "size": dest.stat().st_size}, dest, upstream_version)
+            if pinned is None:
+                raise ResourceError(f"{key} is not pinned in {self.lock.path}; run `alien fetch` to update the lock.")
+            if pinned.get("sha256") != digest:
+                raise ResourceError(
+                    f"{key}: the records this build reads from {dest} differ from {self.lock.path}; "
+                    "re-run `alien fetch`."
+                )
+        self._record(key, {"url": url, "sha256": digest, "n_records": n_records, "scope": "records_used"}, dest, "")
 
     def resolve(self, key: str, compute: Callable[[], str]) -> str:
         """A pinned choice: frozen builds reuse the lock; other builds compute and record it."""

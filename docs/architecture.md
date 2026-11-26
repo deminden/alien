@@ -5,7 +5,7 @@ ALIEN is a pipeline of stages over a small set of shared primitives. Each module
 ## Stages (`alien.pipeline`)
 
 1. **Configure** (`alien.config`): defaults on frozen pydantic models; layers merged from the `extends:` chain, the config file, overrides and explicit options; relative paths resolved against the declaring file; unknown keys rejected with their YAML path.
-2. **Load sources** (`alien.sources`): every enabled source spec goes to the loader registered for its `type` and returns the canonical membership table (`alien.schema.CANONICAL_COLUMNS`). Term-ID collisions are checked here.
+2. **Load sources** (`alien.sources`): every enabled source spec goes to the loader registered for its `type` and returns the canonical membership table (`alien.schema.CANONICAL_COLUMNS`). Term-ID collisions are checked here and, by default, renamed apart.
 3. **Load resources** (`alien.resources`): the HGNC complete set, NCBI Gene rescue maps, prepared targets (annotation GTF, metadata fallbacks, output-gene lists) and the Ensembl archive resolver.
 4. **Map** (`alien.mapping`): the `symbols` namespace, then each target. For a target, every distinct key `(symbol, source Ensembl ID, NCBI allowed)` is resolved once by `resolver.resolve`, a pure ordered chain of steps; outcomes are joined back to memberships to build term gene sets, audit tables and status counts.
 5. **Filter** (`alien.filtering`): size and broad-term filters per namespace, then redundancy removal per (namespace, family) group, serially or in a process pool.

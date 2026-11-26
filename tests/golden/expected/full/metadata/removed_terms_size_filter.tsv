@@ -1,10 +1,10 @@
-target_namespace	family	term_id	original_name	source_tag	original_size_symbols	mapped_size	reason
-symbols	disease_phenotype	LOCALDIS__disease	disease	LOCALDIS	3	3	broad_disease_term
-symbols	biology_process_pathway	MSIGDB_REACTOME__PATH_HUGE	PATH_HUGE	REACTOME	10	10	too_large
-symbols	biology_process_pathway	MSIGDB_REACTOME__PATH_TINY	PATH_TINY	REACTOME	1	1	too_small
-fixture_annotation	disease_phenotype	LOCALDIS__disease	disease	LOCALDIS	3	3	broad_disease_term
-fixture_annotation	biology_process_pathway	MSIGDB_REACTOME__PATH_HUGE	PATH_HUGE	REACTOME	10	10	too_large
-fixture_annotation	biology_process_pathway	MSIGDB_REACTOME__PATH_TINY	PATH_TINY	REACTOME	1	1	too_small
-fixture_measured	disease_phenotype	LOCALDIS__disease	disease	LOCALDIS	3	3	broad_disease_term
-fixture_measured	biology_process_pathway	MSIGDB_REACTOME__PATH_HUGE	PATH_HUGE	REACTOME	9	9	too_large
-fixture_measured	biology_process_pathway	MSIGDB_REACTOME__PATH_TINY	PATH_TINY	REACTOME	1	1	too_small
+target_namespace	family	term_id	original_name	source_tag	original_size_symbols	mapped_size	reason	exclusion_rule
+symbols	disease_phenotype	LOCALDIS__disease	disease	LOCALDIS	3	3	broad_disease_term	
+symbols	biology_process_pathway	MSIGDB_REACTOME__PATH_HUGE	PATH_HUGE	REACTOME	10	10	too_large	
+symbols	biology_process_pathway	MSIGDB_REACTOME__PATH_TINY	PATH_TINY	REACTOME	1	1	too_small	
+fixture_annotation	disease_phenotype	LOCALDIS__disease	disease	LOCALDIS	3	3	broad_disease_term	
+fixture_annotation	biology_process_pathway	MSIGDB_REACTOME__PATH_HUGE	PATH_HUGE	REACTOME	10	10	too_large	
+fixture_annotation	biology_process_pathway	MSIGDB_REACTOME__PATH_TINY	PATH_TINY	REACTOME	1	1	too_small	
+fixture_measured	disease_phenotype	LOCALDIS__disease	disease	LOCALDIS	3	3	broad_disease_term	
+fixture_measured	biology_process_pathway	MSIGDB_REACTOME__PATH_HUGE	PATH_HUGE	REACTOME	9	9	too_large	
+fixture_measured	biology_process_pathway	MSIGDB_REACTOME__PATH_TINY	PATH_TINY	REACTOME	1	1	too_small	

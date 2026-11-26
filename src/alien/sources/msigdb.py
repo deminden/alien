@@ -14,6 +14,7 @@ import pandas as pd
 from ..cache import ResourceCache, derived_cache_path, file_sha256
 from ..config.schema import MsigdbCacheSource, MsigdbRemoteSource, MsigdbTsvSource
 from ..errors import ConfigError, ResourceError, SourceError
+from ..io.tables import write_parquet
 from ..model import Family, sanitize_term_id
 from ..schema import CANONICAL_COLUMNS
 from .frames import column_or, concat_memberships, empty_memberships
@@ -38,6 +39,15 @@ MSIGDB_SOURCES: Final = {
     "C4_3CA": ("C4", "3CA", Family.CANCER_DEPENDENCY_STATE, "cancer_signature"),
     "C4_CGN": ("C4", "CGN", Family.CANCER_DEPENDENCY_STATE, "cancer_signature"),
     "C4_CM": ("C4", "CM", Family.CANCER_DEPENDENCY_STATE, "cancer_signature"),
+}
+#: Remote tags (from ``remote_source_tag``) -> default family and aspect; extends MSIGDB_SOURCES with the tags the
+#: remote loader produces for Hallmark and the C4 subcollections.
+REMOTE_TAG_DEFAULTS: Final = {
+    **MSIGDB_SOURCES,
+    "H": ("H", "", Family.BIOLOGY_PROCESS_PATHWAY, "hallmark"),
+    "3CA": MSIGDB_SOURCES["C4_3CA"],
+    "CGN": MSIGDB_SOURCES["C4_CGN"],
+    "CM": MSIGDB_SOURCES["C4_CM"],
 }
 #: Built-in release table; new releases can be configured with ``release:`` without a code change.
 MSIGDB_RELEASES: Final = {
@@ -201,10 +211,7 @@ def cached_rds_frame(path: Path, cache: ResourceCache, *, force: bool = False) -
         if target.exists() and not force:
             return pd.read_parquet(target).fillna("").astype(str)
         frame = read_rds_frame(path)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        partial = target.with_name(f".{target.name}.partial")
-        frame.to_parquet(partial, index=False)
-        partial.replace(target)
+        write_parquet(frame, target)
     return frame
 
 
@@ -229,8 +236,7 @@ def _read_summary(release_dir: Path, release: dict[str, str], force: bool) -> pd
     if summary_cache.exists() and not force:
         return pd.read_parquet(summary_cache).fillna("").astype(str)
     summary = read_rds_frame(rds)
-    summary_cache.parent.mkdir(parents=True, exist_ok=True)
-    summary.to_parquet(summary_cache, index=False)
+    write_parquet(summary, summary_cache)
     return summary
 
 
@@ -255,7 +261,7 @@ def normalize_remote_frame(raw: pd.DataFrame, spec: MsigdbRemoteSource) -> pd.Da
     tags = subcollection.where(subcollection.ne(""), collection).replace("", "MSIGDB").map(remote_source_tag)
     frames = []
     for tag, tag_frame in raw.groupby(tags, sort=True):
-        default = MSIGDB_SOURCES.get(str(tag), ("", "", Family.BIOLOGY_PROCESS_PATHWAY, "library"))
+        default = REMOTE_TAG_DEFAULTS.get(str(tag), ("", "", Family.BIOLOGY_PROCESS_PATHWAY, "library"))
         frames.append(
             normalize_msigdb(
                 tag_frame,
@@ -303,6 +309,5 @@ def load_msigdb_remote(spec: MsigdbRemoteSource, cache: ResourceCache) -> pd.Dat
     ]
     memberships = concat_memberships(frames)
     with cache.file_lock(cache_path):
-        cache_path.parent.mkdir(parents=True, exist_ok=True)
-        memberships[list(CANONICAL_COLUMNS)].to_parquet(cache_path, index=False)
+        write_parquet(memberships[list(CANONICAL_COLUMNS)], cache_path)
     return memberships

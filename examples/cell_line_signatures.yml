@@ -1,10 +1,18 @@
-# Study-specific build on top of the bundled `cancer_dependency` preset.
-# Everything except the targets comes from the preset (see `alien config show cancer_dependency`).
+# Study-specific build on top of the bundled `cell_line_signatures` preset.
+# Everything except the targets comes from the preset (see `alien config show cell_line_signatures`).
 # Paths below are relative to this file; the preset's cache and output paths stay relative to the
 # working directory, so run this from the repository root.
-extends: cancer_dependency
+extends: cell_line_signatures
 
 targets:
+  - name: gtex_v11_gencode47
+    type: ensembl_gtf
+    annotation:
+      source: GENCODE
+      version: "47"
+    output_genes:
+      path: ../data/gtex/GTEx_Analysis_2025-08-22_v11_RNASeQCv2.4.3_gene_reads.parquet
+      id_column: index
   - name: tcga_recount3_gencode29
     type: ensembl_gtf
     annotation:

@@ -28,15 +28,15 @@ alien build disease
 alien build cancer
 ```
 
-The bundled preset names are `pathways`, `function_location`, `disease_phenotype`, and `cancer_dependency`. Short aliases are `function`, `disease`, and `cancer`. `alien presets` lists the installed presets and their package paths. Presets are packaged with ALIEN for offline config resolution and are GTEx/Gencode47-only by default.
+The bundled preset names are `pathways`, `function_location`, `disease_phenotype`, `cancer_programs` and `cell_line_signatures`. Short aliases are `function`, `disease`, `cancer` (also the old name `cancer_dependency`) and `cell_lines`. The cell-line preset is opt-in: no other preset contains per-cell-line terms. `alien presets` lists the installed presets and their package paths. Presets are packaged with ALIEN for offline config resolution and are GTEx/Gencode47-only by default.
 
 Choose the GENCODE version your expression data was quantified on, not the newest release. GTEx v11 uses GENCODE v47, which is why the presets target it. A newer annotation adds gene IDs that can never appear in older data: they drop out of enrichment and shift the effective gene universe. If your counts use another release, override the target's `annotation.version` (and its `name`).
 
 Use [examples/](../examples/) when you want the editable, study-specific YAMLs used by the included report scripts:
 
 ```bash
-alien build examples/cancer_dependency.yml
-alien build --config examples/cancer_dependency.yml
+alien build examples/cancer_programs.yml
+alien build --config examples/cancer_programs.yml
 ```
 
 `--config` always treats its value as a filesystem path. Positional build input is resolved as a preset name/alias first and otherwise as a YAML path.
@@ -131,6 +131,11 @@ Every option, with its type and default, is listed in [config.md](config.md), wh
 | `--output-mode` only | `outputs.mode` | new; the flag still overrides |
 | none | `extends:` | new |
 | none | `redundancy.linkage` (`single` or `representative`) | new; default `single` keeps 0.1.x results |
+| preset `cancer_dependency` | presets `cancer_programs` (C6, 3CA, C9) and `cell_line_signatures` (DepMap, CCLE, NCI-60) | the old name and `cancer` now load `cancer_programs`; C4:CGN is no longer bundled |
+| `term_id_collisions.action: error` (default) | default `rename` | colliding source terms are kept apart instead of failing |
+| none | `filtering.exclude_terms`, `gene_mapping.min_alias_length`, `short_alias_source_tags`, `mitochondrial_legacy_symbols`, `excel_date_symbols` | new; on by default, each can be switched off |
+
+To reproduce 0.1.x term lists more closely, set `filtering.exclude_terms` rules to `enabled: false`, `gene_mapping.short_alias_source_tags: []`, `mitochondrial_legacy_symbols: false` and `excel_date_symbols: false`.
 
 `load_config()` and `load_preset_config()` now return a typed `AlienConfig` (attribute access, `model_dump()` for a dict) instead of a plain dict.
 
@@ -331,14 +336,16 @@ sources:
 
 `term_id` values are the stable identifiers used for merging, filtering, auditing, and GMT writing. Multiple gene rows for the same term are expected, but the same `term_id` must not describe two different source terms.
 
-By default ALIEN stops if a `term_id` has conflicting source or term metadata:
+A collision happens when two source terms produce the same `term_id`: two libraries reuse an ID, or two names differ only in characters that sanitizing drops (DisGeNET has both `beta Thalassemia` and `beta^+^ Thalassemia`). By default ALIEN keeps both:
 
 ```yaml
 term_id_collisions:
-  action: error
+  action: rename
 ```
 
-When collisions are found with `action: error`, the build stops and the audit table is kept at `<outdir>/failed/metadata/term_id_collisions.tsv` (the error message prints the path); with `warn` or `merge` it is written to `metadata/term_id_collisions.tsv` in the output. The table lists each conflicting identity, source metadata, row counts, and sample genes. The usual fix is to rename or prefix one source's term IDs.
+The identities of a colliding ID are sorted; the first keeps the ID and each other one gets `__` plus the first 8 hex digits of the SHA-1 of its source tag and original name (all identity fields if those two tie), so the new ID is stable between builds. `metadata/term_id_collisions.tsv` lists each identity with its source metadata, row counts, sample genes and `resolved_term_id`.
+
+With `action: error` the build stops and the audit table is kept at `<outdir>/failed/metadata/term_id_collisions.tsv` (the error message prints the path).
 
 For legacy inputs where intentional merging is acceptable, the guard can be relaxed:
 
@@ -546,7 +553,20 @@ filtering:
   drop_broad_disease_terms: true
 ```
 
-`broad_disease_regex` and `extra_broad_disease_regex` control broad disease-term removal.
+`broad_disease_regex` and `extra_broad_disease_regex` control broad disease-term removal (`disease_phenotype` family only). The defaults remove generic names ("disease", "cancer", "neoplasms"), top-level Disease Ontology classes ("immune system disease", "disease of cellular proliferation"), generic processes ("inflammation", "neoplasm metastasis") and top-level HPO organ-system categories ("abnormality of the eye"). Patterns are matched against the source name and against the name with underscores read as spaces, so they also reach MSigDB names such as `HP_ABNORMALITY_OF_THE_EYE`. Setting `broad_disease_regex` replaces the defaults; `extra_broad_disease_regex` adds to them.
+
+`exclude_terms` holds named rules that remove terms by name, for any family, before size filtering:
+
+```yaml
+filtering:
+  exclude_terms:
+    hpo_modifiers: {enabled: false}            # keep HPO onset/inheritance terms
+    my_rule:                                   # add a rule
+      source_tags: [REACTOME]
+      patterns: ["^REACTOME DISEASES OF "]
+```
+
+Rules merge by name with the bundled ones: `kegg_medicus_variant_and_pathogen`, `pathogen_specific_pathways`, `hpo_modifiers` and `experimental_disease_models` (listed in [config.md](config.md)). Patterns are case-insensitive regexes searched in the name with underscores read as spaces; `source_tags` limits a rule to those sources (empty means all). Removed terms get the reason `excluded_term` and the rule name in the `exclusion_rule` column of `metadata/removed_terms_size_filter.tsv.gz`.
 
 ## Redundancy
 
@@ -572,7 +592,7 @@ Source priority is configured by family:
 
 ```yaml
 source_priority:
-  biology_process_pathway: [REACTOME, WIKIPATHWAYS, KEGG_MEDICUS, GOBP]
+  biology_process_pathway: [H, REACTOME, WIKIPATHWAYS, KEGG_MEDICUS, GOBP]
   biology_function_location: [GOMF, GOCC]
 ```
 
@@ -585,9 +605,20 @@ ALIEN maps source symbols through audited human mapping resources:
 - NCBI Gene history/info rescue, enabled by default for configured legacy source tags.
 - Ensembl archive lookup, enabled by default for source Ensembl IDs absent from the target annotation, any configured target output genes/filter, and HGNC's current Ensembl IDs.
 
-For each membership and target the decision order is: configured non-gene token; source Ensembl ID already in the target; Ensembl archive replacement (for retired source IDs only); HGNC symbol resolution; annotation candidates for the resolved symbol (preferring output genes, then the primary annotation over fallbacks and output-gene symbol rows, then a unique protein-coding gene); the official HGNC Ensembl ID as a tie-breaker; NCBI Gene rescue (only for `ncbi_gene.allowed_source_tags`); otherwise the membership is classified as ambiguous, unmapped or not in the output genes.
+For each membership and target the decision order is: configured non-gene token; source Ensembl ID already in the target; Ensembl archive replacement (for retired source IDs only); HGNC symbol resolution; annotation candidates for the resolved symbol (preferring output genes, then the primary annotation over fallbacks and output-gene symbol rows, then a unique protein-coding gene); the official HGNC Ensembl ID as a tie-breaker; for `LOC<GeneID>` tokens, the gene that NCBI GeneID is now (following replaced IDs; every source, status `ncbi_gene_id`); NCBI Gene symbol rescue (only for `ncbi_gene.allowed_source_tags`); otherwise the membership is classified as ambiguous, unmapped or not in the output genes.
 
-HGNC symbol resolution tries, in order: an exact current symbol, `gene_mapping.manual_symbol_repairs` (a repair never overrides an exact current symbol, but does override previous-symbol and alias matches), an unambiguous previous symbol, an ambiguous previous symbol, an ambiguous alias, an unambiguous alias (`use_hgnc_alias_mapping: false` skips both alias steps). Repairs apply to the `symbols` namespace too.
+HGNC symbol resolution tries, in order: an exact current symbol, `gene_mapping.manual_symbol_repairs` (a repair never overrides an exact current symbol, but does override previous-symbol and alias matches), a legacy mitochondrial-genome name, an unambiguous previous symbol, an ambiguous previous symbol, an ambiguous alias, an unambiguous alias (`use_hgnc_alias_mapping: false` skips both alias steps), the same lookups ignoring letter case, and finally an Excel-date repair. Repairs apply to the `symbols` namespace too.
+
+The extra rules, each with its own mapping status and switch:
+
+| Rule | Example | Status | Option |
+|---|---|---|---|
+| Letter case | `C1ORF112` → C1orf112 | `hgnc_case_insensitive_symbol` | `case_insensitive_symbols` |
+| Mitochondrial names | `ND1` → MT-ND1, `TRNK` → MT-TK (`COX1`/`COX2` stay ambiguous with PTGS1/PTGS2) | `mitochondrial_legacy_symbol` | `mitochondrial_legacy_symbols` |
+| Spreadsheet dates | `1-Sep` → SEPTIN1, `6-MAR` → MARCHF6 (`1-Mar`/`2-Mar` stay ambiguous with MTARC1/MTARC2) | `excel_date_symbol` | `excel_date_symbols` |
+| Short aliases | `HCC` in DisGeNET is not taken as HYCC1 | unmapped, reason `short_alias_rejected` | `min_alias_length` (4), `short_alias_source_tags` (DISGENET, JENSEN_DISEASES_TEXTMINING; `*` for all) |
+
+All options sit under `gene_mapping`. Every membership mapped by anything other than a source Ensembl ID or an exact current symbol is listed once per token in `metadata/symbol_rescues.tsv.gz`, with how many memberships and terms it reached, so rescues can be spot-checked.
 
 Ambiguous mappings (previous symbols and aliases shared by several genes included) are dropped rather than guessed and are written to `metadata/ambiguous_gene_mappings.tsv.gz`.
 
@@ -607,9 +638,9 @@ Every file and column is listed in [outputs.md](outputs.md), which is generated 
 
 - `gmt/<namespace>.gmt`: one GMT per namespace (`symbols` plus each target).
 - `metadata/source_manifest.tsv`: one row per resolved source collection with source tag, collection, URL and license note, term and member counts, and Enrichr resolution fields.
-- `metadata/term_manifest.tsv.gz`: one row per term and namespace with `size_after_mapping`, `kept`, `removed_reason` (`too_small`, `too_large`, `broad_disease_term`, `exact_duplicate`, `jaccard_duplicate` or `no_mapped_genes`), `representative_term_id` and `redundancy_cluster_id`. A term can be kept in one namespace and removed in another.
+- `metadata/term_manifest.tsv.gz`: one row per term and namespace with `size_after_mapping`, `kept`, `removed_reason` (`excluded_term`, `broad_disease_term`, `too_small`, `too_large`, `exact_duplicate`, `jaccard_duplicate` or `no_mapped_genes`), `representative_term_id` and `redundancy_cluster_id`. A term can be kept in one namespace and removed in another.
 - `metadata/source_provenance.json`: what the build read and how (versions, hashes, resources, settings).
-- `metadata/unmapped_genes.tsv.gz`, `ambiguous_gene_mappings.tsv.gz`, `dropped_non_gene_tokens.tsv.gz`, `ensembl_archive_audit.tsv.gz`, `ncbi_gene_rescue_audit.tsv.gz`: the mapping audit.
+- `metadata/symbol_rescues.tsv.gz`, `unmapped_genes.tsv.gz`, `ambiguous_gene_mappings.tsv.gz`, `dropped_non_gene_tokens.tsv.gz`, `ensembl_archive_audit.tsv.gz`, `ncbi_gene_rescue_audit.tsv.gz`: the mapping audit.
 - `qc/mapping_summary.tsv`, `qc/mapping_status_summary.tsv`, `qc/redundancy_summary.tsv`, `qc/target_namespace_summary.tsv`, `qc/warnings.txt`.
 
 `metadata/target_output_genes.tsv.gz` audits configured `output_genes`, including the input ID, stripped Ensembl ID, optional dataset-provided symbol, ID type, and whether the ID had annotation-helper metadata after primary annotation and metadata fallback rows were applied. Rows whose ID is not an Ensembl gene ID are kept with an empty `ensembl_gene_id` and counted in a warning. `metadata/target_metadata_fallbacks.tsv` audits fallback use per target. `qc/target_namespace_summary.tsv` summarizes `output_gene_source`, primary/fallback annotation helper sizes, annotation metadata coverage, and the number of target IDs missing annotation metadata.

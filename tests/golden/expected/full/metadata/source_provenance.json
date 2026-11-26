@@ -106,7 +106,7 @@
       "size": 248
     }
   ],
-  "output_schema_version": 2,
+  "output_schema_version": 3,
   "redundancy": {
     "apply_per_family": true,
     "exact_duplicate_removal": true,
@@ -114,10 +114,18 @@
     "linkage": "single"
   },
   "resources": {
-    "ensembl_archive:lookups": {
+    "ensembl_archive:lookups:fixture_annotation": {
+      "n_records": 1,
       "path": "ensembl_archive/archive_id_cache.json",
-      "sha256": "f705ce5d57435f5e97dcb63c4c31369b902b15c43fec761752f86ff767aeb8c0",
-      "size": 286,
+      "scope": "records_used",
+      "sha256": "01d229345a997c1565fb855e3f71b96558f3b5e56eedab71c241c8563d26afd2",
+      "url": "https://rest.ensembl.org/archive/id"
+    },
+    "ensembl_archive:lookups:fixture_measured": {
+      "n_records": 1,
+      "path": "ensembl_archive/archive_id_cache.json",
+      "scope": "records_used",
+      "sha256": "01d229345a997c1565fb855e3f71b96558f3b5e56eedab71c241c8563d26afd2",
       "url": "https://rest.ensembl.org/archive/id"
     },
     "hgnc": {

@@ -1,52 +1,36 @@
+# Per-cell-line gene sets: one term per cell line. Opt-in, for questions about cell-line models (which lines
+# resemble my samples, which dependencies are shared). In bulk tissue they mostly re-detect immune infiltration
+# (haematopoietic lines) and proliferation (DepMap common essentials), so they are not in any default collection.
 project:
   # Download/cache root for MSigDB, Enrichr, HGNC, GENCODE, NCBI, and conversion helpers.
   source_dir: data/alien_sources
   # Output root. ALIEN writes gmt/, metadata/, and qc/ subfolders here.
-  outdir: results/alien_outputs/cancer_dependency
+  outdir: results/alien_outputs/cell_line_signatures
 
 outputs:
   include_symbols: false
 
 sources:
-  - type: msigdb_remote
-    version: "2026.1"
-    db_species: HS
-    collection: C9
-  - type: msigdb_remote
-    version: "2026.1"
-    db_species: HS
-    collection: C6
-  - type: msigdb_remote
-    version: "2026.1"
-    db_species: HS
-    collection: C4
-    subcollection: 3CA
-    family: cancer_dependency_state
-    aspect: cancer_signature
-  - type: msigdb_remote
-    version: "2026.1"
-    db_species: HS
-    collection: C4
-    subcollection: CGN
-    family: cancer_dependency_state
-    aspect: cancer_signature
   - type: enrichr_remote
     libraries:
+      # CRISPR gene dependencies per cell line (DepMap).
       - name: DepMap
         match: "DepMap.*(CRISPR|Dependency)|DepMap"
         source_tag: DEPMAP
-        family: cancer_dependency_state
+        family: cell_line_signature
         aspect: dependency_signature
+      # Genes over-expressed in each CCLE line (microarray era; many LOC identifiers, rescued through NCBI Gene IDs).
       - name: Cancer Cell Line Encyclopedia
         match: "^Cancer_Cell_Line_Encyclopedia$|Cancer.*Cell.*Line.*Encyclopedia"
         source_tag: CCLE
-        family: cancer_dependency_state
-        aspect: cancer_signature
+        family: cell_line_signature
+        aspect: expression_signature
+      # Genes over-expressed in each NCI-60 line.
       - name: NCI-60
         match: "^NCI-60_Cancer_Cell_Lines$|NCI-60"
         source_tag: NCI60
-        family: cancer_dependency_state
-        aspect: cancer_signature
+        family: cell_line_signature
+        aspect: expression_signature
 
 targets:
   - name: gtex_v11_gencode47
@@ -58,7 +42,6 @@ targets:
 filtering:
   min_size_default: 10
   max_size_default: 500
-  max_size_cancer: 500
 
 redundancy:
   exact_duplicate_removal: true
@@ -66,11 +49,7 @@ redundancy:
   apply_per_family: true
 
 source_priority:
-  cancer_dependency_state:
-    - C9
-    - C6
-    - 3CA
-    - CGN
+  cell_line_signature:
     - DEPMAP
     - CCLE
     - NCI60
