@@ -30,6 +30,8 @@ alien build cancer
 
 The bundled preset names are `pathways`, `function_location`, `disease_phenotype`, and `cancer_dependency`. Short aliases are `function`, `disease`, and `cancer`. `alien presets` lists the installed presets and their package paths. Presets are packaged with ALIEN for offline config resolution and are GTEx/Gencode47-only by default.
 
+Choose the GENCODE version your expression data was quantified on, not the newest release. GTEx v11 uses GENCODE v47, which is why the presets target it. A newer annotation adds gene IDs that can never appear in older data: they drop out of enrichment and shift the effective gene universe. If your counts use another release, override the target's `annotation.version` (and its `name`).
+
 Use [examples/](../examples/) when you want the editable, study-specific YAMLs used by the included report scripts:
 
 ```bash

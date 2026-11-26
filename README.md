@@ -58,7 +58,7 @@ Available preset aliases:
 - `disease`: HPO, DisGeNET, ClinVar, GWAS Catalog, and Jensen disease libraries.
 - `cancer`: cancer and dependency signatures.
 
-By default they write against the full GENCODE v47 (matching GTEx).
+By default they write against the full GENCODE v47, the annotation GTEx v11 is quantified on. Use the GENCODE version that matches your own expression data (see [docs/usage.md](docs/usage.md)).
 
 Override any part of a preset with an overlay YAML, or start your own config with `extends: pathways` (see `alien config show pathways` for everything a preset sets):
 
