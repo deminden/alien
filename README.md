@@ -29,7 +29,7 @@ The config controls which source libraries are used, which target namespace is w
 - `qc/`: collection, mapping, redundancy, target coverage, and warning summaries.
 - `MANIFEST.json`: every output file with its sha256; `alien verify OUTDIR` checks it.
 
-Every output file and column is described in [docs/outputs.md](docs/outputs.md).
+Every configuration option is listed in [docs/config.md](docs/config.md), and every output file and column in [docs/outputs.md](docs/outputs.md).
 
 ## Reproducible builds
 
@@ -155,7 +155,7 @@ sources:
     collection: C2
 ```
 
-This stores the configured MSigDB release archive under `project.source_dir/msigdb_remote/` by default, or a source-level `cache_dir` override when provided. ALIEN verifies the archive checksum, extracts the matching RDS files, and writes normalized Parquet memberships for later builds.
+This stores the configured MSigDB release archive under `project.source_dir/msigdb_remote/` by default, or a source-level `cache_dir` override when provided. ALIEN verifies the archive checksum, extracts the RDS files, and caches both the parsed collections and the normalized Parquet memberships for later builds.
 
 Remote caches are reused by default. ALIEN also caches normalized MSigDB memberships and prepared NCBI rescue maps, so repeated large builds avoid expensive source-format conversion. Use `alien build --force-download` or per-source `force: true` to refresh managed downloads such as MSigDB, Enrichr, GENCODE, HGNC, and NCBI resources. For publication configs, prefer exact Enrichr library names and keep `metadata/source_manifest.tsv` with the released GMTs. Enabled sources are always required; use `enabled: false` to exclude a source deliberately.
 

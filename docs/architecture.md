@@ -23,6 +23,7 @@ ALIEN is a pipeline of stages over a small set of shared primitives. Each module
 | `write_table`, `read_table`, `with_columns` | `alien.io.tables` | Every TSV / TSV.GZ, with declared column order and deterministic gzip. |
 | `parse_gmt`, `write_gmt` / `parse_gtf_genes` | `alien.io.gmt` / `alien.io.gtf` | GMT and GTF formats. |
 | Column lists, `OUTPUT_FILES`, schema versions | `alien.schema` | One declaration per table; `docs/outputs.md` is generated from it. |
+| Configuration options, defaults and their descriptions | `alien.config` models (attribute docstrings) | `docs/config.md` and `docs/config.schema.json` are generated from them. |
 | `MappingStatus`, `RemovalReason`, `TermRecord`, `Target`, `ensembl_stable_id`, `sanitize_term_id` | `alien.model` | Domain types and the single implementation of ID normalization. `Target.effective_ids` is the one rule for which IDs a target may emit. |
 | `ResourceCache`, `LockFile`, `derived_cache_path` | `alien.cache` | Cache layout, per-resource file locks, offline and frozen modes, the lock file, and cache keys for derived data. |
 | `register`, `loader_for` | `alien.sources.registry` | Source types, including plugins from the `alien.sources` entry-point group. |

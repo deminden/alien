@@ -5,6 +5,7 @@ Contributions are welcome: bug reports, documentation, tests, source adapters, t
 ## Ground rules
 
 - **Outputs are a contract.** The golden tests in `tests/golden/` compare every output byte for byte. If your change alters outputs on purpose, regenerate them (`ALIEN_UPDATE_GOLDEN=1 python -m pytest tests/golden`) in the same commit and explain why in the commit message. Changes to output files or columns bump `OUTPUT_SCHEMA_VERSION` in `src/alien/schema.py` and need a `CHANGELOG.md` entry.
+- **Configuration options are documented where they are defined.** Give every new option an attribute docstring, then regenerate `docs/config.md` (`python scripts/generate_config_doc.py`) and `docs/config.schema.json` (`alien config schema > docs/config.schema.json`).
 - **Bugs get a failing test first.** Add a regression test that fails before the fix.
 - **One concern per commit**, each leaving the suite green. Do not mix file moves with logic changes.
 - **Keep it small.** Modules up to about 400 lines, functions up to about 60 lines with complexity at most 12 and at most 6 parameters (ruff enforces the last two). Reuse the primitives in [docs/architecture.md](docs/architecture.md) instead of writing a second HTTP client, table writer or ID normalizer.

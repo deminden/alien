@@ -16,7 +16,8 @@
             "gene_name": [
               "gene_name"
             ]
-          }
+          },
+          "description": "Attribute names when the GTF does not use GENCODE's."
         },
         "file_name": {
           "anyOf": [
@@ -28,10 +29,12 @@
             }
           ],
           "default": null,
+          "description": "Local name for a downloaded `url`.",
           "title": "File Name"
         },
         "metadata_fallbacks": {
           "default": [],
+          "description": "Secondary annotations, used in order, only for output genes the primary annotation lacks.",
           "items": {
             "$ref": "#/$defs/MetadataFallbackSpec"
           },
@@ -49,6 +52,7 @@
             }
           ],
           "default": null,
+          "description": "Local GTF file.",
           "title": "Path"
         },
         "source": {
@@ -61,6 +65,7 @@
             }
           ],
           "default": null,
+          "description": "Annotation origin; `GENCODE` can be downloaded from `version` alone.",
           "title": "Source"
         },
         "url": {
@@ -73,6 +78,7 @@
             }
           ],
           "default": null,
+          "description": "GTF download URL.",
           "title": "Url"
         },
         "version": {
@@ -85,6 +91,7 @@
             }
           ],
           "default": null,
+          "description": "Annotation release, such as `47`.",
           "title": "Version"
         }
       },
@@ -105,6 +112,7 @@
             }
           ],
           "default": null,
+          "description": "Finer label within the family (default `library`).",
           "title": "Aspect"
         },
         "collection": {
@@ -117,10 +125,12 @@
             }
           ],
           "default": null,
+          "description": "Collection label (GMT and canonical sources default to the file name).",
           "title": "Collection"
         },
         "enabled": {
           "default": true,
+          "description": "Include this source; `false` keeps it in the file but skips it.",
           "title": "Enabled",
           "type": "boolean"
         },
@@ -134,6 +144,7 @@
             }
           ],
           "default": null,
+          "description": "Term family, which groups terms for redundancy filtering (default `biology_process_pathway`).",
           "title": "Family"
         },
         "name": {
@@ -146,6 +157,7 @@
             }
           ],
           "default": null,
+          "description": "Source name; also the directory under `source_dir` scanned for GMTs when no path is given (`symbol_gmt`).",
           "title": "Name"
         },
         "path": {
@@ -159,6 +171,7 @@
             }
           ],
           "default": null,
+          "description": "Input file.",
           "title": "Path"
         },
         "paths": {
@@ -175,6 +188,7 @@
             }
           ],
           "default": null,
+          "description": "Several input files (instead of `path`).",
           "title": "Paths"
         },
         "source": {
@@ -187,6 +201,7 @@
             }
           ],
           "default": null,
+          "description": "Source label written to the manifest (`msigdb_tsv` always records MSigDB).",
           "title": "Source"
         },
         "source_tag": {
@@ -199,6 +214,7 @@
             }
           ],
           "default": null,
+          "description": "Short tag used in term IDs and `source_priority` (default: derived from `source` or `name`).",
           "title": "Source Tag"
         },
         "subcollection": {
@@ -211,10 +227,12 @@
             }
           ],
           "default": null,
+          "description": "Subcollection label.",
           "title": "Subcollection"
         },
         "type": {
           "const": "canonical_tsv",
+          "description": "`canonical_tsv`.",
           "title": "Type",
           "type": "string"
         }
@@ -238,6 +256,7 @@
             }
           ],
           "default": null,
+          "description": "Aspect label.",
           "title": "Aspect"
         },
         "family": {
@@ -250,6 +269,7 @@
             }
           ],
           "default": null,
+          "description": "Term family.",
           "title": "Family"
         },
         "match": {
@@ -262,6 +282,7 @@
             }
           ],
           "default": null,
+          "description": "Regex selecting the latest matching library when the exact name is absent.",
           "title": "Match"
         },
         "name": {
@@ -274,6 +295,7 @@
             }
           ],
           "default": null,
+          "description": "Exact Enrichr library name, tried first.",
           "title": "Name"
         },
         "source_tag": {
@@ -286,6 +308,7 @@
             }
           ],
           "default": null,
+          "description": "Tag for this library's terms.",
           "title": "Source Tag"
         }
       },
@@ -305,6 +328,7 @@
             }
           ],
           "default": null,
+          "description": "Default aspect for all libraries.",
           "title": "Aspect"
         },
         "cache_dir": {
@@ -318,6 +342,7 @@
             }
           ],
           "default": null,
+          "description": "Cache directory (default `source_dir/enrichr`).",
           "title": "Cache Dir"
         },
         "dataset_statistics_endpoint": {
@@ -330,10 +355,12 @@
             }
           ],
           "default": null,
+          "description": "Override the Enrichr library-list URL.",
           "title": "Dataset Statistics Endpoint"
         },
         "enabled": {
           "default": true,
+          "description": "Include this source; `false` keeps it in the file but skips it.",
           "title": "Enabled",
           "type": "boolean"
         },
@@ -347,14 +374,17 @@
             }
           ],
           "default": null,
+          "description": "Default family for all libraries.",
           "title": "Family"
         },
         "force": {
           "default": false,
+          "description": "Refresh the library list and downloads.",
           "title": "Force",
           "type": "boolean"
         },
         "libraries": {
+          "description": "Libraries to download; a string is shorthand for `{name: ...}`.",
           "items": {
             "$ref": "#/$defs/EnrichrLibrary"
           },
@@ -372,6 +402,7 @@
             }
           ],
           "default": null,
+          "description": "Override the Enrichr download URL template (`{library}` is substituted).",
           "title": "Library Download Endpoint"
         },
         "source_tag": {
@@ -384,16 +415,19 @@
             }
           ],
           "default": null,
+          "description": "Default tag for all libraries.",
           "title": "Source Tag"
         },
         "timeout_seconds": {
           "default": 120,
+          "description": "Download timeout.",
           "minimum": 1,
           "title": "Timeout Seconds",
           "type": "integer"
         },
         "type": {
           "const": "enrichr_remote",
+          "description": "`enrichr_remote`.",
           "title": "Type",
           "type": "string"
         }
@@ -410,46 +444,54 @@
       "properties": {
         "batch_size": {
           "default": 50,
+          "description": "IDs per archive request.",
           "minimum": 1,
           "title": "Batch Size",
           "type": "integer"
         },
         "connect_timeout_seconds": {
           "default": 30,
+          "description": "Connection timeout per request.",
           "minimum": 1,
           "title": "Connect Timeout Seconds",
           "type": "integer"
         },
         "enabled": {
           "default": true,
+          "description": "Look up retired source Ensembl IDs in the Ensembl archive to find their current replacement.",
           "title": "Enabled",
           "type": "boolean"
         },
         "endpoint": {
           "default": "https://rest.ensembl.org/archive/id",
+          "description": "Ensembl REST archive endpoint.",
           "title": "Endpoint",
           "type": "string"
         },
         "retry_attempts": {
           "default": 3,
+          "description": "Attempts per batch before the lookup fails.",
           "minimum": 1,
           "title": "Retry Attempts",
           "type": "integer"
         },
         "retry_backoff_seconds": {
           "default": 5,
+          "description": "Base delay between retries (grows exponentially).",
           "minimum": 0.0,
           "title": "Retry Backoff Seconds",
           "type": "number"
         },
         "timeout_seconds": {
           "default": 120,
+          "description": "Read timeout per request.",
           "minimum": 1,
           "title": "Timeout Seconds",
           "type": "integer"
         },
         "unresolved_print_limit": {
           "default": 20,
+          "description": "How many unresolved archive IDs to log as examples.",
           "minimum": 0,
           "title": "Unresolved Print Limit",
           "type": "integer"
@@ -476,6 +518,7 @@
             "^genetic disease$",
             "^genetic disorder$"
           ],
+          "description": "Case-insensitive patterns for broad disease term names; `extra_broad_disease_regex` appends to the defaults.",
           "items": {
             "type": "string"
           },
@@ -484,29 +527,34 @@
         },
         "drop_broad_disease_terms": {
           "default": true,
+          "description": "Remove disease terms whose name matches `broad_disease_regex` (such as \"cancer\" or \"disease\").",
           "title": "Drop Broad Disease Terms",
           "type": "boolean"
         },
         "max_size_cancer": {
           "default": 500,
+          "description": "Upper size limit for the `cancer_dependency_state` family.",
           "minimum": 1,
           "title": "Max Size Cancer",
           "type": "integer"
         },
         "max_size_default": {
           "default": 500,
+          "description": "Remove terms with more mapped genes than this (families without a specific limit).",
           "minimum": 1,
           "title": "Max Size Default",
           "type": "integer"
         },
         "max_size_disease": {
           "default": 500,
+          "description": "Upper size limit for the `disease_phenotype` family.",
           "minimum": 1,
           "title": "Max Size Disease",
           "type": "integer"
         },
         "min_size_default": {
           "default": 10,
+          "description": "Remove terms with fewer mapped genes than this, per namespace.",
           "minimum": 0,
           "title": "Min Size Default",
           "type": "integer"
@@ -529,6 +577,7 @@
             }
           ],
           "default": null,
+          "description": "Column with Ensembl IDs (`index` for a Parquet row index; default: guessed).",
           "title": "Id Column"
         },
         "ids": {
@@ -544,6 +593,7 @@
             }
           ],
           "default": null,
+          "description": "Inline Ensembl IDs instead of a file.",
           "title": "Ids"
         },
         "path": {
@@ -557,6 +607,7 @@
             }
           ],
           "default": null,
+          "description": "Table or list file with gene IDs.",
           "title": "Path"
         },
         "symbol_column": {
@@ -569,6 +620,7 @@
             }
           ],
           "default": null,
+          "description": "Optional column with gene symbols, used as an extra mapping helper.",
           "title": "Symbol Column"
         }
       },
@@ -583,11 +635,13 @@
             "type": "string"
           },
           "default": {},
+          "description": "Source symbol -> HGNC symbol corrections; they override previous-symbol and alias matches but never an exact\ncurrent symbol.",
           "title": "Manual Symbol Repairs",
           "type": "object"
         },
         "non_gene_token_regex": {
           "default": [],
+          "description": "Patterns for non-gene member names; `extra_non_gene_token_regex` appends.",
           "items": {
             "type": "string"
           },
@@ -603,6 +657,7 @@
             "group",
             "groups"
           ],
+          "description": "Member names that are not genes (such as \"disease\") and are dropped with an audit row; `extra_non_gene_tokens`\nappends.",
           "items": {
             "type": "string"
           },
@@ -611,11 +666,13 @@
         },
         "preserve_unmapped_symbols_in_symbol_gmt": {
           "default": true,
+          "description": "Keep source symbols that HGNC cannot resolve in `symbols.gmt` (they are always dropped from Ensembl\nnamespaces).",
           "title": "Preserve Unmapped Symbols In Symbol Gmt",
           "type": "boolean"
         },
         "use_hgnc_alias_mapping": {
           "default": true,
+          "description": "Resolve source symbols through HGNC alias symbols (unambiguous aliases only).",
           "title": "Use Hgnc Alias Mapping",
           "type": "boolean"
         }
@@ -631,6 +688,7 @@
             "gene_type",
             "gene_biotype"
           ],
+          "description": "GTF attribute(s) holding the biotype.",
           "items": {
             "type": "string"
           },
@@ -641,6 +699,7 @@
           "default": [
             "gene_id"
           ],
+          "description": "GTF attribute(s) holding the gene ID, tried in order.",
           "items": {
             "type": "string"
           },
@@ -651,6 +710,7 @@
           "default": [
             "gene_name"
           ],
+          "description": "GTF attribute(s) holding the gene symbol.",
           "items": {
             "type": "string"
           },
@@ -676,6 +736,7 @@
             }
           ],
           "default": null,
+          "description": "Use the dated monthly HGNC archive (YYYY-MM-DD) instead of the current file.",
           "title": "Archive Date"
         },
         "url": {
@@ -688,6 +749,7 @@
             }
           ],
           "default": null,
+          "description": "Override the HGNC complete-set download URL.",
           "title": "Url"
         }
       },
@@ -710,7 +772,8 @@
             "gene_name": [
               "gene_name"
             ]
-          }
+          },
+          "description": "Attribute names when the GTF does not use GENCODE's."
         },
         "file_name": {
           "anyOf": [
@@ -722,11 +785,13 @@
             }
           ],
           "default": null,
+          "description": "Local name for a downloaded `url`.",
           "title": "File Name"
         },
         "mode": {
           "const": "fill_missing_output_metadata",
           "default": "fill_missing_output_metadata",
+          "description": "Only `fill_missing_output_metadata`: fill metadata for output genes missing from the primary annotation.",
           "title": "Mode",
           "type": "string"
         },
@@ -741,6 +806,7 @@
             }
           ],
           "default": null,
+          "description": "Local GTF file.",
           "title": "Path"
         },
         "source": {
@@ -753,6 +819,7 @@
             }
           ],
           "default": null,
+          "description": "Annotation origin; `GENCODE` can be downloaded from `version` alone.",
           "title": "Source"
         },
         "url": {
@@ -765,6 +832,7 @@
             }
           ],
           "default": null,
+          "description": "GTF download URL.",
           "title": "Url"
         },
         "version": {
@@ -777,6 +845,7 @@
             }
           ],
           "default": null,
+          "description": "Annotation release, such as `47`.",
           "title": "Version"
         }
       },
@@ -788,11 +857,13 @@
       "properties": {
         "enabled": {
           "default": true,
+          "description": "Include this source; `false` keeps it in the file but skips it.",
           "title": "Enabled",
           "type": "boolean"
         },
         "include_c4_cm": {
           "default": false,
+          "description": "Include the C4 cancer-module collection.",
           "title": "Include C4 Cm",
           "type": "boolean"
         },
@@ -807,10 +878,12 @@
             }
           ],
           "default": null,
+          "description": "Directory with `msigdbr_<TAG>.tsv.gz` files.",
           "title": "Path"
         },
         "type": {
           "const": "msigdb_cache",
+          "description": "`msigdb_cache`.",
           "title": "Type",
           "type": "string"
         }
@@ -834,6 +907,7 @@
             }
           ],
           "default": null,
+          "description": "Summary table inside the archive (default: `<zip name>.summary.rds`).",
           "title": "Summary Rds"
         },
         "zip_md5": {
@@ -846,6 +920,7 @@
             }
           ],
           "default": null,
+          "description": "Expected archive MD5.",
           "title": "Zip Md5"
         },
         "zip_name": {
@@ -858,6 +933,7 @@
             }
           ],
           "default": null,
+          "description": "Local file name for the archive (default: from the URL).",
           "title": "Zip Name"
         },
         "zip_sha256": {
@@ -870,6 +946,7 @@
             }
           ],
           "default": null,
+          "description": "Expected archive sha256.",
           "title": "Zip Sha256"
         },
         "zip_url": {
@@ -882,6 +959,7 @@
             }
           ],
           "default": null,
+          "description": "Archive URL; when set, no built-in release fields are inherited.",
           "title": "Zip Url"
         }
       },
@@ -901,6 +979,7 @@
             }
           ],
           "default": null,
+          "description": "Override the aspect.",
           "title": "Aspect"
         },
         "cache_dir": {
@@ -914,6 +993,7 @@
             }
           ],
           "default": null,
+          "description": "Cache directory (default `source_dir/msigdb_remote`).",
           "title": "Cache Dir"
         },
         "collection": {
@@ -926,15 +1006,18 @@
             }
           ],
           "default": null,
+          "description": "MSigDB collection, such as `C2` or `C5`.",
           "title": "Collection"
         },
         "db_species": {
           "default": "HS",
+          "description": "Database species: `HS` (human) or `MM` (mouse).",
           "title": "Db Species",
           "type": "string"
         },
         "enabled": {
           "default": true,
+          "description": "Include this source; `false` keeps it in the file but skips it.",
           "title": "Enabled",
           "type": "boolean"
         },
@@ -948,10 +1031,12 @@
             }
           ],
           "default": null,
+          "description": "Override the term family.",
           "title": "Family"
         },
         "force": {
           "default": false,
+          "description": "Re-download and re-extract the archive.",
           "title": "Force",
           "type": "boolean"
         },
@@ -963,7 +1048,8 @@
             "zip_name": null,
             "zip_sha256": null,
             "zip_url": null
-          }
+          },
+          "description": "Custom release archive instead of a bundled version."
         },
         "subcollection": {
           "anyOf": [
@@ -975,21 +1061,25 @@
             }
           ],
           "default": null,
+          "description": "Subcollection, full (`GO:BP`) or short (`BP`).",
           "title": "Subcollection"
         },
         "timeout_seconds": {
           "default": 600,
+          "description": "Download timeout.",
           "minimum": 1,
           "title": "Timeout Seconds",
           "type": "integer"
         },
         "type": {
           "const": "msigdb_remote",
+          "description": "`msigdb_remote`.",
           "title": "Type",
           "type": "string"
         },
         "version": {
           "default": "2026.1",
+          "description": "Bundled MSigDB release to download, or a label for a custom `release`.",
           "title": "Version",
           "type": "string"
         },
@@ -1003,6 +1093,7 @@
             }
           ],
           "default": null,
+          "description": "Shorthand for `release.zip_md5`.",
           "title": "Zip Md5"
         },
         "zip_url": {
@@ -1015,6 +1106,7 @@
             }
           ],
           "default": null,
+          "description": "Shorthand for `release.zip_url`, used with `zip_md5` when no bundled release matches `version`.",
           "title": "Zip Url"
         }
       },
@@ -1038,6 +1130,7 @@
             }
           ],
           "default": null,
+          "description": "Finer label within the family (default `library`).",
           "title": "Aspect"
         },
         "collection": {
@@ -1050,10 +1143,12 @@
             }
           ],
           "default": null,
+          "description": "Collection label (GMT and canonical sources default to the file name).",
           "title": "Collection"
         },
         "enabled": {
           "default": true,
+          "description": "Include this source; `false` keeps it in the file but skips it.",
           "title": "Enabled",
           "type": "boolean"
         },
@@ -1067,6 +1162,7 @@
             }
           ],
           "default": null,
+          "description": "Term family, which groups terms for redundancy filtering (default `biology_process_pathway`).",
           "title": "Family"
         },
         "gene_id_column": {
@@ -1079,6 +1175,7 @@
             }
           ],
           "default": null,
+          "description": "Optional column holding a source Ensembl gene ID.",
           "title": "Gene Id Column"
         },
         "name": {
@@ -1091,6 +1188,7 @@
             }
           ],
           "default": null,
+          "description": "Source name; also the directory under `source_dir` scanned for GMTs when no path is given (`symbol_gmt`).",
           "title": "Name"
         },
         "path": {
@@ -1104,6 +1202,7 @@
             }
           ],
           "default": null,
+          "description": "Input file.",
           "title": "Path"
         },
         "paths": {
@@ -1120,6 +1219,7 @@
             }
           ],
           "default": null,
+          "description": "Several input files (instead of `path`).",
           "title": "Paths"
         },
         "source": {
@@ -1132,6 +1232,7 @@
             }
           ],
           "default": null,
+          "description": "Source label written to the manifest (`msigdb_tsv` always records MSigDB).",
           "title": "Source"
         },
         "source_tag": {
@@ -1144,6 +1245,7 @@
             }
           ],
           "default": null,
+          "description": "Short tag used in term IDs and `source_priority` (default: derived from `source` or `name`).",
           "title": "Source Tag"
         },
         "subcollection": {
@@ -1156,20 +1258,24 @@
             }
           ],
           "default": null,
+          "description": "Subcollection label.",
           "title": "Subcollection"
         },
         "symbol_column": {
           "default": "gene_symbol",
+          "description": "Column holding the gene symbol.",
           "title": "Symbol Column",
           "type": "string"
         },
         "term_name_column": {
           "default": "gs_name",
+          "description": "Column holding the term name.",
           "title": "Term Name Column",
           "type": "string"
         },
         "type": {
           "const": "msigdb_tsv",
+          "description": "`msigdb_tsv`.",
           "title": "Type",
           "type": "string"
         }
@@ -1189,6 +1295,7 @@
             "NCI60",
             "DEPMAP"
           ],
+          "description": "Source tags whose memberships may use the NCBI rescue (legacy cell-line libraries by default).",
           "items": {
             "type": "string"
           },
@@ -1197,21 +1304,25 @@
         },
         "enabled": {
           "default": true,
+          "description": "Use NCBI Gene info and history to rescue symbols HGNC cannot resolve.",
           "title": "Enabled",
           "type": "boolean"
         },
         "gene_history_url": {
           "default": "https://ftp.ncbi.nlm.nih.gov/gene/DATA/gene_history.gz",
+          "description": "NCBI `gene_history.gz` download URL.",
           "title": "Gene History Url",
           "type": "string"
         },
         "gene_info_url": {
           "default": "https://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz",
+          "description": "NCBI `Homo_sapiens.gene_info.gz` download URL.",
           "title": "Gene Info Url",
           "type": "string"
         },
         "use_gene_info_synonyms": {
           "default": true,
+          "description": "Also match NCBI gene synonyms, not only official and historical symbols.",
           "title": "Use Gene Info Synonyms",
           "type": "boolean"
         }
@@ -1224,11 +1335,13 @@
       "properties": {
         "include_symbols": {
           "default": true,
+          "description": "Also write `gmt/symbols.gmt` with HGNC-resolved symbols.",
           "title": "Include Symbols",
           "type": "boolean"
         },
         "mode": {
           "default": "full",
+          "description": "`full` writes every audit table, `minimal` GMTs plus reproducibility metadata, `gmt` only GMTs and\nthe manifest.",
           "enum": [
             "full",
             "minimal",
@@ -1247,22 +1360,26 @@
       "properties": {
         "enabled": {
           "default": true,
+          "description": "Include this source; `false` keeps it in the file but skips it.",
           "title": "Enabled",
           "type": "boolean"
         },
         "options": {
           "additionalProperties": true,
           "default": {},
+          "description": "Passed to the plugin unchanged.",
           "title": "Options",
           "type": "object"
         },
         "plugin": {
+          "description": "Entry-point name in the `alien.sources` group.",
           "minLength": 1,
           "title": "Plugin",
           "type": "string"
         },
         "type": {
           "const": "plugin",
+          "description": "`plugin`.",
           "title": "Type",
           "type": "string"
         }
@@ -1279,17 +1396,20 @@
       "properties": {
         "name": {
           "default": "alien",
+          "description": "Project label recorded in provenance.",
           "title": "Name",
           "type": "string"
         },
         "outdir": {
           "default": "data/alien_gmt",
+          "description": "Output directory; a build is staged beside it and swapped in atomically.",
           "format": "path",
           "title": "Outdir",
           "type": "string"
         },
         "source_dir": {
           "default": "data/alien_sources",
+          "description": "Cache directory for downloaded and derived resources (relative to the config file).",
           "format": "path",
           "title": "Source Dir",
           "type": "string"
@@ -1303,16 +1423,19 @@
       "properties": {
         "apply_per_family": {
           "default": true,
+          "description": "Compare terms only within the same family; `false` compares across all families in a namespace.",
           "title": "Apply Per Family",
           "type": "boolean"
         },
         "exact_duplicate_removal": {
           "default": true,
+          "description": "Collapse terms with identical mapped gene sets before the Jaccard pass.",
           "title": "Exact Duplicate Removal",
           "type": "boolean"
         },
         "jaccard_cutoff": {
           "default": 0.85,
+          "description": "Terms with Jaccard similarity strictly above this are redundant.",
           "maximum": 1.0,
           "minimum": 0.0,
           "title": "Jaccard Cutoff",
@@ -1320,6 +1443,7 @@
         },
         "linkage": {
           "default": "single",
+          "description": "`single` clusters similar terms transitively; `representative` removes a term only when it is similar to a kept,\nbetter-ranked term.",
           "enum": [
             "single",
             "representative"
@@ -1336,6 +1460,7 @@
       "properties": {
         "workers": {
           "default": 1,
+          "description": "Worker processes for redundancy filtering; `--workers` overrides.",
           "minimum": 1,
           "title": "Workers",
           "type": "integer"
@@ -1358,6 +1483,7 @@
             }
           ],
           "default": null,
+          "description": "Finer label within the family (default `library`).",
           "title": "Aspect"
         },
         "collection": {
@@ -1370,6 +1496,7 @@
             }
           ],
           "default": null,
+          "description": "Collection label (GMT and canonical sources default to the file name).",
           "title": "Collection"
         },
         "db_version": {
@@ -1382,10 +1509,12 @@
             }
           ],
           "default": null,
+          "description": "Upstream version recorded in the manifest.",
           "title": "Db Version"
         },
         "enabled": {
           "default": true,
+          "description": "Include this source; `false` keeps it in the file but skips it.",
           "title": "Enabled",
           "type": "boolean"
         },
@@ -1399,6 +1528,7 @@
             }
           ],
           "default": null,
+          "description": "Term family, which groups terms for redundancy filtering (default `biology_process_pathway`).",
           "title": "Family"
         },
         "name": {
@@ -1411,6 +1541,7 @@
             }
           ],
           "default": null,
+          "description": "Source name; also the directory under `source_dir` scanned for GMTs when no path is given (`symbol_gmt`).",
           "title": "Name"
         },
         "path": {
@@ -1424,6 +1555,7 @@
             }
           ],
           "default": null,
+          "description": "Input file.",
           "title": "Path"
         },
         "paths": {
@@ -1440,6 +1572,7 @@
             }
           ],
           "default": null,
+          "description": "Several input files (instead of `path`).",
           "title": "Paths"
         },
         "source": {
@@ -1452,6 +1585,7 @@
             }
           ],
           "default": null,
+          "description": "Source label written to the manifest (`msigdb_tsv` always records MSigDB).",
           "title": "Source"
         },
         "source_license_note": {
@@ -1464,6 +1598,7 @@
             }
           ],
           "default": null,
+          "description": "License note recorded in the manifest.",
           "title": "Source License Note"
         },
         "source_tag": {
@@ -1476,6 +1611,7 @@
             }
           ],
           "default": null,
+          "description": "Short tag used in term IDs and `source_priority` (default: derived from `source` or `name`).",
           "title": "Source Tag"
         },
         "source_url": {
@@ -1488,6 +1624,7 @@
             }
           ],
           "default": null,
+          "description": "Upstream URL recorded in the manifest.",
           "title": "Source Url"
         },
         "subcollection": {
@@ -1500,6 +1637,7 @@
             }
           ],
           "default": null,
+          "description": "Subcollection label.",
           "title": "Subcollection"
         },
         "term_prefix": {
@@ -1512,9 +1650,11 @@
             }
           ],
           "default": null,
+          "description": "Prefix for term IDs (default: the source tag).",
           "title": "Term Prefix"
         },
         "type": {
+          "description": "`symbol_gmt` or `enrichr_gmt`.",
           "enum": [
             "symbol_gmt",
             "enrichr_gmt"
@@ -1533,7 +1673,8 @@
       "additionalProperties": false,
       "properties": {
         "annotation": {
-          "$ref": "#/$defs/AnnotationSpec"
+          "$ref": "#/$defs/AnnotationSpec",
+          "description": "Primary annotation that maps symbols to Ensembl IDs."
         },
         "gene_filter": {
           "anyOf": [
@@ -1544,9 +1685,11 @@
               "type": "null"
             }
           ],
-          "default": null
+          "default": null,
+          "description": "Restrict annotation IDs to this list. Like `output_genes`, a file path or a list of IDs is shorthand."
         },
         "name": {
+          "description": "Namespace name; the GMT is written to `gmt/<name>.gmt`.",
           "minLength": 1,
           "title": "Name",
           "type": "string"
@@ -1560,11 +1703,13 @@
               "type": "null"
             }
           ],
-          "default": null
+          "default": null,
+          "description": "The final ID set: only these IDs are written, and IDs absent from the annotation can still be mapped through\n`symbol_column`."
         },
         "type": {
           "const": "ensembl_gtf",
           "default": "ensembl_gtf",
+          "description": "Target adapter; only `ensembl_gtf`.",
           "title": "Type",
           "type": "string"
         }
@@ -1581,6 +1726,7 @@
       "properties": {
         "action": {
           "default": "error",
+          "description": "What to do when one `term_id` carries conflicting source metadata: `error` stops, `warn` and `merge` combine the\nmemberships and write an audit table.",
           "enum": [
             "error",
             "warn",
@@ -1608,7 +1754,8 @@
         "retry_backoff_seconds": 5.0,
         "timeout_seconds": 120,
         "unresolved_print_limit": 20
-      }
+      },
+      "description": "Ensembl archive lookups for retired IDs."
     },
     "filtering": {
       "$ref": "#/$defs/FilteringConfig",
@@ -1632,7 +1779,8 @@
         "max_size_default": 500,
         "max_size_disease": 500,
         "min_size_default": 10
-      }
+      },
+      "description": "Size and broad-term filters."
     },
     "gene_mapping": {
       "$ref": "#/$defs/GeneMappingConfig",
@@ -1649,14 +1797,16 @@
         ],
         "preserve_unmapped_symbols_in_symbol_gmt": true,
         "use_hgnc_alias_mapping": true
-      }
+      },
+      "description": "Symbol resolution options."
     },
     "hgnc": {
       "$ref": "#/$defs/HgncConfig",
       "default": {
         "archive_date": null,
         "url": null
-      }
+      },
+      "description": "HGNC resource location."
     },
     "ncbi_gene": {
       "$ref": "#/$defs/NcbiGeneConfig",
@@ -1670,14 +1820,16 @@
         "gene_history_url": "https://ftp.ncbi.nlm.nih.gov/gene/DATA/gene_history.gz",
         "gene_info_url": "https://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz",
         "use_gene_info_synonyms": true
-      }
+      },
+      "description": "NCBI Gene rescue."
     },
     "outputs": {
       "$ref": "#/$defs/OutputsConfig",
       "default": {
         "include_symbols": true,
         "mode": "full"
-      }
+      },
+      "description": "What the build writes."
     },
     "project": {
       "$ref": "#/$defs/ProjectConfig",
@@ -1685,7 +1837,8 @@
         "name": "alien",
         "outdir": "data/alien_gmt",
         "source_dir": "data/alien_sources"
-      }
+      },
+      "description": "Names and locations."
     },
     "redundancy": {
       "$ref": "#/$defs/RedundancyConfig",
@@ -1694,13 +1847,15 @@
         "exact_duplicate_removal": true,
         "jaccard_cutoff": 0.85,
         "linkage": "single"
-      }
+      },
+      "description": "Duplicate and overlap removal."
     },
     "runtime": {
       "$ref": "#/$defs/RuntimeConfig",
       "default": {
         "workers": 1
-      }
+      },
+      "description": "Parallelism."
     },
     "source_priority": {
       "additionalProperties": {
@@ -1740,10 +1895,12 @@
           "JENSEN_DISEASES_TEXTMINING"
         ]
       },
+      "description": "Per family, the order in which source tags win when terms are redundant; `extra.<family>` appends.",
       "title": "Source Priority",
       "type": "object"
     },
     "sources": {
+      "description": "Gene-set sources; at least one is required. Each entry is selected by its `type`.",
       "items": {
         "discriminator": {
           "mapping": {
@@ -1786,6 +1943,7 @@
       "type": "array"
     },
     "targets": {
+      "description": "Output namespaces (one GMT each).",
       "items": {
         "$ref": "#/$defs/TargetSpec"
       },
@@ -1796,7 +1954,8 @@
       "$ref": "#/$defs/TermIdCollisionsConfig",
       "default": {
         "action": "error"
-      }
+      },
+      "description": "Handling of conflicting term IDs."
     }
   },
   "required": [

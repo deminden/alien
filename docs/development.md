@@ -35,6 +35,7 @@ git diff tests/golden/expected
 
 - `README-PYPI.md` is generated from `README.md` with links pinned to the release tag: `python scripts/generate_pypi_readme.py` (CI runs it with `--check`; the release workflow regenerates it for the tag).
 - `docs/outputs.md` is generated from `src/alien/schema.py`: `python scripts/generate_outputs_doc.py` (a test fails when it is stale).
+- `docs/config.md` is generated from the configuration models in `src/alien/config/`: `python scripts/generate_config_doc.py`. Every option needs an attribute docstring (a test fails otherwise), and `docs/config.schema.json` is refreshed with `alien config schema > docs/config.schema.json`.
 - `docs/config.schema.json` is the configuration JSON Schema: `alien config schema > docs/config.schema.json`.
 
 ## Continuous integration

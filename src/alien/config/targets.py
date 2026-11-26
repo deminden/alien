@@ -12,8 +12,11 @@ from .base import Model, _blank_to_none, _deprecated, _rename
 
 class GtfAttributes(Model):
     gene_id: list[str] = Field(default=["gene_id"])
+    """GTF attribute(s) holding the gene ID, tried in order."""
     gene_name: list[str] = Field(default=["gene_name"])
+    """GTF attribute(s) holding the gene symbol."""
     gene_biotype: list[str] = Field(default=["gene_type", "gene_biotype"])
+    """GTF attribute(s) holding the biotype."""
 
     @field_validator("gene_id", "gene_name", "gene_biotype", mode="before")
     @classmethod
@@ -23,11 +26,17 @@ class GtfAttributes(Model):
 
 class AnnotationFile(Model):
     source: str | None = None
+    """Annotation origin; `GENCODE` can be downloaded from `version` alone."""
     version: str | None = None
+    """Annotation release, such as `47`."""
     path: Path | None = None
+    """Local GTF file."""
     url: str | None = None
+    """GTF download URL."""
     file_name: str | None = None
+    """Local name for a downloaded `url`."""
     attributes: GtfAttributes = GtfAttributes()
+    """Attribute names when the GTF does not use GENCODE's."""
 
     @field_validator("version", mode="before")
     @classmethod
@@ -42,10 +51,12 @@ class AnnotationFile(Model):
 
 class MetadataFallbackSpec(AnnotationFile):
     mode: Literal["fill_missing_output_metadata"] = "fill_missing_output_metadata"
+    """Only `fill_missing_output_metadata`: fill metadata for output genes missing from the primary annotation."""
 
 
 class AnnotationSpec(AnnotationFile):
     metadata_fallbacks: list[MetadataFallbackSpec] = Field(default=[])
+    """Secondary annotations, used in order, only for output genes the primary annotation lacks."""
 
     @model_validator(mode="before")
     @classmethod
@@ -76,9 +87,13 @@ class GeneIdSpec(Model):
     """A list of Ensembl gene IDs, inline (ids) or read from a file column (path + id_column)."""
 
     path: Path | None = None
+    """Table or list file with gene IDs."""
     id_column: str | None = None
+    """Column with Ensembl IDs (`index` for a Parquet row index; default: guessed)."""
     symbol_column: str | None = None
+    """Optional column with gene symbols, used as an extra mapping helper."""
     ids: list[str] | None = None
+    """Inline Ensembl IDs instead of a file."""
 
     @model_validator(mode="before")
     @classmethod
@@ -112,10 +127,16 @@ class GeneIdSpec(Model):
 
 class TargetSpec(Model):
     name: str = Field(min_length=1)
+    """Namespace name; the GMT is written to `gmt/<name>.gmt`."""
     type: Literal["ensembl_gtf"] = "ensembl_gtf"
+    """Target adapter; only `ensembl_gtf`."""
     annotation: AnnotationSpec
+    """Primary annotation that maps symbols to Ensembl IDs."""
     output_genes: GeneIdSpec | None = None
+    """The final ID set: only these IDs are written, and IDs absent from the annotation can still be mapped through
+    `symbol_column`."""
     gene_filter: GeneIdSpec | None = None
+    """Restrict annotation IDs to this list. Like `output_genes`, a file path or a list of IDs is shorthand."""
 
     @model_validator(mode="before")
     @classmethod

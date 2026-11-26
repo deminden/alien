@@ -45,4 +45,4 @@ def _blank_to_none(value: Any) -> Any:
 
 
 class Model(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True)
+    model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True, use_attribute_docstrings=True)

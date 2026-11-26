@@ -36,7 +36,7 @@ ALIEN writes a compact source manifest, source provenance, package versions, tar
 
 ## Cache And Performance
 
-Managed downloads are treated as reproducible source artifacts, while ALIEN keeps its own derived caches for repeated builds. MSigDB remote releases are verified and unpacked from the official archive, then matching RDS tables are normalized once into ALIEN Parquet membership caches. NCBI Gene rescue maps are also stored in a prepared JSON form after first construction.
+Managed downloads are treated as reproducible source artifacts, while ALIEN keeps its own derived caches for repeated builds. MSigDB remote releases are checksum-verified and unpacked from the configured release archive; each RDS collection file is parsed once (cached by its sha256) and the matching rows are normalized into Parquet membership caches. Parsed GENCODE gene tables are cached by GTF sha256, and NCBI Gene rescue maps are stored in a prepared form keyed by the input hashes.
 
 Large builds reuse those derived caches unless `--force-download` or source-level `force: true` is requested. Mapping resolves each distinct key once per target and joins the outcomes back to memberships, so it needs no process pool. Redundancy filtering runs per (namespace, family) group, in parallel when workers are available, using the prefix-filter join and union-find clustering. These optimizations are intended to change runtime, not output semantics; audit tables and GMT outputs remain deterministic for the same inputs and configuration.
 

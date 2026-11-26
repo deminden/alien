@@ -48,7 +48,7 @@ Hardening release: correct audit trail, reproducible and pinnable builds, typed 
 - `alien validate`, `alien verify`, `alien config show|schema`, `alien --version`, `python -m alien`, `-v/-q/--log-file`, `--force`; exit codes 2/3/4/1 by error class.
 - Plugin source types through the `alien.sources` entry-point group (`type: plugin`).
 - `BuildResult.gmt_paths`, `manifest_path`, `term_counts` and `mapping_summary`; `alien.fetch()`.
-- `py.typed`, `docs/outputs.md` (generated), `docs/architecture.md`, `CONTRIBUTING.md`, `CITATION.cff`.
+- `py.typed`, `docs/config.md` and `docs/outputs.md` (generated from the code), descriptions for every option in the JSON Schema, `docs/architecture.md`, `CONTRIBUTING.md`, `CITATION.cff`.
 
 ### Performance
 
@@ -64,7 +64,7 @@ Hardening release: correct audit trail, reproducible and pinnable builds, typed 
 - Deprecated, removed in 0.3: `alien.presets` (use `alien.config`), `alien.sources.build_hgnc_maps` and other moved helpers, `alien.mapping.resolve_current_symbol`, the target keys `annotation_gtf` and `gencode_version`, and the gene-list key spellings `file`, `column`, `gene_column`, `field`, `gene_symbol_column` and `genes`.
 - `load_config()` and `load_preset_config()` return an `AlienConfig` instead of a dict.
 - The library no longer configures the root logger; the CLI does.
-- Dependency floors lowered to pandas 2.2, pyarrow 15, requests 2.31 and urllib3 2.0; new dependencies pydantic and filelock.
+- Dependency floors lowered to pandas 2.2, pyarrow 15, requests 2.31 and urllib3 2.0; new dependencies pydantic (2.7 or later) and filelock.
 - The R analysis scripts and reports moved to `examples/analysis/` and are excluded from the sdist.
 
 ## [0.1.6]

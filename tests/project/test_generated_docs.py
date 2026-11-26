@@ -18,6 +18,39 @@ def test_outputs_doc_is_generated_from_schema() -> None:
     assert result.returncode == 0, result.stderr
 
 
+def test_config_doc_is_generated_from_models() -> None:
+    result = subprocess.run(
+        [sys.executable, "scripts/generate_config_doc.py", "--check"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_every_config_option_is_described() -> None:
+    from pydantic import BaseModel
+
+    from alien.config import schema
+
+    missing = []
+    seen: set[type[BaseModel]] = set()
+    stack: list[type[BaseModel]] = [schema.AlienConfig, *schema.SourceSpec.__args__[0].__args__]
+    while stack:
+        model = stack.pop()
+        if model in seen:
+            continue
+        seen.add(model)
+        for name, field in model.model_fields.items():
+            if not field.description:
+                missing.append(f"{model.__name__}.{name}")
+            for arg in [field.annotation, *getattr(field.annotation, "__args__", ())]:
+                inner = [arg, *getattr(arg, "__args__", ())]
+                stack += [t for t in inner if isinstance(t, type) and issubclass(t, BaseModel)]
+    assert missing == []
+
+
 def test_every_written_file_is_documented(tmp_path: Path, monkeypatch: object) -> None:
     import shutil
 

@@ -104,7 +104,7 @@ A build's configuration is assembled from layers, lowest first:
 
 Mappings merge recursively and lists replace. Four keys extend a list instead of replacing it and are applied after merging: `gene_mapping.extra_non_gene_tokens`, `gene_mapping.extra_non_gene_token_regex`, `filtering.extra_broad_disease_regex`, and `source_priority.extra.<family>`.
 
-Every option is validated. Unknown keys and out-of-range values fail with the YAML path of the offending entry, for example `targets[1].annotation.versoin: unknown option (check the spelling)`. A config must define at least one source. `alien config show [PRESET|FILE] [--override FILE ...]` prints the effective configuration; `alien config schema` prints the JSON Schema, which is also committed as [config.schema.json](config.schema.json) for editor completion (for example with the YAML language server: `# yaml-language-server: $schema=https://raw.githubusercontent.com/deminden/alien/main/docs/config.schema.json`).
+Every option, with its type and default, is listed in [config.md](config.md), which is generated from the code. Every option is validated. Unknown keys and out-of-range values fail with the YAML path of the offending entry, for example `targets[1].annotation.versoin: unknown option (check the spelling)`. A config must define at least one source. `alien config show [PRESET|FILE] [--override FILE ...]` prints the effective configuration; `alien config schema` prints the JSON Schema, which is also committed as [config.schema.json](config.schema.json) for editor completion (for example with the YAML language server: `# yaml-language-server: $schema=https://raw.githubusercontent.com/deminden/alien/main/docs/config.schema.json`).
 
 `outputs.mode` (`full`, `minimal` or `gmt`) sets the output mode; `--output-mode` overrides it.
 
@@ -264,7 +264,7 @@ sources:
 
 Downloaded Enrichr metadata is cached at `data/alien_sources/enrichr/datasetStatistics.json`; GMT files are cached as `data/alien_sources/enrichr/<library>.gmt`. The resolved library name, match method, and regex candidate names are written to `metadata/source_manifest.tsv`.
 
-For MSigDB remote sources, ALIEN keeps two cache layers under `project.source_dir`: the verified upstream release archive/extracted files and a derived `alien_cache/` directory with normalized Parquet memberships. The first build for a source filter performs conversion from the upstream RDS tables; later builds read the Parquet cache directly.
+For MSigDB remote sources, ALIEN keeps two cache layers under `project.source_dir`: the verified upstream release archive/extracted files and a derived `alien_cache/` directory with parsed RDS collections (keyed by file sha256) and normalized Parquet memberships (keyed by the archive checksum and the source filters). Each RDS file is parsed once, even when several sources read the same collection; later builds read the Parquet caches directly.
 
 Cached remote resources are reused by default. To refresh MSigDB archives, Enrichr metadata/GMTs, GENCODE annotations, HGNC/NCBI resources, and Ensembl archive caches, run:
 
@@ -298,7 +298,7 @@ sources:
       - name: ClinVar_2019
 ```
 
-NCBI rescue maps are prepared once into a JSON cache after the raw NCBI files are read. Repeated builds also reuse in-memory mapping lookups during each run, and multiple configured target namespaces can be mapped in parallel with `--workers`.
+NCBI rescue maps are prepared once into a JSON cache after the raw NCBI files are read. Mapping resolves each distinct symbol once per target, so it runs in a single process; `--workers` parallelises redundancy filtering.
 
 `msigdb_tsv` reads one or more MSigDB-like tables with term names and symbols:
 
@@ -530,7 +530,7 @@ result = build(cfg, outdir="data/alien_gmt", workers=4)
 For code-only workflows, `output_genes` can also carry inline Ensembl IDs:
 
 ```python
-"output_genes": {"genes": ["ENSG00000141510.18", "ENSG000002"]}
+"output_genes": {"ids": ["ENSG00000141510.18", "ENSG000002"]}
 ```
 
 ## Filtering
