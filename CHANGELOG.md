@@ -37,6 +37,10 @@ Hardening release: correct audit trail, reproducible and pinnable builds, typed 
 - A custom MSigDB `release.zip_url` inherited the built-in archive name and checksum.
 - Extracting a release archive could write outside its directory (zip-slip).
 
+### Changed (resources)
+
+- HGNC downloads come from HGNC's Google Cloud Storage bucket first; the EBI FTP path, which now returns 404, is a fallback.
+
 ### Added
 
 - Typed configuration (pydantic v2) with `extends:`, `outputs.mode`, `redundancy.linkage` (`single` or `representative`), `hgnc.url` and `hgnc.archive_date`; errors name the YAML path; JSON Schema in `docs/config.schema.json`.
@@ -50,6 +54,7 @@ Hardening release: correct audit trail, reproducible and pinnable builds, typed 
 
 - Redundancy candidate pairs come from a prefix-filter similarity join: 50,000 terms in about 7 s and 0.5 GB (0.1.x: 10,000 terms took 99 s and 3.4 GB). Results are identical.
 - Mapping resolves each distinct (symbol, source Ensembl ID) key once per target; the mapping process pool is gone.
+- Parsed MSigDB collection files (`.rds`) are cached by content hash, so sources that share a collection (for example several C2 subcollections) parse it once; a first pathways fetch is several minutes faster.
 - Parsed GTF gene tables are cached by content hash; NCBI maps and normalized MSigDB memberships are keyed by input hashes and options.
 
 ### Removed / deprecated

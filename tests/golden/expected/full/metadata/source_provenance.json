@@ -124,7 +124,7 @@
       "path": "hgnc/hgnc_complete_set.txt",
       "sha256": "8717e4330d881b71958dc2207ab2cc4838133cbdbfb468b9571b8d7e6c36fbd5",
       "size": 457,
-      "url": "https://ftp.ebi.ac.uk/pub/databases/genenames/hgnc/tsv/hgnc_complete_set.txt"
+      "url": "https://storage.googleapis.com/public-download-files/hgnc/tsv/tsv/hgnc_complete_set.txt"
     },
     "ncbi_gene:gene_history": {
       "path": "ncbi_gene/gene_history.gz",

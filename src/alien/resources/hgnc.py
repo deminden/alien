@@ -13,11 +13,12 @@ from ..config.schema import HgncConfig
 from ..errors import SourceError
 from ..model import ensembl_stable_id
 
-HGNC_URL: Final = "https://ftp.ebi.ac.uk/pub/databases/genenames/hgnc/tsv/hgnc_complete_set.txt"
-HGNC_FALLBACK_URLS: Final = ("https://storage.googleapis.com/public-download-files/hgnc/tsv/tsv/hgnc_complete_set.txt",)
+# HGNC moved its downloads to Google Cloud Storage; the EBI FTP path is kept as a fallback only.
+HGNC_URL: Final = "https://storage.googleapis.com/public-download-files/hgnc/tsv/tsv/hgnc_complete_set.txt"
+HGNC_FALLBACK_URLS: Final = ("https://ftp.ebi.ac.uk/pub/databases/genenames/hgnc/tsv/hgnc_complete_set.txt",)
 HGNC_ARCHIVE_URLS: Final = (
-    "https://ftp.ebi.ac.uk/pub/databases/genenames/hgnc/archive/monthly/tsv/hgnc_complete_set_{date}.txt",
     "https://storage.googleapis.com/public-download-files/hgnc/archive/archive/monthly/tsv/hgnc_complete_set_{date}.txt",
+    "https://ftp.ebi.ac.uk/pub/databases/genenames/hgnc/archive/monthly/tsv/hgnc_complete_set_{date}.txt",
 )
 
 
