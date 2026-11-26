@@ -27,8 +27,12 @@ class MappingStatus(StrEnum):
     HGNC_CURRENT_SYMBOL = "hgnc_current_symbol"
     HGNC_PREVIOUS_SYMBOL = "hgnc_previous_symbol"
     HGNC_ALIAS_SYMBOL = "hgnc_alias_symbol"
+    HGNC_CASE_INSENSITIVE_SYMBOL = "hgnc_case_insensitive_symbol"
     HGNC_ENSEMBL_TIEBREAK = "hgnc_ensembl_tiebreak"
     MANUAL_SYMBOL_REPAIR = "manual_symbol_repair"
+    MITOCHONDRIAL_LEGACY_SYMBOL = "mitochondrial_legacy_symbol"
+    EXCEL_DATE_SYMBOL = "excel_date_symbol"
+    NCBI_GENE_ID = "ncbi_gene_id"
     NCBI_GENE_HISTORY = "ncbi_gene_history"
     NCBI_GENE_INFO_SYNONYM = "ncbi_gene_info_synonym"
     AMBIGUOUS_DROP = "ambiguous_drop"
@@ -54,18 +58,28 @@ _MAPPED: Final = frozenset(
         MappingStatus.HGNC_CURRENT_SYMBOL,
         MappingStatus.HGNC_PREVIOUS_SYMBOL,
         MappingStatus.HGNC_ALIAS_SYMBOL,
+        MappingStatus.HGNC_CASE_INSENSITIVE_SYMBOL,
         MappingStatus.HGNC_ENSEMBL_TIEBREAK,
         MappingStatus.MANUAL_SYMBOL_REPAIR,
+        MappingStatus.MITOCHONDRIAL_LEGACY_SYMBOL,
+        MappingStatus.EXCEL_DATE_SYMBOL,
+        MappingStatus.NCBI_GENE_ID,
         MappingStatus.NCBI_GENE_HISTORY,
         MappingStatus.NCBI_GENE_INFO_SYNONYM,
     }
 )
 _RESCUES: Final = frozenset(
-    {MappingStatus.ARCHIVE_ENSEMBL_RESCUE, MappingStatus.NCBI_GENE_HISTORY, MappingStatus.NCBI_GENE_INFO_SYNONYM}
+    {
+        MappingStatus.ARCHIVE_ENSEMBL_RESCUE,
+        MappingStatus.NCBI_GENE_ID,
+        MappingStatus.NCBI_GENE_HISTORY,
+        MappingStatus.NCBI_GENE_INFO_SYNONYM,
+    }
 )
 
 
 class RemovalReason(StrEnum):
+    EXCLUDED_TERM = "excluded_term"
     BROAD_DISEASE_TERM = "broad_disease_term"
     TOO_SMALL = "too_small"
     TOO_LARGE = "too_large"

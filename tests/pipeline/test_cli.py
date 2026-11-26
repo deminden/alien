@@ -105,7 +105,8 @@ def test_cli_config_option_treats_value_as_path(monkeypatch):
 def test_cli_presets_lists_bundled_presets(capsys):
     assert cli.main(["presets"]) == 0
     output = capsys.readouterr().out
-    assert "cancer_dependency" in output
+    assert "cancer_programs" in output
+    assert "cell_line_signatures" in output
     assert "cancer" in output
     assert "function_location" in output
 

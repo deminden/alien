@@ -5,7 +5,7 @@ outputs:
   include_symbols: true
   mode: full
 term_id_collisions:
-  action: error
+  action: rename
 sources:
 - enabled: true
   path: <ROOT>/inputs/msigdb_like.tsv
@@ -87,6 +87,76 @@ filtering:
   - ^tumour$
   - ^genetic disease$
   - ^genetic disorder$
+  - ^(.+ )?system diseases?$
+  - ^disease of (anatomical entity|cellular proliferation|metabolism|mental health)$
+  - ^disease by infectious agent$
+  - ^physical disorder$
+  - ^syndromes?$
+  - ^(inflammation|hyperplasia|fibrosis|necrosis|pathologic processes|disease progression|carcinogenesis)$
+  - ^(neoplasm metastasis|neoplasm invasiveness|tumor progression|cell transformation,
+    neoplastic)$
+  - ^(chronic disease|acute disease|disease susceptibility|genetic predisposition
+    to disease)$
+  - ^(congenital abnormality|congenital abnormalities)$
+  - ^(hp )?(phenotypic abnormality|abnormality of (the )?(nervous system|cardiovascular
+    system|musculoskeletal system|musculature|skeletal system|eye|ear|head or neck|integument|skin|genitourinary
+    system|endocrine system|immune system|blood and blood forming tissues|metabolism/homeostasis|metabolism
+    homeostasis|respiratory system|digestive system|prenatal development or birth|connective
+    tissue|breast|voice|thoracic cavity|limbs|cellular phenotype))$
+  exclude_terms:
+    kegg_medicus_variant_and_pathogen:
+      enabled: true
+      description: KEGG MEDICUS mutant-variant and pathogen versions of reference
+        pathways (host genes only, near-copies of the REFERENCE pathway).
+      source_tags:
+      - KEGG_MEDICUS
+      patterns:
+      - '^KEGG MEDICUS (VARIANT|PATHOGEN) '
+    pathogen_specific_pathways:
+      enabled: true
+      description: Pathways named after one pathogen; they list host machinery (ribosome,
+        interferon, actin) that other terms already cover.
+      source_tags:
+      - REACTOME
+      - WIKIPATHWAYS
+      - KEGG_MEDICUS
+      - KEGG_LEGACY
+      - BIOCARTA
+      - PID
+      patterns:
+      - \b(SARS[ -]?COV[ -]?[12]?|SARSCOV2?|COVID[ -]?19|CORONAVIRUS|HIV[ -]?1?|INFLUENZA|HCMV|CYTOMEGALOVIRUS|EPSTEIN[
+        -]?BARR|EBV|KSHV|HERPES|HEPATITIS [BC]|HBV|HCV|HPV|PAPILLOMAVIRUS|EBOLA|ZIKA|DENGUE|MEASLES|LEISHMANIA|TOXOPLASM\w*|PLASMODIUM|MALARIA|TUBERCULOSIS|MYCOBACTERI\w*|SALMONELLA|LISTERIA|LEGIONELLA|CHLAMYDIA|HELICOBACTER|ESCHERICHIA|E
+        COLI|SHIGELLA|YERSINIA|STAPHYLOCOCC\w*|STREPTOCOCC\w*|ANTHRAX|CLOSTRIDI\w*|BOTULINUM|PERTUSSIS|VIBRIO|CHOLERA|PATHOGENIC|TRYPANOSOM\w*|AMOEBIASIS|SHIGELLOSIS|PROTOZOA\w*)\b
+    hpo_modifiers:
+      enabled: true
+      description: 'HPO modifier and inheritance terms (onset, course, mode of inheritance,
+        age of death): they describe how a phenotype presents, not a phenotype.'
+      source_tags:
+      - HPO
+      patterns:
+      - ^HP .*INHERITANCE( QUALIFIER)?$
+      - ^HP (?!.* WITH ).*ONSET$
+      - ^HP (DEATH IN [A-Z ]+|AGE OF DEATH|NEONATAL DEATH|PRENATAL DEATH|STILLBIRTH)$
+      - ^HP (NONPROGRESSIVE|RAPIDLY PROGRESSIVE|SLOWLY PROGRESSIVE|PROGRESSIVE|SPORADIC|VARIABLE
+        EXPRESSIVITY|GENETIC ANTICIPATION|EPISODIC|RECURRENT|CHRONIC|ACUTE|TRANSIENT|INCOMPLETE
+        PENETRANCE|SOMATIC MOSAICISM|SEXUAL DIMORPHISM|CONTIGUOUS GENE SYNDROME|CLINICAL
+        MODIFIER|CLINICAL COURSE|MORTALITY AGING|MODE OF INHERITANCE|FREQUENCY|PAST
+        MEDICAL HISTORY)$
+      - '^HP TYPIFIED BY '
+    experimental_disease_models:
+      enabled: true
+      description: Animal-model and transplantable tumour-line terms in text-mined
+        disease libraries.
+      source_tags:
+      - DISGENET
+      patterns:
+      - \bexperimental\b
+      - '^experimental organism '
+      - ^carcinoma, (ehrlich tumor|lewis lung|walker 256|krebs 2|brown-pearce)$
+      - ^(melanoma, (b16|cloudman s91|harding-passey)|hepatoma, (morris|novikoff)|leukemia
+        (l1210|p388)|sarcoma (180|37|yoshida)|rous sarcoma|avian [a-z ]+|erythroleukemia,
+        friend|mammary tumor virus, mouse)$
+      - '^(rat|mouse|murine|canine|feline|bovine|porcine|simian|equine) '
 redundancy:
   exact_duplicate_removal: true
   jaccard_cutoff: 0.7
@@ -103,8 +173,19 @@ source_priority:
   - LOCALDIS
   cancer_dependency_state:
   - DEPMAP
+  cell_line_signature:
+  - DEPMAP
+  - CCLE
+  - NCI60
 gene_mapping:
   use_hgnc_alias_mapping: true
+  min_alias_length: 4
+  short_alias_source_tags:
+  - DISGENET
+  - JENSEN_DISEASES_TEXTMINING
+  mitochondrial_legacy_symbols: true
+  excel_date_symbols: true
+  case_insensitive_symbols: true
   preserve_unmapped_symbols_in_symbol_gmt: true
   non_gene_tokens:
   - disease

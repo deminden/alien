@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from functools import cached_property
 from pathlib import Path
 from typing import Final
 
@@ -36,6 +37,22 @@ class HgncMaps:
     @property
     def current_ensembl_ids(self) -> frozenset[str]:
         return frozenset(stable for value in self.current_to_ensembl.values() if (stable := ensembl_stable_id(value)))
+
+    @cached_property
+    def folded(self) -> dict[str, dict[str, tuple[str, ...]]]:
+        """Per symbol kind (``current``, ``previous``, ``alias``): case-folded name -> sorted current symbols."""
+        tables: dict[str, dict[str, set[str]]] = {"current": {}, "previous": {}, "alias": {}}
+        for symbol in self.current:
+            tables["current"].setdefault(symbol.casefold(), set()).add(symbol)
+        for kind, unique, ambiguous in (
+            ("previous", self.previous, self.ambiguous_previous),
+            ("alias", self.alias, self.ambiguous_alias),
+        ):
+            for name, target in unique.items():
+                tables[kind].setdefault(name.casefold(), set()).add(target)
+            for name, targets in ambiguous.items():
+                tables[kind].setdefault(name.casefold(), set()).update(targets)
+        return {kind: {name: tuple(sorted(values)) for name, values in table.items()} for kind, table in tables.items()}
 
 
 def hgnc_urls(config: HgncConfig) -> list[str]:

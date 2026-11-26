@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 import numpy as np
@@ -34,6 +34,7 @@ from ..schema import (
     MAPPING_STATUS_COLUMNS,
     NCBI_AUDIT_COLUMNS,
     NON_GENE_COLUMNS,
+    SYMBOL_RESCUE_COLUMNS,
     TERM_META_COLUMNS,
     UNMAPPED_COLUMNS,
 )
@@ -47,10 +48,19 @@ from .audit import (
     unmapped_fields,
 )
 from .resolver import MappingContext, MappingOutcome, resolve
-from .symbols import AMBIGUOUS_STAGES, non_gene_matcher, resolve_symbol
+from .symbols import (
+    AMBIGUOUS_STAGES,
+    SHORT_ALIAS,
+    SymbolOptions,
+    non_gene_matcher,
+    resolve_symbol,
+    short_alias_guarded,
+)
 
 LOGGER = logging.getLogger("alien")
 AUDIT_TABLES = ("unmapped", "ambiguous", "non_gene", "archive", "ncbi")
+#: Statuses that are not a plain exact match; each distinct token reaching one is listed in symbol_rescues.
+_PLAIN_STATUSES = frozenset({MappingStatus.DIRECT_SOURCE_ENSEMBL, MappingStatus.HGNC_CURRENT_SYMBOL})
 AUDIT_COLUMNS = {
     "unmapped": UNMAPPED_COLUMNS,
     "ambiguous": AMBIGUOUS_COLUMNS,
@@ -70,6 +80,7 @@ class MappingResult:
     non_gene: pd.DataFrame = field(default_factory=lambda: pd.DataFrame(columns=list(NON_GENE_COLUMNS)))
     archive_audit: pd.DataFrame = field(default_factory=lambda: pd.DataFrame(columns=list(ARCHIVE_AUDIT_COLUMNS)))
     ncbi_audit: pd.DataFrame = field(default_factory=lambda: pd.DataFrame(columns=list(NCBI_AUDIT_COLUMNS)))
+    symbol_rescues: pd.DataFrame = field(default_factory=lambda: pd.DataFrame(columns=list(SYMBOL_RESCUE_COLUMNS)))
     status_summary: pd.DataFrame = field(default_factory=lambda: pd.DataFrame(columns=list(MAPPING_STATUS_COLUMNS)))
 
 
@@ -78,6 +89,7 @@ class _Projection:
     terms: TermSet
     tables: dict[str, pd.DataFrame]
     status: pd.DataFrame | None = None
+    rescues: pd.DataFrame | None = None
 
 
 class Memberships:
@@ -122,20 +134,19 @@ def _factorize(*arrays: np.ndarray) -> tuple[np.ndarray, list[tuple[Any, ...]]]:
 def project_symbols(members: Memberships, config: AlienConfig, hgnc: HgncMaps) -> _Projection:
     """The symbols namespace: current HGNC symbols, keeping unresolved tokens when configured."""
     mapping = config.gene_mapping
+    options = {guard: SymbolOptions.from_config(mapping, short_alias_guard=guard) for guard in (False, True)}
     is_non_gene = non_gene_matcher(mapping)
-    codes, uniques = pd.factorize(pd.Series(members.symbols, dtype=object))
+    codes, uniques = _factorize(members.symbols, _guards(members, config))
     outputs: list[str] = []
     per_table: dict[str, list[Fields | None]] = {"non_gene": [], "ambiguous": [], "unmapped": []}
-    for raw in uniques:
+    for raw, guard in uniques:
         symbol = str(raw)
         fields: dict[str, Fields | None] = dict.fromkeys(per_table)
         out = ""
         if is_non_gene(symbol):
             fields["non_gene"] = {"reason": "configured_non_gene_token"}
         else:
-            resolution = resolve_symbol(
-                symbol, hgnc, mapping.manual_symbol_repairs, use_alias=mapping.use_hgnc_alias_mapping
-            )
+            resolution = resolve_symbol(symbol, hgnc, mapping.manual_symbol_repairs, options=options[bool(guard)])
             out = resolution.symbol
             if resolution.is_ambiguous:
                 fields["ambiguous"] = {
@@ -145,10 +156,11 @@ def project_symbols(members: Memberships, config: AlienConfig, hgnc: HgncMaps) -
                     "action": "drop_alias",
                 }
             elif not resolution.symbol:
+                short = resolution.status == SHORT_ALIAS
                 fields["unmapped"] = {
                     "attempted_current_symbol": "",
-                    "reason": "unmapped_symbol",
-                    "possible_matches": "",
+                    "reason": SHORT_ALIAS if short else "unmapped_symbol",
+                    "possible_matches": ",".join(resolution.candidates) if short else "",
                 }
             if not out and mapping.preserve_unmapped_symbols_in_symbol_gmt:
                 out = symbol
@@ -201,6 +213,8 @@ def target_context(
         repairs=config.gene_mapping.manual_symbol_repairs,
         use_alias=config.gene_mapping.use_hgnc_alias_mapping,
         is_non_gene=non_gene_matcher(config.gene_mapping),
+        case_insensitive=config.gene_mapping.case_insensitive_symbols,
+        symbol_options=SymbolOptions.from_config(config.gene_mapping),
     )
 
 
@@ -209,9 +223,22 @@ def problematic_source_ids(members: Memberships, known_ids: frozenset[str]) -> l
     return sorted({stable for stable in set(members.source_stable) if stable and stable not in known_ids})
 
 
-def project_target(members: Memberships, target: Target, ctx: MappingContext, allowed: np.ndarray) -> _Projection:
-    codes, keys = _factorize(members.symbols, members.source_stable, allowed)
-    outcomes: list[MappingOutcome] = [resolve((str(s), str(e), bool(a)), ctx) for s, e, a in keys]
+def _guards(members: Memberships, config: AlienConfig) -> np.ndarray:
+    tags = members.rows["source_tag"]
+    unique = list(pd.unique(tags))
+    guarded = dict(zip(unique, short_alias_guarded(config.gene_mapping, unique), strict=True))
+    return tags.map(guarded).to_numpy(dtype=bool)
+
+
+def project_target(
+    members: Memberships, target: Target, ctx: MappingContext, allowed: np.ndarray, guards: np.ndarray | None = None
+) -> _Projection:
+    """``guards`` marks rows whose source is subject to the short-alias rule (default: the context's own options)."""
+    if guards is None:
+        guards = np.ones(len(members), dtype=bool)
+    open_ctx = replace(ctx, symbol_options=replace(ctx.options, min_alias_length=1))
+    codes, keys = _factorize(members.symbols, members.source_stable, allowed, guards)
+    outcomes: list[MappingOutcome] = [resolve((str(s), str(e), bool(a)), ctx if g else open_ctx) for s, e, a, g in keys]
     statuses = np.asarray([outcome.status.value for outcome in outcomes], dtype=object)[codes]
     genes = np.asarray([outcome.ensembl_id for outcome in outcomes], dtype=object)[codes]
     mapped = np.asarray([outcome.status.is_mapped for outcome in outcomes], dtype=bool)[codes]
@@ -236,7 +263,56 @@ def project_target(members: Memberships, target: Target, ctx: MappingContext, al
         .reset_index(name="n_gene_members")
     )
     counts.insert(0, "target_namespace", target.name)
-    return _Projection(terms, tables, counts)
+    return _Projection(terms, tables, counts, rescue_table(members, target.name, codes, keys, outcomes))
+
+
+def rescue_table(
+    members: Memberships,
+    namespace: str,
+    codes: np.ndarray,
+    keys: Sequence[tuple[Any, ...]],
+    outcomes: Sequence[MappingOutcome],
+) -> pd.DataFrame:
+    """One row per (source tag, token) mapped by anything other than a direct ID or exact current symbol."""
+    flagged = np.asarray([o.status.is_mapped and o.status not in _PLAIN_STATUSES for o in outcomes], dtype=bool)
+    selected = np.flatnonzero(flagged[codes]) if len(codes) else np.asarray([], dtype=int)
+    if not len(selected):
+        return pd.DataFrame(columns=list(SYMBOL_RESCUE_COLUMNS))
+    frame = pd.DataFrame(
+        {
+            "code": codes[selected],
+            "source_tag": members.rows["source_tag"].to_numpy()[selected],
+            "term_id": members.term_ids[selected],
+        }
+    )
+    grouped = (
+        frame.groupby(["source_tag", "code"], sort=False)
+        .agg(n_memberships=("term_id", "size"), n_terms=("term_id", "nunique"), example_term_id=("term_id", "min"))
+        .reset_index()
+    )
+    rows = []
+    for tag, code, n_rows, n_terms, example in grouped.itertuples(index=False):
+        outcome, key = outcomes[code], keys[code]
+        rows.append(
+            {
+                "target_namespace": namespace,
+                "source_tag": tag,
+                "input_gene": str(key[0]),
+                "source_ensembl_id": str(key[1]),
+                "mapping_status": outcome.status.value,
+                "mapped_symbol": outcome.current_symbol,
+                "ensembl_gene_id": outcome.ensembl_id,
+                "n_memberships": int(n_rows),
+                "n_terms": int(n_terms),
+                "example_term_id": example,
+            }
+        )
+    table = pd.DataFrame(rows, columns=list(SYMBOL_RESCUE_COLUMNS))
+    return table.sort_values(
+        ["target_namespace", "mapping_status", "source_tag", "n_memberships", "input_gene"],
+        ascending=[True, True, True, False, True],
+        kind="mergesort",
+    ).reset_index(drop=True)
 
 
 def _ncbi_allowed(members: Memberships, config: AlienConfig, ncbi: NcbiMaps) -> np.ndarray:
@@ -274,9 +350,10 @@ def map_namespaces(
         for target in targets:
             resolver.prefetch(problematic_source_ids(members, contexts[target.name].known_ids), target.name)
     allowed = _ncbi_allowed(members, config, ncbi)
+    guards = _guards(members, config)
     for target in targets:
         LOGGER.info("Projecting %d memberships onto %s", len(members), target.name)
-        projection = project_target(members, target, contexts[target.name], allowed)
+        projection = project_target(members, target, contexts[target.name], allowed, guards)
         result.terms[target.name] = projection.terms
         projections.append(projection)
     tables = {
@@ -285,6 +362,7 @@ def map_namespaces(
     }
     result.unmapped, result.ambiguous, result.non_gene = tables["unmapped"], tables["ambiguous"], tables["non_gene"]
     result.archive_audit, result.ncbi_audit = tables["archive"], tables["ncbi"]
+    result.symbol_rescues = _concat([p.rescues for p in projections if p.rescues is not None], SYMBOL_RESCUE_COLUMNS)
     status = _concat([p.status for p in projections if p.status is not None], MAPPING_STATUS_COLUMNS)
     result.status_summary = status.sort_values(list(MAPPING_STATUS_COLUMNS[:4]), kind="mergesort").reset_index(
         drop=True

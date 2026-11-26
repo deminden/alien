@@ -418,6 +418,7 @@ def test_build_errors_and_writes_audit_for_conflicting_term_ids(tmp_path):
             },
         ],
         "targets": [],
+        "term_id_collisions": {"action": "error"},
     }
 
     with pytest.raises(RuntimeError, match="conflicting term/source identities"):

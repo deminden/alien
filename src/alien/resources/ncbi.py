@@ -6,7 +6,7 @@ import json
 import logging
 import re
 from collections.abc import Iterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Final
 
@@ -19,6 +19,11 @@ from ..io.atomic import atomic_write_json
 LOGGER = logging.getLogger("alien")
 HUMAN_TAXON: Final = "9606"
 STAGES: Final = ("ncbi_gene_history", "ncbi_gene_info_synonym")
+#: ``LOC<GeneID>`` tokens resolved through the NCBI Gene ID they encode (an ID lookup, not a symbol match).
+ID_STAGE: Final = "ncbi_gene_id"
+RESCUE_STATUSES: Final = (*STAGES, ID_STAGE)
+#: Bumped when the cached map layout changes.
+MAPS_FORMAT: Final = 2
 RESCUE_COLUMNS: Final = ("input_symbol", "stage", "current_symbol", "current_gene_id", "ensembl_gene_ids")
 
 
@@ -35,9 +40,25 @@ class NcbiMaps:
 
     stages: dict[str, dict[str, NcbiRecord]] = field(default_factory=dict)
     ambiguous: dict[str, dict[str, list[str]]] = field(default_factory=dict)
+    gene_ids: dict[str, NcbiRecord] = field(default_factory=dict)
+    """Live human GeneID -> its current record."""
+    replaced_ids: dict[str, str] = field(default_factory=dict)
+    """Discontinued human GeneID -> the GeneID that replaced it, or ``-`` when withdrawn."""
 
     def __bool__(self) -> bool:
-        return bool(self.stages or self.ambiguous)
+        return bool(self.stages or self.ambiguous or self.gene_ids)
+
+    def by_gene_id(self, gene_id: str) -> tuple[NcbiRecord | None, str]:
+        """The current record for a GeneID, following one replacement; and ``live``, ``replaced``, ``withdrawn``
+        or ``unknown``."""
+        record = self.gene_ids.get(gene_id)
+        if record is not None:
+            return record, "live"
+        replacement = self.replaced_ids.get(gene_id)
+        if replacement is None:
+            return None, "unknown"
+        record = self.gene_ids.get(replacement)
+        return (record, "replaced") if record is not None else (None, "withdrawn")
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -53,6 +74,11 @@ class NcbiMaps:
                 for stage, records in self.stages.items()
             },
             "ambiguous": self.ambiguous,
+            "gene_ids": {
+                gene_id: [record.current_symbol, list(record.ensembl_gene_ids)]
+                for gene_id, record in self.gene_ids.items()
+            },
+            "replaced_ids": self.replaced_ids,
         }
 
     @classmethod
@@ -68,7 +94,16 @@ class NcbiMaps:
             }
             for stage, records in data["stages"].items()
         }
-        return cls(stages=stages, ambiguous={stage: dict(values) for stage, values in data["ambiguous"].items()})
+        gene_ids = {
+            gene_id: NcbiRecord(str(symbol), (gene_id,), tuple(ensembl))
+            for gene_id, (symbol, ensembl) in data.get("gene_ids", {}).items()
+        }
+        return cls(
+            stages=stages,
+            ambiguous={stage: dict(values) for stage, values in data["ambiguous"].items()},
+            gene_ids=gene_ids,
+            replaced_ids=dict(data.get("replaced_ids", {})),
+        )
 
 
 def load_ncbi_maps(config: NcbiGeneConfig, cache: ResourceCache) -> NcbiMaps:
@@ -84,6 +119,7 @@ def load_ncbi_maps(config: NcbiGeneConfig, cache: ResourceCache) -> NcbiMaps:
             "gene_info_sha256": file_sha256(info_path),
             "gene_history_sha256": file_sha256(history_path),
             "use_gene_info_synonyms": config.use_gene_info_synonyms,
+            "format": MAPS_FORMAT,
         },
         suffix=".json",
     )
@@ -96,6 +132,7 @@ def load_ncbi_maps(config: NcbiGeneConfig, cache: ResourceCache) -> NcbiMaps:
     gene_info = read_gene_info(info_path)
     rows = build_rescue_rows(gene_info, history_path, config.use_gene_info_synonyms)
     maps = maps_from_rows(rows)
+    maps = replace(maps, gene_ids=gene_id_records(gene_info), replaced_ids=replaced_gene_ids(history_path))
     with cache.file_lock(cache_path):
         atomic_write_json(cache_path, maps.to_json())
     return maps
@@ -156,6 +193,30 @@ def _history_rows(history_path: Path, current_by_gene_id: dict[str, dict[str, st
             if current:
                 rows.append({"input_symbol": symbol, "stage": "ncbi_gene_history", **current})
     return rows
+
+
+def gene_id_records(gene_info: pd.DataFrame) -> dict[str, NcbiRecord]:
+    """Live human GeneID -> current symbol and Ensembl IDs."""
+    return {
+        gene_id: NcbiRecord(
+            record["current_symbol"], (gene_id,), tuple(i for i in record["ensembl_gene_ids"].split(",") if i)
+        )
+        for gene_id, record, _ in _current_records(gene_info)
+        if gene_id
+    }
+
+
+def replaced_gene_ids(history_path: Path) -> dict[str, str]:
+    """Discontinued human GeneID -> replacing GeneID (``-`` when the record was withdrawn without one)."""
+    replaced: dict[str, str] = {}
+    for chunk in pd.read_csv(
+        history_path, sep="\t", dtype=str, keep_default_na=False, chunksize=500_000, usecols=[0, 1, 2]
+    ):
+        human = _human(chunk)
+        for gene_id, discontinued in zip(human["GeneID"], human["Discontinued_GeneID"], strict=True):
+            if _usable(str(discontinued).strip()):
+                replaced[str(discontinued).strip()] = str(gene_id).strip() or "-"
+    return replaced
 
 
 def build_rescue_rows(gene_info: pd.DataFrame, history_path: Path, use_synonyms: bool) -> pd.DataFrame:

@@ -1,0 +1,58 @@
+# Tumour programmes and oncogenic signatures, meant for tumour expression data (TCGA, CPTAC, tumour cohorts).
+# Not intended for normal-tissue data such as GTEx. Per-cell-line libraries (CCLE, NCI-60, DepMap) are in the
+# separate `cell_line_signatures` preset; MSigDB C4:CGN (2005 co-expression neighbourhoods) is not bundled.
+# Point `targets` at your expression annotation; examples/cancer_programs.yml shows a TCGA recount3 target.
+project:
+  # Download/cache root for MSigDB, Enrichr, HGNC, GENCODE, NCBI, and conversion helpers.
+  source_dir: data/alien_sources
+  # Output root. ALIEN writes gmt/, metadata/, and qc/ subfolders here.
+  outdir: results/alien_outputs/cancer_programs
+
+outputs:
+  include_symbols: false
+
+sources:
+  # Oncogenic signatures: pathway activation/inactivation programmes (KRAS, MYC, RB, PRC2, ...).
+  - type: msigdb_remote
+    version: "2026.1"
+    db_species: HS
+    collection: C6
+  # Curated Cancer Cell Atlas: recurrent malignant and microenvironment programmes from tumour single-cell data.
+  - type: msigdb_remote
+    version: "2026.1"
+    db_species: HS
+    collection: C4
+    subcollection: 3CA
+    family: cancer_dependency_state
+    aspect: cancer_signature
+  # Genes whose expression tracks loss of a cancer gene.
+  - type: msigdb_remote
+    version: "2026.1"
+    db_species: HS
+    collection: C9
+
+targets:
+  - name: gtex_v11_gencode47
+    type: ensembl_gtf
+    annotation:
+      source: GENCODE
+      version: "47"
+
+filtering:
+  min_size_default: 10
+  max_size_default: 500
+  max_size_cancer: 500
+
+redundancy:
+  exact_duplicate_removal: true
+  jaccard_cutoff: 0.85
+  apply_per_family: true
+
+source_priority:
+  cancer_dependency_state:
+    - 3CA
+    - C6
+    - C9
+
+runtime:
+  workers: 16

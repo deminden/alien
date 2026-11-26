@@ -28,7 +28,7 @@ PRESETS: tuple[Preset, ...] = (
     Preset(
         name="pathways",
         filename="pathways.yml",
-        description="Reactome, WikiPathways, KEGG MEDICUS, and GO biological process terms.",
+        description="MSigDB Hallmark, Reactome, WikiPathways, KEGG MEDICUS, and GO biological process terms.",
     ),
     Preset(
         name="function_location",
@@ -43,10 +43,16 @@ PRESETS: tuple[Preset, ...] = (
         aliases=("disease",),
     ),
     Preset(
-        name="cancer_dependency",
-        filename="cancer_dependency.yml",
-        description="Cancer and dependency signatures for TCGA recount3.",
-        aliases=("cancer",),
+        name="cancer_programs",
+        filename="cancer_programs.yml",
+        description="MSigDB C6 oncogenic, C4 3CA tumour and C9 signatures, for tumour expression data.",
+        aliases=("cancer", "cancer_dependency"),
+    ),
+    Preset(
+        name="cell_line_signatures",
+        filename="cell_line_signatures.yml",
+        description="Opt-in per-cell-line sets: DepMap CRISPR dependencies, CCLE and NCI-60 expression.",
+        aliases=("cell_lines",),
     ),
 )
 

@@ -8,6 +8,11 @@ outputs:
   include_symbols: false
 
 sources:
+  # MSigDB Hallmark: 50 curated, low-redundancy programmes; listed first so they represent their clusters.
+  - type: msigdb_remote
+    version: "2026.1"
+    db_species: HS
+    collection: H
   - type: msigdb_remote
     version: "2026.1"
     db_species: HS
@@ -46,7 +51,7 @@ redundancy:
   apply_per_family: true
 
 source_priority:
-  biology_process_pathway: [REACTOME, WIKIPATHWAYS, KEGG_MEDICUS, GOBP]
+  biology_process_pathway: [H, REACTOME, WIKIPATHWAYS, KEGG_MEDICUS, GOBP]
 
 runtime:
   workers: 16

@@ -25,6 +25,12 @@ class TermIdCollisionError(SourceError, RuntimeError):
     """Two sources produced the same term_id with different identities (a RuntimeError for 0.1.x callers)."""
 
 
+class OutputDirectoryError(AlienError, RuntimeError):
+    """The output directory cannot be used safely."""
+
+    exit_code = 2
+
+
 class ResourceError(AlienError, RuntimeError):
     """A remote resource or cache could not be fetched, verified or read."""
 

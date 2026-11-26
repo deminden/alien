@@ -124,6 +124,10 @@ def _legacy(world: dict[str, Any]) -> dict[str, Any]:
             "manual_symbol_repairs": world["repairs"],
             "use_hgnc_alias_mapping": world["use_alias"],
             "non_gene_tokens": world["non_gene"],
+            # The legacy implementation predates these rules; switch them off for a like-for-like comparison.
+            "min_alias_length": 1,
+            "mitochondrial_legacy_symbols": False,
+            "excel_date_symbols": False,
         },
         "ncbi_gene": {"allowed_source_tags": world["allowed"]},
     }
@@ -171,6 +175,9 @@ def _new(world: dict[str, Any]) -> dict[str, Any]:
                 "manual_symbol_repairs": world["repairs"],
                 "use_hgnc_alias_mapping": world["use_alias"],
                 "non_gene_tokens": world["non_gene"],
+                "min_alias_length": 1,
+                "mitochondrial_legacy_symbols": False,
+                "excel_date_symbols": False,
             },
             "ncbi_gene": {"allowed_source_tags": world["allowed"]},
         }

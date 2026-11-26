@@ -55,17 +55,26 @@ alien build cancer --output-mode minimal  # keep only GMTs plus minimal reproduc
 
 Available preset aliases:
 
-- `pathways`: Reactome, WikiPathways, KEGG MEDICUS, and GO biological process terms.
+- `pathways`: MSigDB Hallmark, Reactome, WikiPathways, KEGG MEDICUS reference pathways, and GO biological process terms.
 - `function`: GO molecular function and cellular component terms.
 - `disease`: HPO, DisGeNET, ClinVar, GWAS Catalog, and Jensen disease libraries.
-- `cancer`: cancer and dependency signatures.
+- `cancer` (`cancer_programs`): MSigDB C6 oncogenic signatures, C4 3CA tumour programmes and C9, for tumour data.
+- `cell_lines` (`cell_line_signatures`): opt-in per-cell-line sets (DepMap CRISPR dependencies, CCLE, NCI-60). No
+  default collection contains cell-line terms: in bulk tissue they mostly re-detect immune infiltration and
+  proliferation.
+
+Presets drop terms that describe something other than a gene programme: KEGG MEDICUS mutant-variant and pathogen
+copies of reference pathways, pathways named after one pathogen, HPO onset/inheritance/course modifiers, animal-model
+disease terms, and broad categories such as "immune system disease". Each removal is listed with its rule in
+`metadata/removed_terms_size_filter.tsv.gz`; `filtering.exclude_terms` turns rules on or off (see
+[docs/config.md](https://github.com/deminden/alien/blob/v0.2.0/docs/config.md)).
 
 By default they write against the full GENCODE v47, the annotation GTEx v11 is quantified on. Use the GENCODE version that matches your own expression data (see [docs/usage.md](https://github.com/deminden/alien/blob/v0.2.0/docs/usage.md)).
 
 Override any part of a preset with an overlay YAML, or start your own config with `extends: pathways` (see `alien config show pathways` for everything a preset sets):
 
 ```bash
-alien build cancer --override tcga-recount3.yml
+alien build cancer --override tcga-recount3.yml  # see examples/cancer_programs.yml
 ```
 
 Overlay mappings deep-merge; lists such as `targets` and `sources` replace the previous list. For TCGA-restricted output, the key input is an output-gene list such as `data/recount3/tcga_gencode_v29_output_genes.tsv.gz` and `data/recount3/human.gene_sums.G029.gtf.gz` as a metadata fallback.
@@ -99,7 +108,7 @@ Targets separate the output gene set from the annotation helper. By default the 
 
 The build keeps audit outputs beside the GMTs so each namespace projection can be traced back to source terms, symbol repairs, unmapped genes, filters, redundancy decisions, and provenance. The compact `metadata/source_manifest.tsv` table is the main record of the exact source collections used in a build; for regex-matched Enrichr libraries it records the resolved library, match method, and candidate names.
 
-`term_id` values must identify one source term unambiguously. If two source libraries reuse the same `term_id` for different term metadata, ALIEN fails by default and writes `metadata/term_id_collisions.tsv` so the IDs can be renamed or prefixed before rebuilding.
+`term_id` values must identify one source term unambiguously. If two source terms end up with the same `term_id` (two libraries reuse an ID, or two names differ only in punctuation), ALIEN keeps them apart by default: the first keeps the ID, the other gets a stable `__<hash>` suffix, and every case is listed in `metadata/term_id_collisions.tsv`. `term_id_collisions.action` can instead stop the build (`error`) or combine them (`merge`).
 
 Redundancy filtering removes exact duplicate terms and then clusters highly overlapping terms by Jaccard similarity within each namespace and family. The default cutoff is `0.85`:
 

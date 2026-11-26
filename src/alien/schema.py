@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import Final
 
 #: Bumped whenever an output file or column changes incompatibly.
-OUTPUT_SCHEMA_VERSION: Final = 2
+OUTPUT_SCHEMA_VERSION: Final = 3
 
 #: Bumped whenever a derived cache (normalized MSigDB parquet, NCBI maps, parsed GTF) changes layout.
 CACHE_SCHEMA_VERSION: Final = 1
@@ -88,6 +88,19 @@ SIZE_REMOVED_COLUMNS: Final = (
     "original_size_symbols",
     "mapped_size",
     "reason",
+    "exclusion_rule",
+)
+SYMBOL_RESCUE_COLUMNS: Final = (
+    "target_namespace",
+    "source_tag",
+    "input_gene",
+    "source_ensembl_id",
+    "mapping_status",
+    "mapped_symbol",
+    "ensembl_gene_id",
+    "n_memberships",
+    "n_terms",
+    "example_term_id",
 )
 REDUNDANCY_REMOVED_COLUMNS: Final = (
     "target_namespace",
@@ -157,6 +170,7 @@ TERM_ID_COLLISION_COLUMNS: Final = (
     "sample_gene_symbols",
     *TERM_ID_IDENTITY_COLUMNS,
     "action",
+    "resolved_term_id",
 )
 ANNOTATION_COLUMNS: Final = (
     "gencode_version",
@@ -322,6 +336,12 @@ OUTPUT_FILES: Final = (
         REDUNDANCY_REMOVED_COLUMNS,
     ),
     OutputFile("metadata/unmapped_genes.tsv.gz", "Memberships that could not be mapped.", UNMAPPED_COLUMNS),
+    OutputFile(
+        "metadata/symbol_rescues.tsv.gz",
+        "Each distinct source token mapped by anything other than a source Ensembl ID or an exact current symbol "
+        "(previous symbol, alias, case, legacy name, NCBI, archive), with how many memberships and terms it reached.",
+        SYMBOL_RESCUE_COLUMNS,
+    ),
     OutputFile(
         "metadata/dropped_non_gene_tokens.tsv.gz",
         "Memberships dropped as configured non-gene tokens.",

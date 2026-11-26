@@ -500,6 +500,43 @@
       "title": "EnsemblArchiveConfig",
       "type": "object"
     },
+    "ExcludeTermsRule": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "default": "",
+          "description": "Why these terms are excluded (recorded in the effective config).",
+          "title": "Description",
+          "type": "string"
+        },
+        "enabled": {
+          "default": true,
+          "description": "Apply this rule; set `false` to keep the terms it would remove.",
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "patterns": {
+          "default": [],
+          "description": "Case-insensitive regexes searched in the term name, with underscores read as spaces.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Patterns",
+          "type": "array"
+        },
+        "source_tags": {
+          "default": [],
+          "description": "Source tags the rule applies to; empty applies it to every source.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Tags",
+          "type": "array"
+        }
+      },
+      "title": "ExcludeTermsRule",
+      "type": "object"
+    },
     "FilteringConfig": {
       "additionalProperties": false,
       "properties": {
@@ -516,9 +553,19 @@
             "^tumor$",
             "^tumour$",
             "^genetic disease$",
-            "^genetic disorder$"
+            "^genetic disorder$",
+            "^(.+ )?system diseases?$",
+            "^disease of (anatomical entity|cellular proliferation|metabolism|mental health)$",
+            "^disease by infectious agent$",
+            "^physical disorder$",
+            "^syndromes?$",
+            "^(inflammation|hyperplasia|fibrosis|necrosis|pathologic processes|disease progression|carcinogenesis)$",
+            "^(neoplasm metastasis|neoplasm invasiveness|tumor progression|cell transformation, neoplastic)$",
+            "^(chronic disease|acute disease|disease susceptibility|genetic predisposition to disease)$",
+            "^(congenital abnormality|congenital abnormalities)$",
+            "^(hp )?(phenotypic abnormality|abnormality of (the )?(nervous system|cardiovascular system|musculoskeletal system|musculature|skeletal system|eye|ear|head or neck|integument|skin|genitourinary system|endocrine system|immune system|blood and blood forming tissues|metabolism/homeostasis|metabolism homeostasis|respiratory system|digestive system|prenatal development or birth|connective tissue|breast|voice|thoracic cavity|limbs|cellular phenotype))$"
           ],
-          "description": "Case-insensitive patterns for broad disease term names; `extra_broad_disease_regex` appends to the defaults.",
+          "description": "Case-insensitive patterns for broad disease term names; `extra_broad_disease_regex` appends to the defaults.\nNames are also tried with underscores read as spaces, so `^abnormality of the eye$` matches\n`HP_ABNORMALITY_OF_THE_EYE`.",
           "items": {
             "type": "string"
           },
@@ -530,6 +577,14 @@
           "description": "Remove disease terms whose name matches `broad_disease_regex` (such as \"cancer\" or \"disease\").",
           "title": "Drop Broad Disease Terms",
           "type": "boolean"
+        },
+        "exclude_terms": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ExcludeTermsRule"
+          },
+          "description": "Named rules that remove terms by name before size filtering (reason `excluded_term`, rule name recorded in\n`removed_terms_size_filter`). Rules merge by name: `{rule: {enabled: false}}` turns one off, a new name adds\none.",
+          "title": "Exclude Terms",
+          "type": "object"
         },
         "max_size_cancer": {
           "default": 500,
@@ -630,6 +685,18 @@
     "GeneMappingConfig": {
       "additionalProperties": false,
       "properties": {
+        "case_insensitive_symbols": {
+          "default": true,
+          "description": "When no exact current, previous or alias symbol matches, look the symbol up again ignoring letter case\n(`C1ORF112` finds `C1orf112`); such members get the mapping status `hgnc_case_insensitive_symbol`.",
+          "title": "Case Insensitive Symbols",
+          "type": "boolean"
+        },
+        "excel_date_symbols": {
+          "default": true,
+          "description": "Repair gene names that spreadsheets turned into dates (`1-Sep` -> SEPTIN1, `6-MAR` -> MARCHF6); `1-Mar` and\n`2-Mar` stay ambiguous (MARCHF1/MTARC1, MARCHF2/MTARC2).",
+          "title": "Excel Date Symbols",
+          "type": "boolean"
+        },
         "manual_symbol_repairs": {
           "additionalProperties": {
             "type": "string"
@@ -638,6 +705,19 @@
           "description": "Source symbol -> HGNC symbol corrections; they override previous-symbol and alias matches but never an exact\ncurrent symbol.",
           "title": "Manual Symbol Repairs",
           "type": "object"
+        },
+        "min_alias_length": {
+          "default": 4,
+          "description": "For sources in `short_alias_source_tags`, alias-only matches (HGNC alias, case-insensitive alias and NCBI\nsynonym) need at least this many characters. In text-mined libraries short aliases are mostly abbreviations\n(`HCC` is hepatocellular carcinoma, not HYCC1; `CCT`, `NT3`, `EOS`); rejected tokens are listed in\n`unmapped_genes` with reason `short_alias_rejected` and the alias match.",
+          "minimum": 1,
+          "title": "Min Alias Length",
+          "type": "integer"
+        },
+        "mitochondrial_legacy_symbols": {
+          "default": true,
+          "description": "Map legacy mitochondrial-genome names (`ND1`, `CYTB`, `ATP6`, `TRNK`, `TRNL1`, ...) to their `MT-` genes\nbefore alias lookup. `COX1` and `COX2` stay ambiguous (they are also aliases of PTGS1 and PTGS2).",
+          "title": "Mitochondrial Legacy Symbols",
+          "type": "boolean"
         },
         "non_gene_token_regex": {
           "default": [],
@@ -669,6 +749,18 @@
           "description": "Keep source symbols that HGNC cannot resolve in `symbols.gmt` (they are always dropped from Ensembl\nnamespaces).",
           "title": "Preserve Unmapped Symbols In Symbol Gmt",
           "type": "boolean"
+        },
+        "short_alias_source_tags": {
+          "default": [
+            "DISGENET",
+            "JENSEN_DISEASES_TEXTMINING"
+          ],
+          "description": "Source tags whose alias matches must reach `min_alias_length` (text-mined libraries); `*` applies the rule to\nevery source.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Short Alias Source Tags",
+          "type": "array"
         },
         "use_hgnc_alias_mapping": {
           "default": true,
@@ -1725,9 +1817,10 @@
       "additionalProperties": false,
       "properties": {
         "action": {
-          "default": "error",
-          "description": "What to do when one `term_id` carries conflicting source metadata: `error` stops, `warn` and `merge` combine the\nmemberships and write an audit table.",
+          "default": "rename",
+          "description": "What to do when one `term_id` carries conflicting source metadata (two source terms whose names sanitize to the\nsame ID): `rename` keeps both, the first in sorted identity order keeps the ID and each other one gets a stable\n`__<hash>` suffix; `error` stops; `warn` and `merge` combine the memberships. Every case is written to\n`metadata/term_id_collisions.tsv`.",
           "enum": [
+            "rename",
             "error",
             "warn",
             "merge"
@@ -1772,9 +1865,74 @@
           "^tumor$",
           "^tumour$",
           "^genetic disease$",
-          "^genetic disorder$"
+          "^genetic disorder$",
+          "^(.+ )?system diseases?$",
+          "^disease of (anatomical entity|cellular proliferation|metabolism|mental health)$",
+          "^disease by infectious agent$",
+          "^physical disorder$",
+          "^syndromes?$",
+          "^(inflammation|hyperplasia|fibrosis|necrosis|pathologic processes|disease progression|carcinogenesis)$",
+          "^(neoplasm metastasis|neoplasm invasiveness|tumor progression|cell transformation, neoplastic)$",
+          "^(chronic disease|acute disease|disease susceptibility|genetic predisposition to disease)$",
+          "^(congenital abnormality|congenital abnormalities)$",
+          "^(hp )?(phenotypic abnormality|abnormality of (the )?(nervous system|cardiovascular system|musculoskeletal system|musculature|skeletal system|eye|ear|head or neck|integument|skin|genitourinary system|endocrine system|immune system|blood and blood forming tissues|metabolism/homeostasis|metabolism homeostasis|respiratory system|digestive system|prenatal development or birth|connective tissue|breast|voice|thoracic cavity|limbs|cellular phenotype))$"
         ],
         "drop_broad_disease_terms": true,
+        "exclude_terms": {
+          "experimental_disease_models": {
+            "description": "Animal-model and transplantable tumour-line terms in text-mined disease libraries.",
+            "enabled": true,
+            "patterns": [
+              "\\bexperimental\\b",
+              "^experimental organism ",
+              "^carcinoma, (ehrlich tumor|lewis lung|walker 256|krebs 2|brown-pearce)$",
+              "^(melanoma, (b16|cloudman s91|harding-passey)|hepatoma, (morris|novikoff)|leukemia (l1210|p388)|sarcoma (180|37|yoshida)|rous sarcoma|avian [a-z ]+|erythroleukemia, friend|mammary tumor virus, mouse)$",
+              "^(rat|mouse|murine|canine|feline|bovine|porcine|simian|equine) "
+            ],
+            "source_tags": [
+              "DISGENET"
+            ]
+          },
+          "hpo_modifiers": {
+            "description": "HPO modifier and inheritance terms (onset, course, mode of inheritance, age of death): they describe how a phenotype presents, not a phenotype.",
+            "enabled": true,
+            "patterns": [
+              "^HP .*INHERITANCE( QUALIFIER)?$",
+              "^HP (?!.* WITH ).*ONSET$",
+              "^HP (DEATH IN [A-Z ]+|AGE OF DEATH|NEONATAL DEATH|PRENATAL DEATH|STILLBIRTH)$",
+              "^HP (NONPROGRESSIVE|RAPIDLY PROGRESSIVE|SLOWLY PROGRESSIVE|PROGRESSIVE|SPORADIC|VARIABLE EXPRESSIVITY|GENETIC ANTICIPATION|EPISODIC|RECURRENT|CHRONIC|ACUTE|TRANSIENT|INCOMPLETE PENETRANCE|SOMATIC MOSAICISM|SEXUAL DIMORPHISM|CONTIGUOUS GENE SYNDROME|CLINICAL MODIFIER|CLINICAL COURSE|MORTALITY AGING|MODE OF INHERITANCE|FREQUENCY|PAST MEDICAL HISTORY)$",
+              "^HP TYPIFIED BY "
+            ],
+            "source_tags": [
+              "HPO"
+            ]
+          },
+          "kegg_medicus_variant_and_pathogen": {
+            "description": "KEGG MEDICUS mutant-variant and pathogen versions of reference pathways (host genes only, near-copies of the REFERENCE pathway).",
+            "enabled": true,
+            "patterns": [
+              "^KEGG MEDICUS (VARIANT|PATHOGEN) "
+            ],
+            "source_tags": [
+              "KEGG_MEDICUS"
+            ]
+          },
+          "pathogen_specific_pathways": {
+            "description": "Pathways named after one pathogen; they list host machinery (ribosome, interferon, actin) that other terms already cover.",
+            "enabled": true,
+            "patterns": [
+              "\\b(SARS[ -]?COV[ -]?[12]?|SARSCOV2?|COVID[ -]?19|CORONAVIRUS|HIV[ -]?1?|INFLUENZA|HCMV|CYTOMEGALOVIRUS|EPSTEIN[ -]?BARR|EBV|KSHV|HERPES|HEPATITIS [BC]|HBV|HCV|HPV|PAPILLOMAVIRUS|EBOLA|ZIKA|DENGUE|MEASLES|LEISHMANIA|TOXOPLASM\\w*|PLASMODIUM|MALARIA|TUBERCULOSIS|MYCOBACTERI\\w*|SALMONELLA|LISTERIA|LEGIONELLA|CHLAMYDIA|HELICOBACTER|ESCHERICHIA|E COLI|SHIGELLA|YERSINIA|STAPHYLOCOCC\\w*|STREPTOCOCC\\w*|ANTHRAX|CLOSTRIDI\\w*|BOTULINUM|PERTUSSIS|VIBRIO|CHOLERA|PATHOGENIC|TRYPANOSOM\\w*|AMOEBIASIS|SHIGELLOSIS|PROTOZOA\\w*)\\b"
+            ],
+            "source_tags": [
+              "REACTOME",
+              "WIKIPATHWAYS",
+              "KEGG_MEDICUS",
+              "KEGG_LEGACY",
+              "BIOCARTA",
+              "PID"
+            ]
+          }
+        },
         "max_size_cancer": 500,
         "max_size_default": 500,
         "max_size_disease": 500,
@@ -1785,7 +1943,11 @@
     "gene_mapping": {
       "$ref": "#/$defs/GeneMappingConfig",
       "default": {
+        "case_insensitive_symbols": true,
+        "excel_date_symbols": true,
         "manual_symbol_repairs": {},
+        "min_alias_length": 4,
+        "mitochondrial_legacy_symbols": true,
         "non_gene_token_regex": [],
         "non_gene_tokens": [
           "disease",
@@ -1796,6 +1958,10 @@
           "groups"
         ],
         "preserve_unmapped_symbols_in_symbol_gmt": true,
+        "short_alias_source_tags": [
+          "DISGENET",
+          "JENSEN_DISEASES_TEXTMINING"
+        ],
         "use_hgnc_alias_mapping": true
       },
       "description": "Symbol resolution options."
@@ -1870,17 +2036,26 @@
           "GOCC"
         ],
         "biology_process_pathway": [
+          "H",
           "REACTOME",
           "WIKIPATHWAYS",
           "KEGG_MEDICUS",
           "GOBP"
         ],
         "cancer_dependency_state": [
-          "C9",
-          "C6",
+          "3CA",
           "C4_3CA",
+          "C6",
+          "C9",
+          "CGN",
           "C4_CGN",
+          "CM",
           "C4_CM",
+          "DEPMAP",
+          "CCLE",
+          "NCI60"
+        ],
+        "cell_line_signature": [
           "DEPMAP",
           "CCLE",
           "NCI60"
@@ -1953,7 +2128,7 @@
     "term_id_collisions": {
       "$ref": "#/$defs/TermIdCollisionsConfig",
       "default": {
-        "action": "error"
+        "action": "rename"
       },
       "description": "Handling of conflicting term IDs."
     }

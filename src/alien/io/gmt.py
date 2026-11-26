@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -12,13 +13,23 @@ from ..model import TermRecord, clean_field, sanitize_term_id
 from .atomic import atomic_write_text
 
 MIN_GMT_FIELDS: Final = 3
+#: A numeric membership weight appended to a member, as in fuzzy Enrichr libraries (``TP53,1.0``).
+_MEMBER_WEIGHT: Final = re.compile(r",\s*[-+]?(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][-+]?[0-9]+)?$")
 
 
 @dataclass(frozen=True, slots=True)
 class GmtRecord:
+    """One GMT line: ``name`` is the term name as written, ``term_id`` its GMT-safe form."""
+
     term_id: str
     description: str
     genes: tuple[str, ...]
+    name: str = ""
+
+
+def member_symbol(token: str) -> str:
+    """A GMT member without surrounding space or a trailing numeric weight (``TP53,1.0`` -> ``TP53``)."""
+    return _MEMBER_WEIGHT.sub("", token.strip()).strip()
 
 
 def parse_gmt(path: Path) -> list[GmtRecord]:
@@ -31,8 +42,9 @@ def parse_gmt(path: Path) -> list[GmtRecord]:
             parts = line.split("\t")
             if len(parts) < MIN_GMT_FIELDS:
                 raise SourceError(f"GMT line {line_number} in {path} has fewer than {MIN_GMT_FIELDS} fields.")
-            genes = tuple(gene.strip() for gene in parts[2:] if gene.strip())
-            records.append(GmtRecord(sanitize_term_id(parts[0]), clean_field(parts[1]), genes))
+            genes = tuple(gene for gene in map(member_symbol, parts[2:]) if gene)
+            name = clean_field(parts[0])
+            records.append(GmtRecord(sanitize_term_id(name), clean_field(parts[1]), genes, name))
     return records
 
 
@@ -65,4 +77,9 @@ def description_from_meta(meta: Mapping[str, object]) -> str:
         ("original_name", meta.get("original_name")),
         ("db_version", meta.get("db_version")),
     )
-    return ";".join(f"{key}={clean_field(value)}" for key, value in fields if clean_field(value))
+    return ";".join(f"{key}={_description_value(value)}" for key, value in fields if clean_field(value))
+
+
+def _description_value(value: object) -> str:
+    """A value for the ``key=value;...`` description: the separator ``;`` is written as ``,``."""
+    return clean_field(value).replace(";", ",")

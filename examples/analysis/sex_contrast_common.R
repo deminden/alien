@@ -202,7 +202,9 @@ display_run_label <- function(label) {
     "pathways" = "Pathways",
     "disease_phenotype" = "Disease/phenotype",
     "function_location" = "Function/location",
-    "cancer_dependency" = "Cancer dependency"
+    "cancer_dependency" = "Cancer dependency",
+    "cancer_programs" = "Cancer programmes",
+    "cell_line_signatures" = "Cell-line signatures"
   )
   vapply(as.character(label), function(one) {
     if (one %in% names(labels)) labels[[one]] else format_phrase(one, title_case = TRUE)
