@@ -219,6 +219,8 @@ format_collection_name <- function(value) {
     "FUNCTION LOCATION" = "Function/location",
     "FUNCTION/LOCATION" = "Function/location",
     "CANCER DEPENDENCY" = "Cancer dependency",
+    "CANCER PROGRAMS" = "Cancer programmes",
+    "CELL LINE SIGNATURES" = "Cell-line signatures",
     "BIOCARTA" = "BioCarta",
     "CANCER CELL LINE ENCYCLOPEDIA" = "Cancer Cell Line Encyclopedia",
     "CGN" = "CGN",
@@ -227,7 +229,11 @@ format_collection_name <- function(value) {
     "GOCC" = "GOCC",
     "GOMF" = "GOMF",
     "GWAS CATALOG 2025" = "GWAS Catalog 2025",
+    "H" = "Hallmark",
     "HALLMARK" = "Hallmark",
+    "3CA" = "3CA",
+    "C6" = "C6",
+    "C9" = "C9",
     "HPO" = "HPO",
     "JENSEN DISEASES CURATED 2025" = "Jensen Diseases Curated 2025",
     "KEGG" = "KEGG",
@@ -250,6 +256,7 @@ format_term_name <- function(value) {
   clean <- gsub("_", " ", as.character(value))
   clean <- sub("^HP\\s+", "", clean)
   clean <- sub("^WP\\s+", "", clean)
+  clean <- sub("^HALLMARK\\s+", "", clean)
   format_phrase(clean, title_case = FALSE)
 }
 
@@ -264,8 +271,44 @@ format_phrase <- function(value, title_case = FALSE) {
     value <- ifelse(nzchar(value), paste0(toupper(substr(value, 1, 1)), substr(value, 2, nchar(value))), value)
   }
   value <- restore_alphanumeric_tokens(value)
+  value <- restore_gene_symbols(value)
   value <- restore_known_acronyms(value)
   value[missing] <- NA_character_
+  value
+}
+
+# Words that are HGNC symbols but read as ordinary words or abbreviations in term names.
+GENE_SYMBOL_STOPWORDS <- c(
+  "AR", "BAD", "C2", "MAX", "NODAL", "CA1", "CA2", "CA3", "CA4", "CAMP", "CS", "HP", "ITCH", "MAL", "PALM", "PC", "PGC",
+  "POLE", "REST", "SET", "TAT", "TG"
+)
+
+gene_symbol_set <- local({
+  cache <- NULL
+  function() {
+    if (!is.null(cache)) return(cache)
+    path <- Sys.getenv("ALIEN_HGNC_TABLE", unset = "data/alien_sources/hgnc/hgnc_complete_set.txt")
+    symbols <- character()
+    if (file.exists(path)) {
+      symbols <- toupper(fread(path, select = "symbol", showProgress = FALSE)$symbol)
+      symbols <- symbols[nchar(symbols) >= 3 & grepl("^[A-Z0-9-]+$", symbols)]
+    }
+    cache <<- setdiff(unique(symbols), GENE_SYMBOL_STOPWORDS)
+    cache
+  }
+})
+
+# Upper-case words that are HGNC gene symbols ("Genes correlated with rhoa deletion" -> "... RHOA ...").
+restore_gene_symbols <- function(value) {
+  symbols <- gene_symbol_set()
+  if (length(symbols) == 0) return(value)
+  for (i in seq_along(value)) {
+    if (is.na(value[[i]])) next
+    words <- strsplit(value[[i]], " ", fixed = TRUE)[[1]]
+    hit <- toupper(words) %in% symbols
+    words[hit] <- toupper(words[hit])
+    value[[i]] <- paste(words, collapse = " ")
+  }
   value
 }
 
@@ -287,6 +330,9 @@ restore_known_acronyms <- function(value) {
     "atp" = "ATP",
     "bcr" = "BCR",
     "b cell" = "B cell",
+    "b cells" = "B cells",
+    "mhc ii" = "MHC II",
+    "mhc i" = "MHC I",
     "brca1" = "BRCA1",
     "brca2" = "BRCA2",
     "celllines" = "cell lines",

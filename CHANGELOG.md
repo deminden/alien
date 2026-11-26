@@ -2,7 +2,7 @@
 
 All notable changes to ALIEN are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
-## [0.2.0] - Unreleased
+## [0.2.0] - 2026-11-26
 
 Hardening release: correct audit trail, reproducible and pinnable builds, typed configuration, and a modular code base. GMT contents are unchanged except where a fix below says so.
 

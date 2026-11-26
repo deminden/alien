@@ -54,7 +54,7 @@ args <- parse_args(list(
   "eps" = "1e-50",
   "seed" = "42",
   "rsfgsea" = Sys.getenv("RSFGSEA_BIN", unset = "rsfgsea"),
-  "gene-reads-url" = "https://storage.googleapis.com/adult-gtex/bulk-gex/v11/rna-seq/counts-by-tissue/GTEx_Analysis_2025-08-22_v11_RNASeQCv2.4.3_gene_reads.parquet",
+  "gene-reads-url" = "https://storage.googleapis.com/adult-gtex/bulk-gex/v11/rna-seq/GTEx_Analysis_2025-08-22_v11_RNASeQCv2.4.3_gene_reads.parquet",
   "sample-attributes-url" = "https://storage.googleapis.com/adult-gtex/annotations/v11/metadata-files/GTEx_Analysis_v11_Annotations_SampleAttributesDS.txt",
   "subject-phenotypes-url" = "https://storage.googleapis.com/adult-gtex/annotations/v11/metadata-files/GTEx_Analysis_v11_Annotations_SubjectPhenotypesDS.txt"
 ))
@@ -301,7 +301,7 @@ write_report(
   path = report_path,
   title = "GTEx Thyroid Sex Contrast",
   summary_lines = c(
-    "GTEx v11 thyroid samples were contrasted by sex using DESeq2 on raw counts, adjusting for age group, Hardy death class, RNA integrity, tissue ischemic time, and sequencing center. Genes were ranked by the Wald statistic for Female vs Male and tested against three ALIEN GTEx/Gencode GMT collections with multilevel rsfgsea: pathways, disease/phenotype, and function/location. Cancer dependency is intentionally not used for GTEx.",
+    "GTEx v11 thyroid samples were contrasted by sex using DESeq2 on raw counts, adjusting for age group, Hardy death class, RNA integrity, tissue ischemic time, and sequencing center. Genes were ranked by the Wald statistic for Female vs Male and tested against three ALIEN GTEx/Gencode GMT collections with multilevel rsfgsea: pathways, disease/phenotype, and function/location. The cancer-programme and cell-line collections are not used for normal tissue.",
     "",
     sprintf("- Samples: %s total (%s Female, %s Male).", nrow(metadata), sum(metadata$sex == "Female"), sum(metadata$sex == "Male")),
     sprintf("- Ranked genes: %s.", nrow(ranks)),

@@ -1,6 +1,6 @@
 # GTEx Thyroid Sex Contrast
 
-GTEx v11 thyroid samples were contrasted by sex using DESeq2 on raw counts, adjusting for age group, Hardy death class, RNA integrity, tissue ischemic time, and sequencing center. Genes were ranked by the Wald statistic for Female vs Male and tested against three ALIEN GTEx/Gencode GMT collections with multilevel rsfgsea: pathways, disease/phenotype, and function/location. Cancer dependency is intentionally not used for GTEx.
+GTEx v11 thyroid samples were contrasted by sex using DESeq2 on raw counts, adjusting for age group, Hardy death class, RNA integrity, tissue ischemic time, and sequencing center. Genes were ranked by the Wald statistic for Female vs Male and tested against three ALIEN GTEx/Gencode GMT collections with multilevel rsfgsea: pathways, disease/phenotype, and function/location. The cancer-programme and cell-line collections are not used for normal tissue.
 
 - Samples: 683 total (224 Female, 459 Male).
 - Ranked genes: 65295.
@@ -11,7 +11,7 @@ GTEx v11 thyroid samples were contrasted by sex using DESeq2 on raw counts, adju
 
 ## Main Result
 
-FDR-significant enrichment was present in 3 of 3 collections. The broadest signal was in `Disease/phenotype` (666 Female > Male terms, 9 Male > Female terms), with the larger directional count in Female > Male sets.
+FDR-significant enrichment was present in 3 of 3 collections. The broadest signal was in `Disease/phenotype` (376 Female > Male terms, 18 Male > Female terms), with the larger directional count in Female > Male sets.
 
 ## Data Products
 
@@ -26,9 +26,9 @@ The figure below gives a collection-level view of significant enrichment. Detail
 
 Collection | Tested terms | FDR <= 0.05 | Strongest Female > Male | Strongest Male > Female
 --- | --- | --- | --- | ---
-Pathways | 7716 | 673 | GOBP: T cell receptor signaling pathway (NES 2.33, FDR 0.0318) | GOBP: Regulation of androgen receptor signaling pathway (NES -2.33, FDR 0.0318)
-Disease/phenotype | 11886 | 675 | HPO: Abnormal T cell morphology (NES 2.28, FDR 0.0338) | HPO: Decreased testicular size (NES -2.02, FDR 0.0338)
-Function/location | 1825 | 71 | GOCC: Tertiary granule (NES 1.75, FDR 0.0127) | GOMF: Dynein heavy chain binding (NES -2.01, FDR 0.0226)
+Pathways | 7626 | 278 | GOBP: Immune response regulating cell surface receptor signaling pathway (NES 2.21, FDR 1.75e-16) | GOBP: Cilium organization (NES -1.95, FDR 0.00193)
+Disease/phenotype | 11804 | 394 | HPO: Abnormal lymphocyte morphology (NES 2.16, FDR 7.37e-10) | Jensen Diseases Experimental 2025: Autistic disorder (NES -2.35, FDR 3.62e-06)
+Function/location | 1825 | 25 | GOCC: T cell receptor complex (NES 2.49, FDR 2.23e-15) | GOCC: Axoneme (NES -2.24, FDR 0.00876)
 
 ## Enrichment Results
 
@@ -36,22 +36,22 @@ Function/location | 1825 | 71 | GOCC: Tertiary granule (NES 1.75, FDR 0.0127) | 
 
 - GMT: `results/alien_outputs/pathways/gmt/gtex_v11_gencode47.gmt`.
 - rsfgsea table: [gtex_thyroid_pathways_female_vs_male_rsfgsea.tsv](../../../../results/sex_contrast/gtex_thyroid/tables/gtex_thyroid_pathways_female_vs_male_rsfgsea.tsv)
-- Tested 7716 terms; 673 had FDR <= 0.05.
-- Strongest Female > Male signal: GOBP: T cell receptor signaling pathway (NES 2.33, FDR 0.0318).
-- Strongest Male > Female signal: GOBP: Regulation of androgen receptor signaling pathway (NES -2.33, FDR 0.0318).
+- Tested 7626 terms; 278 had FDR <= 0.05.
+- Strongest Female > Male signal: GOBP: Immune response regulating cell surface receptor signaling pathway (NES 2.21, FDR 1.75e-16).
+- Strongest Male > Female signal: GOBP: Cilium organization (NES -1.95, FDR 0.00193).
 
 Top enrichment rows:
 
 Source | Collection | Term | NES | P value | FDR | Genes
 --- | --- | --- | --- | --- | --- | ---
-MSigDB | GOBP | Regulation of androgen receptor signaling pathway | -2.333 | 0.001556 | 0.03178 | 33
-MSigDB | GOBP | T cell receptor signaling pathway | 2.328 | 0.001441 | 0.03178 | 161
-MSigDB | GOBP | Antigen receptor mediated signaling pathway | 2.323 | 0.001406 | 0.03178 | 220
-MSigDB | GOBP | Natural killer cell mediated immunity | 2.312 | 0.001449 | 0.03178 | 94
-MSigDB | Reactome | Sars cov 1 modulates host translation machinery | -2.309 | 0.0008006 | 0.03178 | 37
-MSigDB | GOBP | Leukocyte mediated cytotoxicity | 2.305 | 0.001441 | 0.03178 | 156
-MSigDB | GOBP | Regulation of natural killer cell mediated immunity | 2.24 | 0.001515 | 0.03178 | 61
-MSigDB | Reactome | Generation of second messenger molecules | 2.223 | 0.00155 | 0.03178 | 37
+MSigDB | GOBP | Immune response regulating cell surface receptor signaling pathway | 2.211 | 2.298e-20 | 1.752e-16 | 402
+MSigDB | GOBP | Antigen receptor mediated signaling pathway | 2.323 | 5.518e-16 | 2.104e-12 | 220
+MSigDB | GOBP | Leukocyte cell cell adhesion | 2.006 | 3.161e-15 | 8.035e-12 | 436
+MSigDB | GOBP | Lymphocyte differentiation | 1.966 | 1.475e-14 | 2.812e-11 | 454
+MSigDB | GOBP | T cell receptor signaling pathway | 2.328 | 4.966e-14 | 7.573e-11 | 161
+MSigDB | GOBP | Regulation of T cell activation | 1.991 | 1.879e-13 | 2.388e-10 | 402
+MSigDB | GOBP | Leukocyte mediated cytotoxicity | 2.305 | 5.418e-13 | 5.902e-10 | 156
+MSigDB | Hallmark | Allograft rejection | 2.221 | 2.136e-12 | 2.036e-09 | 200
 
 Selected figure:
 
@@ -61,22 +61,22 @@ Selected figure:
 
 - GMT: `results/alien_outputs/disease_phenotype/gmt/gtex_v11_gencode47.gmt`.
 - rsfgsea table: [gtex_thyroid_disease_phenotype_female_vs_male_rsfgsea.tsv](../../../../results/sex_contrast/gtex_thyroid/tables/gtex_thyroid_disease_phenotype_female_vs_male_rsfgsea.tsv)
-- Tested 11886 terms; 675 had FDR <= 0.05.
-- Strongest Female > Male signal: HPO: Abnormal T cell morphology (NES 2.28, FDR 0.0338).
-- Strongest Male > Female signal: HPO: Decreased testicular size (NES -2.02, FDR 0.0338).
+- Tested 11804 terms; 394 had FDR <= 0.05.
+- Strongest Female > Male signal: HPO: Abnormal lymphocyte morphology (NES 2.16, FDR 7.37e-10).
+- Strongest Male > Female signal: Jensen Diseases Experimental 2025: Autistic disorder (NES -2.35, FDR 3.62e-06).
 
 Top enrichment rows:
 
 Source | Collection | Term | NES | P value | FDR | Genes
 --- | --- | --- | --- | --- | --- | ---
-MSigDB | HPO | Abnormal T cell morphology | 2.28 | 0.00149 | 0.03381 | 133
-MSigDB | HPO | Abnormal T cell subset distribution | 2.261 | 0.001546 | 0.03381 | 85
-MSigDB | HPO | Abnormal B cell morphology | 2.248 | 0.001508 | 0.03381 | 112
-MSigDB | HPO | Abnormal lymphocyte morphology | 2.161 | 0.001447 | 0.03381 | 263
-MSigDB | HPO | Abnormal eosinophil morphology | 2.137 | 0.001529 | 0.03381 | 74
-MSigDB | HPO | Abnormal circulating interleukin concentration | 2.131 | 0.001565 | 0.03381 | 38
-MSigDB | HPO | Unusual fungal infection | 2.13 | 0.00152 | 0.03381 | 121
-MSigDB | HPO | Meningitis | 2.127 | 0.001553 | 0.03381 | 80
+MSigDB | HPO | Abnormal lymphocyte morphology | 2.161 | 6.244e-14 | 7.37e-10 | 263
+MSigDB | HPO | Abnormal T cell morphology | 2.28 | 3.932e-13 | 2.32e-09 | 133
+MSigDB | HPO | Abnormal leukocyte physiology | 1.951 | 6.353e-12 | 2.5e-08 | 353
+MSigDB | HPO | Abnormal B cell morphology | 2.248 | 8.934e-12 | 2.636e-08 | 112
+MSigDB | HPO | Abnormality of humoral immunity | 1.92 | 1.147e-11 | 2.707e-08 | 359
+MSigDB | HPO | Abnormal lymphocyte count | 2.03 | 1.897e-10 | 3.731e-07 | 209
+MSigDB | HPO | Abnormal lymph node morphology | 1.976 | 2.779e-10 | 4.686e-07 | 269
+Enrichr | Jensen Diseases Curated 2025 | Primary immunodeficiency disease | 2.044 | 4.288e-10 | 6.327e-07 | 215
 
 Selected figure:
 
@@ -86,20 +86,20 @@ Selected figure:
 
 - GMT: `results/alien_outputs/function_location/gmt/gtex_v11_gencode47.gmt`.
 - rsfgsea table: [gtex_thyroid_function_location_female_vs_male_rsfgsea.tsv](../../../../results/sex_contrast/gtex_thyroid/tables/gtex_thyroid_function_location_female_vs_male_rsfgsea.tsv)
-- Tested 1825 terms; 71 had FDR <= 0.05.
-- Strongest Female > Male signal: GOCC: Tertiary granule (NES 1.75, FDR 0.0127).
-- Strongest Male > Female signal: GOMF: Dynein heavy chain binding (NES -2.01, FDR 0.0226).
+- Tested 1825 terms; 25 had FDR <= 0.05.
+- Strongest Female > Male signal: GOCC: T cell receptor complex (NES 2.49, FDR 2.23e-15).
+- Strongest Male > Female signal: GOCC: Axoneme (NES -2.24, FDR 0.00876).
 
 Top enrichment rows:
 
 Source | Collection | Term | NES | P value | FDR | Genes
 --- | --- | --- | --- | --- | --- | ---
-MSigDB | GOCC | Tertiary granule | 1.753 | 6.96e-06 | 0.0127 | 163
-MSigDB | GOMF | Dynein heavy chain binding | -2.014 | 0.0001795 | 0.02265 | 14
-MSigDB | GOMF | G protein coupled chemoattractant receptor activity | 2.011 | 3.036e-05 | 0.02265 | 27
-MSigDB | GOCC | Motile cilium | -2.001 | 0.0001393 | 0.02265 | 331
-MSigDB | GOMF | Immunoglobulin binding | 1.988 | 0.0002343 | 0.02265 | 30
-MSigDB | GOCC | MHC protein complex | 1.955 | 0.0002358 | 0.02265 | 24
-MSigDB | GOMF | Igg binding | 1.871 | 6.307e-05 | 0.02265 | 14
-MSigDB | GOMF | Immunoglobulin receptor activity | 1.85 | 6.307e-05 | 0.02265 | 14
+MSigDB | GOCC | T cell receptor complex | 2.485 | 1.219e-18 | 2.225e-15 | 139
+MSigDB | GOMF | Immune receptor activity | 2.293 | 6.526e-14 | 5.955e-11 | 167
+MSigDB | GOCC | Plasma membrane signaling receptor complex | 2.073 | 2.306e-13 | 1.403e-10 | 353
+MSigDB | GOCC | Immunoglobulin complex | 2.162 | 7.803e-11 | 3.56e-08 | 170
+MSigDB | GOMF | Antigen binding | 2.058 | 6.475e-10 | 2.363e-07 | 168
+MSigDB | GOCC | External side of plasma membrane | 1.836 | 8.878e-09 | 2.7e-06 | 378
+MSigDB | GOMF | Pattern recognition receptor activity | 2.085 | 3.304e-07 | 8.614e-05 | 53
+MSigDB | GOMF | Peptide antigen binding | 2.081 | 4.629e-07 | 0.0001056 | 45
 

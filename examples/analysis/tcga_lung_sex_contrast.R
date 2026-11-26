@@ -432,7 +432,7 @@ write_report(
   ranks_path = ranks_path,
   collection_plot_path = collection_plot,
   outdir = outdir,
-  collection_note = "The figure below gives a collection-level view of significant enrichment. Detailed term-level results are shown in the tables; figures are limited to the clearest pathway and cancer-dependency examples."
+  collection_note = "The figure below gives a collection-level view of significant enrichment. Detailed term-level results are shown in the tables; figures are limited to the clearest pathway and cancer-programme examples."
 )
 
 message(sprintf("Done: %s", report_path))
