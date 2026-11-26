@@ -11,7 +11,7 @@ from typing import Final
 
 import pandas as pd
 
-from ..cache import ResourceCache, derived_cache_path
+from ..cache import ResourceCache, derived_cache_path, file_sha256
 from ..config.schema import MsigdbCacheSource, MsigdbRemoteSource, MsigdbTsvSource
 from ..errors import ConfigError, ResourceError, SourceError
 from ..model import Family, sanitize_term_id
@@ -192,6 +192,22 @@ def read_rds_frame(path: Path) -> pd.DataFrame:
     return obj.fillna("").astype(str)
 
 
+def cached_rds_frame(path: Path, cache: ResourceCache, *, force: bool = False) -> pd.DataFrame:
+    """Parse an RDS data frame once per file content; parsing a large collection takes minutes."""
+    target = derived_cache_path(path.parent / "alien_cache", f"rds__{path.stem}", {"rds_sha256": file_sha256(path)})
+    if target.exists() and not force:
+        return pd.read_parquet(target).fillna("").astype(str)
+    with cache.file_lock(target):
+        if target.exists() and not force:
+            return pd.read_parquet(target).fillna("").astype(str)
+        frame = read_rds_frame(path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        partial = target.with_name(f".{target.name}.partial")
+        frame.to_parquet(partial, index=False)
+        partial.replace(target)
+    return frame
+
+
 def _matches_subcollection(values: pd.Series, subcollection: str) -> pd.Series:
     text = values.astype(str)
     return text.eq(subcollection) | text.str.replace(r".*:", "", regex=True).eq(subcollection)
@@ -282,7 +298,7 @@ def load_msigdb_remote(spec: MsigdbRemoteSource, cache: ResourceCache) -> pd.Dat
     if summary.empty:
         raise SourceError("No MSigDB remote collection files matched the requested filters.")
     frames = [
-        normalize_remote_frame(read_rds_frame(release_dir / name), spec)
+        normalize_remote_frame(cached_rds_frame(release_dir / name, cache, force=force), spec)
         for name in sorted(set(summary["df_rds"].astype(str)))
     ]
     memberships = concat_memberships(frames)

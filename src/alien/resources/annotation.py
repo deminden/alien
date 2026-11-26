@@ -69,7 +69,6 @@ def load_annotation_file(
         cache.fetch(f"target:{target_name}:{role}", url, path, upstream_version=label)
     elif not path.exists():
         raise ResourceError(f"Target {target_name} annotation file {path} does not exist.")
-    LOGGER.info("Parsing %s target annotation genes from %s.", label, path)
     return parse_gtf_cached(path, version, spec, cache), label, path
 
 
@@ -79,9 +78,11 @@ def parse_gtf_cached(path: Path, version: str, spec: AnnotationFile, cache: Reso
     key = {"gtf_sha256": file_sha256(path), "version": version, "attributes": attributes}
     cache_path = derived_cache_path(cache.root / "gtf_cache", "genes", key)
     if cache_path.exists() and not cache.force:
+        LOGGER.info("Loading cached gene table for %s from %s.", path.name, cache_path)
         frame = pd.read_parquet(cache_path)
         frame["is_in_output_genes"] = frame["is_in_output_genes"].astype(bool)
     else:
+        LOGGER.info("Parsing annotation genes from %s.", path)
         frame = parse_gtf_genes(path, version, attributes)
         with cache.file_lock(cache_path):
             cache_path.parent.mkdir(parents=True, exist_ok=True)

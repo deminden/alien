@@ -31,6 +31,24 @@ def test_msigdb_remote_loads_human_database_and_expected_columns(tmp_path: Path)
     assert _load(tmp_path).equals(frame)
 
 
+def test_msigdb_remote_parses_each_rds_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from alien.sources import msigdb
+
+    parsed: list[str] = []
+    original = msigdb.read_rds_frame
+
+    def counting(path: Path) -> pd.DataFrame:
+        parsed.append(path.name)
+        return original(path)
+
+    monkeypatch.setattr(msigdb, "read_rds_frame", counting)
+    first = _load(tmp_path, collection="C2")
+    # A second source over the same collection file (different memberships cache key) reuses the parse.
+    assert not _load(tmp_path, collection="C2", subcollection="CP:REACTOME").empty
+    assert [name for name in parsed if "summary" not in name] == ["hs_c2.rds"]
+    assert _load(tmp_path, collection="C2").equals(first)
+
+
 def test_msigdb_remote_collection_filter_matches_summary(tmp_path: Path) -> None:
     frame = _load(tmp_path, collection="C2")
     assert set(frame["collection"]) == {"C2"}
